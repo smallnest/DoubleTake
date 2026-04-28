@@ -61,3 +61,14 @@
 - 错误变量 `ErrEmptyDesc`、`ErrNotYourTurn` 定义在 `game.go` 中作为包级变量
 - 描述记录使用 `map[string]string`，以玩家名为 key，方便裁判端按名回溯
 - `game_test.go` 覆盖：正常流程、空描述拒绝（表格驱动）、非当前玩家拒绝、边界（0人、1人）、完整记录验证
+
+## PK 环节约定
+- `PKRound` 管理单轮 PK（平票决胜）的状态，组合使用 `DescRound` 进行平票玩家的描述
+- `PKRound` 结构体包含：PK 轮次号、平票玩家列表、`DescRound`（描述阶段）、投票 map（voter→target）、投票者顺序列表
+- `NewPKRound(pkNum int, tiedPlayers, alivePlayers []string)` 分别校验两组玩家列表（非空、无空名、无重复），拷贝输入切片
+- 描述阶段方法委托给内嵌 `DescRound`：`CurrentSpeaker()`、`RecordPKDesc()`、`DescAllDone()`、`Description()`
+- 投票阶段：仅存活玩家可投票（`VoterOrder`），且只能投平票玩家之一（`TiedPlayers`）
+- `RecordPKVote` 校验顺序：空目标 → 非存活投票者 → 重复投票 → 非平票目标
+- 错误变量定义在 `pk.go` 中：`ErrPKVoteTargetInvalid`、`ErrPKVoteEmpty`、`ErrPKAlreadyVoted`、`ErrPKNotAliveVoter`
+- `FindEliminated()` 返回 `(playerName, tie)`：唯一最高票返回 `(name, false)`，平票返回 `("", true)`
+- `pk_test.go` 覆盖：构造函数验证（空列表、重复、空名）、描述阶段流程、投票拒绝场景（非平票目标、空目标、非存活投票者、重复投票）、Tally 统计、FindEliminated（唯一胜出、平票、三方平票、零票）、完整 PK 流程
