@@ -7,7 +7,6 @@ import (
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/smallnest/doubletake/game"
 )
@@ -242,6 +241,158 @@ func TestRunPlayer_NonStealthMode(t *testing.T) {
 	<-serverDone
 }
 
+func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+	if !strings.Contains(output, "joined as testPlayer") {
+		t.Errorf("expected joined message, got: %s", output)
+	}
+	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+		t.Errorf("expected disguised civilian role message, got: %s", output)
+	}
+	<-serverDone
+}
+
+func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+	if !strings.Contains(output, "assigned token: 香蕉 [卧底]") {
+		t.Errorf("expected disguised undercover role message, got: %s", output)
+	}
+	<-serverDone
+}
+
+func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Blank|你是白板"}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+	if !strings.Contains(output, "assigned token: [白板] — 你是白板") {
+		t.Errorf("expected disguised blank role message, got: %s", output)
+	}
+	<-serverDone
+}
+
+func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), true)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+	// Stealth mode should not contain [DATA] tag
+	if strings.Contains(output, "[DATA]") {
+		t.Errorf("stealth mode should not contain [DATA], got: %s", output)
+	}
+	// But should still contain the assigned token info
+	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+		t.Errorf("expected token display in stealth mode, got: %s", output)
+	}
+	<-serverDone
+}
+
 func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 	ln, _, roomCode := startTestPlayerServer(t)
 	defer ln.Close()
@@ -259,12 +410,12 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		// Send JOIN confirmation, then a few messages, then close
+		// Send JOIN confirmation, then a READY broadcast, then a ROLE message, then close
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		time.Sleep(10 * time.Millisecond)
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "undercover"}))
-		time.Sleep(10 * time.Millisecond)
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgWord, Payload: "apple"}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgReady, Payload: ""}))
+		
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
 	}()
 
 	out := &bytes.Buffer{}
@@ -278,11 +429,11 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 	if !strings.Contains(output, "joined as testPlayer") {
 		t.Errorf("expected joined message, got: %s", output)
 	}
-	if !strings.Contains(output, "ROLE undercover") {
+	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
 		t.Errorf("expected ROLE message, got: %s", output)
 	}
-	if !strings.Contains(output, "WORD apple") {
-		t.Errorf("expected WORD message, got: %s", output)
+	if !strings.Contains(output, "READY") {
+		t.Errorf("expected READY message, got: %s", output)
 	}
 	<-serverDone
 }

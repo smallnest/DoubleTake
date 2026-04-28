@@ -1,0 +1,406 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead client/display.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead cmd/doubletake/judge.go
+Let me also check how the server sends role messages and the role definitions.
+[0m
+[0m# [0mTodos
+[ ] Add MsgRole handling in player.go message loop
+[ ] Fix TestRunPlayer_ReceivesMultipleMessages to use correct ROLE format
+[ ] Add tests for Civilian/Undercover/Blank role messages
+[ ] Add stealth mode test for ROLE message
+[ ] Run go build, go vet, and all tests
+[0m
+[0m# [0mTodos
+[ ] Add MsgRole handling in player.go message loop
+[ ] Fix TestRunPlayer_ReceivesMultipleMessages to use correct ROLE format
+[ ] Add tests for Civilian/Undercover/Blank role messages
+[ ] Add stealth mode test for ROLE message
+[ ] Run go build, go vet, and all tests
+[0m
+[0m← [0mEdit cmd/doubletake/player.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+@@ -9,8 +9,15 @@
+ 	"github.com/smallnest/doubletake/client"
+ 	"github.com/smallnest/doubletake/game"
+ )
+ 
++// roleDisplayNames maps internal role names to user-facing display labels.
++var roleDisplayNames = map[string]string{
++	"Civilian":   "平民",
++	"Undercover": "卧底",
++	"Blank":      "白板",
++}
++
+ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
+ 	disp := client.NewDisplay(out, stealth)
+ 	disp.PrintStartup()
+ 
+
+[0m
+First, add `MsgRole` handling in `player.go`:
+[0m← [0mEdit cmd/doubletake/player.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+@@ -66,8 +66,24 @@
+ for msg := range cc.Messages() {
+ 	switch msg.Type {
+ 	case game.MsgJoin:
+ 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
++	case game.MsgRole:
++		parts := strings.SplitN(msg.Payload, "|", 2)
++		if len(parts) < 2 {
++			disp.Data("00", "received malformed role message")
++			continue
++		}
++		roleName, word := parts[0], parts[1]
++		dispLabel := roleName
++		if label, ok := roleDisplayNames[roleName]; ok {
++			dispLabel = label
++		}
++		if roleName == "Blank" {
++			disp.Data("00", fmt.Sprintf("assigned token: [%s] — 你是白板", dispLabel))
++		} else {
++			disp.Data("00", fmt.Sprintf("assigned token: %s [%s]", word, dispLabel))
++		}
+ 	case game.MsgError:
+ 		disp.Warn(msg.Payload)
+ 		return 1
+ 	default:
+
+[0m
+[0m# [0mTodos
+[x] Add MsgRole handling in player.go message loop
+[ ] Fix TestRunPlayer_ReceivesMultipleMessages to use correct ROLE format
+[ ] Add tests for Civilian/Undercover/Blank role messages
+[ ] Add stealth mode test for ROLE message
+[ ] Run go build, go vet, and all tests
+[0m
+[0m← [0mEdit cmd/doubletake/player_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go
+@@ -241,8 +241,160 @@
+ 	}
+ 	<-serverDone
+ }
+ 
++func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
++	ln, _, roomCode := startTestPlayerServer(t)
++	defer ln.Close()
++
++	serverDone := make(chan struct{})
++	go func() {
++		defer close(serverDone)
++		conn, err := ln.Accept()
++		if err != nil {
++			return
++		}
++		defer conn.Close()
++
++		scanner := bufio.NewScanner(conn)
++		if !scanner.Scan() {
++			return
++		}
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		time.Sleep(10 * time.Millisecond)
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
++	}()
++
++	out := &bytes.Buffer{}
++	input := roomCode + "\ntestPlayer\n"
++	exitCode := RunPlayer(out, strings.NewReader(input), false)
++
++	if exitCode != 0 {
++		t.Errorf("expected exit code 0, got %d", exitCode)
++	}
++	output := out.String()
++	if !strings.Contains(output, "joined as testPlayer") {
++		t.Errorf("expected joined message, got: %s", output)
++	}
++	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
++		t.Errorf("expected disguised civilian role message, got: %s", output)
++	}
++	<-serverDone
++}
++
++func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
++	ln, _, roomCode := startTestPlayerServer(t)
++	defer ln.Close()
++
++	serverDone := make(chan struct{})
++	go func() {
++		defer close(serverDone)
++		conn, err := ln.Accept()
++		if err != nil {
++			return
++		}
++		defer conn.Close()
++
++		scanner := bufio.NewScanner(conn)
++		if !scanner.Scan() {
++			return
++		}
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		time.Sleep(10 * time.Millisecond)
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}))
++	}()
++
++	out := &bytes.Buffer{}
++	input := roomCode + "\ntestPlayer\n"
++	exitCode := RunPlayer(out, strings.NewReader(input), false)
++
++	if exitCode != 0 {
++		t.Errorf("expected exit code 0, got %d", exitCode)
++	}
++	output := out.String()
++	if !strings.Contains(output, "assigned token: 香蕉 [卧底]") {
++		t.Errorf("expected disguised undercover role message, got: %s", output)
++	}
++	<-serverDone
++}
++
++func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
++	ln, _, roomCode := startTestPlayerServer(t)
++	defer ln.Close()
++
++	serverDone := make(chan struct{})
++	go func() {
++		defer close(serverDone)
++		conn, err := ln.Accept()
++		if err != nil {
++			return
++		}
++		defer conn.Close()
++
++		scanner := bufio.NewScanner(conn)
++		if !scanner.Scan() {
++			return
++		}
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		time.Sleep(10 * time.Millisecond)
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Blank|你是白板"}))
++	}()
++
++	out := &bytes.Buffer{}
++	input := roomCode + "\ntestPlayer\n"
++	exitCode := RunPlayer(out, strings.NewReader(input), false)
++
++	if exitCode != 0 {
++		t.Errorf("expected exit code 0, got %d", exitCode)
++	}
++	output := out.String()
++	if !strings.Contains(output, "assigned token: [白板] — 你是白板") {
++		t.Errorf("expected disguised blank role message, got: %s", output)
++	}
++	<-serverDone
++}
++
++func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
++	ln, _, roomCode := startTestPlayerServer(t)
++	defer ln.Close()
++
++	serverDone := make(chan struct{})
++	go func() {
++		defer close(serverDone)
++		conn, err := ln.Accept()
++		if err != nil {
++			return
++		}
++		defer conn.Close()
++
++		scanner := bufio.NewScanner(conn)
++		if !scanner.Scan() {
++			return
++		}
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		time.Sleep(10 * time.Millisecond)
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
++	}()
++
++	out := &bytes.Buffer{}
++	input := roomCode + "\ntestPlayer\n"
++	exitCode := RunPlayer(out, strings.NewReader(input), true)
++
++	if exitCode != 0 {
++		t.Errorf("expected exit code 0, got %d", exitCode)
++	}
++	output := out.String()
++	// Stealth mode should not contain [DATA] tag
++	if strings.Contains(output, "[DATA]") {
++		t.Errorf("stealth mode should not contain [DATA], got: %s", output)
++	}
++	// But should still contain the assigned token info
++	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
++		t.Errorf("expected token display in stealth mode, got: %s", output)
++	}
++	<-serverDone
++}
++
+ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
+ 	ln, _, roomCode := startTestPlayerServer(t)
+ 	defer ln.Close()
+ 
+@@ -258,14 +410,14 @@
+ 		scanner := bufio.NewScanner(conn)
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+-		// Send JOIN confirmation, then a few messages, then close
++		// Send JOIN confirmation, then a READY broadcast, then a ROLE message, then close
+ 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+ 		time.Sleep(10 * time.Millisecond)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "undercover"}))
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgReady, Payload: ""}))
+ 		time.Sleep(10 * time.Millisecond)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgWord, Payload: "apple"}))
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
+ 	}()
+ 
+ 	out := &bytes.Buffer{}
+ 	input := roomCode + "\ntestPlayer\n"
+@@ -277,12 +429,12 @@
+ 	output := out.String()
+ 	if !strings.Contains(output, "joined as testPlayer") {
+ 		t.Errorf("expected joined message, got: %s", output)
+ 	}
+-	if !strings.Contains(output, "ROLE undercover") {
++	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+ 		t.Errorf("expected ROLE message, got: %s", output)
+ 	}
+-	if !strings.Contains(output, "WORD apple") {
+-		t.Errorf("expected WORD message, got: %s", output)
++	if !strings.Contains(output, "READY") {
++		t.Errorf("expected READY message, got: %s", output)
+ 	}
+ 	<-serverDone
+ }
+
+[0m
+Now fix the existing test and add new ones for the three roles and stealth mode:
+[0m# [0mTodos
+[x] Add MsgRole handling in player.go message loop
+[x] Fix TestRunPlayer_ReceivesMultipleMessages to use correct ROLE format
+[x] Add tests for Civilian/Undercover/Blank role messages
+[x] Add stealth mode test for ROLE message
+[ ] Run go build, go vet, and all tests
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./cmd/doubletake/ -run "TestRunPlayer" -v -count=1 2>&1
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyRoomCode
+--- PASS: TestRunPlayer_EmptyRoomCode (0.00s)
+=== RUN   TestRunPlayer_InvalidRoomCode
+--- PASS: TestRunPlayer_InvalidRoomCode (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:79: test server on 127.0.0.1:58693, room code: deP6OMnF
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:118: test server on 127.0.0.1:58695, room code: deP6OMnH
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:153: test server on 127.0.0.1:58697, room code: deP6OMnJ
+--- PASS: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:181: test server on 127.0.0.1:58699, room code: deP6OMnL
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:214: test server on 127.0.0.1:58701, room code: deP6OMnN
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Civilian
+    player_test.go:246: test server on 127.0.0.1:58703, room code: deP6OMnP
+--- PASS: TestRunPlayer_ReceivesRole_Civilian (0.01s)
+=== RUN   TestRunPlayer_ReceivesRole_Undercover
+    player_test.go:285: test server on 127.0.0.1:58705, room code: deP6OMnR
+--- PASS: TestRunPlayer_ReceivesRole_Undercover (0.01s)
+=== RUN   TestRunPlayer_ReceivesRole_Blank
+    player_test.go:321: test server on 127.0.0.1:58707, room code: deP6OMnT
+--- PASS: TestRunPlayer_ReceivesRole_Blank (0.01s)
+=== RUN   TestRunPlayer_ReceivesRole_Stealth
+    player_test.go:357: test server on 127.0.0.1:58709, room code: deP6OMnV
+--- PASS: TestRunPlayer_ReceivesRole_Stealth (0.01s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:398: test server on 127.0.0.1:58711, room code: deP6OMnX
+--- PASS: TestRunPlayer_ReceivesMultipleMessages (0.02s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.653s
+[0m
+All 14 player tests pass. Let me also run the full project tests to make sure nothing is broken.
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 2>&1
+ok  	github.com/smallnest/doubletake/client	0.660s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.702s
+ok  	github.com/smallnest/doubletake/game	1.071s
+ok  	github.com/smallnest/doubletake/server	3.111s
+[0m
+[0m# [0mTodos
+[x] Add MsgRole handling in player.go message loop
+[x] Fix TestRunPlayer_ReceivesMultipleMessages to use correct ROLE format
+[x] Add tests for Civilian/Undercover/Blank role messages
+[x] Add stealth mode test for ROLE message
+[x] Run go build, go vet, and all tests
+[0m
+[0m← [0mEdit cmd/doubletake/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+@@ -6,8 +6,11 @@
+ - `run` 接受 `io.Writer` 和 `io.Reader` 参数，便于测试捕获输出和模拟输入
+ - 手动解析 flag（不使用 `flag` 包），避免 `flag.Parse()` 调用 `os.Exit` 导致测试无法捕获
+ - 通过 `client.NewDisplay(stdout, stealth)` 创建 Display 实例进行输出，不直接 `fmt.Fprintf`
+ - 角色分发使用 `switch role` 结构，`RunJudge` 和 `RunPlayer` 各自独立处理
++- ROLE 消息加载格式：服务端发送 `ROLE|Civilian|苹果`（`roleName|word`），play 端 `splitN(msg.Payload, "|", 2)` 解析
++- 玩家端收到 ROLE 后以伪装格式显示 `assigned token: 苹果 [平民]`，白板显示 `assigned token: [白板] — 你是白板`
++- 使用 `roleDisplayNames` map 将英文角色名映射为中文显示标签
+ 
+ ## 命令行参数
+ - `--role string` — judge 或 player（必填）
+ - `--port int` — 裁判模式服务端口（默认 8127），玩家模式不使用此参数
+
+[0m
+Now update the directory-level CLAUDE.md with the new knowledge:
+All tasks complete. Here's a summary of the changes:
+
+### Changes made
+
+**`cmd/doubletake/player.go`**:
+- Added `roleDisplayNames` map for Civilian/Undercover/Blank → 平民/卧底/白板 display labels
+- Added `case game.MsgRole:` in the message loop that:
+  - Parses `roleName|word` format with `strings.SplitN(msg.Payload, "|", 2)`
+  - Shows `assigned token: 苹果 [平民]` for Civilian/Undercover
+  - Shows `assigned token: [白板] — 你是白板` for Blank
+  - Uses `disp.Data()` for disguised format output (works correctly in stealth mode)
+
+**`cmd/doubletake/player_test.go`**:
+- Replaced the broken `TestRunPlayer_ReceivesMultipleMessages` with 5 proper tests:
+  - `TestRunPlayer_ReceivesRole_Civilian` — verifies `assigned token: 苹果 [平民]`
+  - `TestRunPlayer_ReceivesRole_Undercover` — verifies `assigned token: 香蕉 [卧底]`
+  - `TestRunPlayer_ReceivesRole_Blank` — verifies `assigned token: [白板] — 你是白板`
+  - `TestRunPlayer_ReceivesRole_Stealth` — verifies no `[DATA]` tag in stealth mode
+  - `TestRunPlayer_ReceivesMultipleMessages` — verifies ROLE + READY coexist peacefully
+
+### Verification
+
+- `go build ./...` — no errors
+- `go vet ./...` — no errors
+- All 14 player tests pass (11 existing + 4 new)

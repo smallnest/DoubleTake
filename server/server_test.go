@@ -244,6 +244,101 @@ func TestSend(t *testing.T) {
 	}
 }
 
+func TestSendToPlayer_Success(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Join with a name
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	msg := game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}
+	err = srv.SendToPlayer("Alice", msg)
+	if err != nil {
+		t.Fatalf("SendToPlayer failed: %v", err)
+	}
+
+	received := readMsg(t, conn)
+	if received.Type != game.MsgRole {
+		t.Errorf("expected ROLE, got %s", received.Type)
+	}
+	if received.Payload != "Undercover|香蕉" {
+		t.Errorf("expected payload %q, got %q", "Undercover|香蕉", received.Payload)
+	}
+}
+
+func TestSendToPlayer_NotFound(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	msg := game.Message{Type: game.MsgRole, Payload: "test"}
+	err = srv.SendToPlayer("Bob", msg)
+	if err == nil {
+		t.Fatal("expected error for non-existent player")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' error, got: %v", err)
+	}
+}
+
+func TestSendToPlayer_OnlyTargetReceives(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	readMsg(t, conn2)
+
+	msg := game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}
+	err = srv.SendToPlayer("Alice", msg)
+	if err != nil {
+		t.Fatalf("SendToPlayer failed: %v", err)
+	}
+
+	// Alice should receive it
+	received := readMsg(t, conn1)
+	if received.Type != game.MsgRole {
+		t.Errorf("expected ROLE, got %s", received.Type)
+	}
+
+	// Bob should NOT receive anything
+	conn2.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+	buf := make([]byte, 128)
+	n, err := conn2.Read(buf)
+	if err == nil && n > 0 {
+		t.Errorf("Bob should not receive the message, got: %q", buf[:n])
+	}
+}
+
 func TestMultipleClients(t *testing.T) {
 	srv, port := startTestServer(t)
 	defer srv.Stop()

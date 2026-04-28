@@ -1,0 +1,70 @@
+{
+  "issueNumber": 11,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "裁判端交互式输入平民词语与卧底词语，并调用 AssignRoles 完成角色分配",
+      "description": "在 judge.go 的 waitingPhase 返回后（即广播 READY 之前），增加词语输入阶段：1) 裁判交互式输入平民词语和卧底词语；2) 验证两个词语不相同，否则提示重新输入；3) 调用 game.AssignRoles 分配角色；4) 新增 AssignWords 函数或扩展 AssignRoles，根据角色类型设置每个 Player 的 Word 字段（平民→平民词语，卧底→卧底词语，白板→空字符串）。修改 broadcastReady 函数签名，使其能接收角色分配结果并传递给后续分发逻辑。涉及文件：cmd/doubletake/judge.go、game/role.go（新增 AssignWords 或修改 AssignRoles）。",
+      "acceptanceCriteria": [
+        "裁判端在玩家齐人并输入 start 后，交互式提示输入平民词语和卧底词语",
+        "两个词语相同时提示重新输入，循环直到输入两个不同的词语",
+        "调用 AssignRoles 分配角色后，根据角色为每个 Player 设置对应的 Word 字段",
+        "平民 Player.Word = 平民词语，卧底 Player.Word = 卧底词语，白板 Player.Word = \"\"",
+        "新增的 AssignWords 或扩展逻辑有对应的单元测试，覆盖三种角色类型",
+        "go build ./... 和 go vet ./... 无错误"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "服务端实现按玩家名私密发送 ROLE 消息",
+      "description": "在 server 包中新增 SendToPlayer 方法（或 SendByName），支持按玩家名查找连接并发送私密消息。在 judge.go 中，词语输入和角色分配完成后，遍历所有玩家，对每个玩家私密发送 ROLE 消息：格式为 ROLE|角色类型|词语（如 ROLE|Civilian|苹果、ROLE|Undercover|梨、ROLE|Blank|你是白板）。消息仅发送给对应玩家，不广播。涉及文件：server/server.go（新增 SendToPlayer）、cmd/doubletake/judge.go（调用私密发送逻辑）。",
+      "acceptanceCriteria": [
+        "Server 新增 SendToPlayer(name string, msg Message) 方法，按玩家名查找连接并发送消息",
+        "玩家名不存在时返回明确错误",
+        "judge.go 中角色分配完成后，遍历玩家列表对每个玩家私密发送 ROLE 消息",
+        "平民收到 ROLE|Civilian|平民词语，卧底收到 ROLE|Undercover|卧底词语，白板收到 ROLE|Blank|你是白板",
+        "消息仅发送给目标玩家，其他玩家收不到",
+        "SendToPlayer 有对应的单元测试",
+        "go build ./... 和 go vet ./... 无错误"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "玩家端接收 ROLE 消息并用伪装格式显示词语",
+      "description": "在 player.go 的 RunPlayer 消息循环中，增加对 MsgRole 类型的处理。收到 ROLE 消息后，解析角色类型和词语，使用 Display 的伪装格式显示词语信息（如 [DATA] [node-XX] assigned token: **** 或类似诊断工具风格格式）。平民和卧底显示对应词语，白板显示特殊提示。保持与现有伪装输出风格一致。涉及文件：cmd/doubletake/player.go。",
+      "acceptanceCriteria": [
+        "RunPlayer 消息循环中正确处理 MsgRole 消息",
+        "平民和卧底收到的词语以伪装格式显示（如 [DATA] assigned token: **** 风格）",
+        "白板收到'你是白板'提示，也以伪装格式显示",
+        "stealth 模式下输出风格与其他消息一致（隐藏 [DATA]/[INFO] 标识）",
+        "ROLE 消息不影响其他消息类型的处理（READY、ERROR 等仍正常工作）",
+        "go build ./... 和 go vet ./... 无错误"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-004",
+      "title": "端到端集成测试：词语输入→角色分配→私密发送→玩家接收",
+      "description": "编写端到端集成测试，验证完整的词语输入与分发流程：1) 启动裁判和多个玩家连接；2) 裁判输入 start → 输入两个词语 → 角色自动分配；3) 每个玩家收到对应的 ROLE 消息且内容正确；4) 验证消息私密性（玩家只能收到自己的 ROLE 消息）；5) 验证伪装格式显示。测试应使用 net.Pipe() 或真实 TCP 连接，覆盖正常流程和词语相同重试场景。涉及文件：cmd/doubletake/main_test.go 或新建 cmd/doubletake/word_test.go。",
+      "acceptanceCriteria": [
+        "集成测试覆盖完整流程：裁判输入词语 → 角色分配 → 私密发送 → 玩家接收",
+        "验证每个玩家收到正确的角色类型和对应词语",
+        "验证白板玩家收到'你是白板'提示而非词语",
+        "验证词语相同场景下裁判端提示重新输入",
+        "测试使用合理的超时保护（不使用 time.Sleep 固定等待）",
+        "go test ./... 全部通过，无竞态条件（-race 标志通过）"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

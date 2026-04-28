@@ -186,6 +186,7 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 		return cfg
 	}
 	game.AssignWords(players, civilianWord, undercoverWord)
+	sendRoleToPlayers(disp, srv, players)
 
 	broadcastReady(disp, srv)
 
@@ -255,4 +256,30 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 func broadcastReady(disp *client.Display, srv *server.Server) {
 	disp.Info("0000", "游戏开始！")
 	srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgReady, Payload: ""})
+}
+
+// sendRoleToPlayers privately sends a ROLE message to each player.
+// The message format is ROLE|RoleName|word, e.g. ROLE|Civilian|苹果.
+// Blank players receive "你是白板" as the word.
+func sendRoleToPlayers(disp *client.Display, srv *server.Server, players []*game.Player) {
+	for _, p := range players {
+		var word string
+		var roleName string
+		switch p.Role {
+		case game.Civilian:
+			roleName = "Civilian"
+			word = p.Word
+		case game.Undercover:
+			roleName = "Undercover"
+			word = p.Word
+		case game.Blank:
+			roleName = "Blank"
+			word = "你是白板"
+		}
+		payload := roleName + "|" + word
+		msg := game.Message{Type: game.MsgRole, Payload: payload}
+		if err := srv.SendToPlayer(p.Name, msg); err != nil {
+			disp.Warn(fmt.Sprintf("发送 ROLE 给 %s 失败: %v", p.Name, err))
+		}
+	}
 }

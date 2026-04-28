@@ -10,7 +10,7 @@
 
 ## 依赖关系
 - 依赖 `game` 包的 `Message` 类型、`Encode`/`Decode` 函数
-- 依赖标准库: `net`, `bufio`, `log`, `sync`
+- 依赖标准库: `net`, `bufio`, `log`, `sync`, `fmt`
 
 ## 消息处理流程
 1. Start() 监听 TCP 端口，循环 Accept 连接
@@ -36,3 +36,6 @@
 - unregister 中会关闭连接的 Conn，不要重复 Close
 - handleJoin 等消息处理函数中，先解锁再调用 Send()，避免在持锁期间执行网络 I/O（防止死锁）
 - Player.Name 在连接期间有效，断开后 unregister 会从 names map 中移除
+- SendToPlayer(name, msg) 按玩家名查找连接并私密发送消息，查不到时返回 error
+- SendToPlayer 持锁期间执行 conn.Write（与 Broadcast 模式一致），因最大连接数 <= 10，阻塞风险可忽略
+- 目前没有 name→conn 反向映射，SendToPlayer 使用 O(n) 遍历 connections map

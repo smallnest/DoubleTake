@@ -1,0 +1,111 @@
+现在我已掌握进行全面审查所需的所有信息。
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #11
+- 标题: 词语输入与分发
+- 子任务: T-003 - 玩家端接收 ROLE 消息并用伪装格式显示词语
+- 迭代次数: 第 7 次迭代（基于前序迭代记录）
+
+---
+
+### 总体评价
+
+**评分: 88/100**
+
+T-003 实现质量良好。`player.go` 的 `MsgRole` 处理逻辑正确，协议格式与 T-002 的 `sendRoleToPlayers` 完全对齐（`ROLE|RoleName|word`），三种角色（平民、卧底、白板）均有对应处理，伪装输出格式使用 `Display.Data()` 保持一致，stealth 模式正常工作。测试覆盖了所有核心场景。代码简洁清晰，无性能或安全问题。
+
+---
+
+### 验收条件逐项检查
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | RunPlayer 消息循环中正确处理 MsgRole 消息 | **通过** | `player.go:70-85` 实现了完整的 `case game.MsgRole:` 分支 |
+| 2 | 平民和卧底收到的词语以伪装格式显示 | **通过** | 平民: `assigned token: 苹果 [平民]`, 卧底: `assigned token: 香蕉 [卧底]` |
+| 3 | 白板收到'你是白板'提示，也以伪装格式显示 | **通过** | `assigned token: [白板] — 你是白板` |
+| 4 | stealth 模式下输出风格与其他消息一致 | **通过** | 使用 `disp.Data()` 统一处理，stealth 时隐藏 `[DATA]` 标识 |
+| 5 | ROLE 消息不影响其他消息处理（READY、ERROR 等） | **通过** | 测试 `TestRunPlayer_ReceivesMultipleMessages` 验证了 READY + ROLE 共存 |
+| 6 | `go build ./...` 和 `go vet ./...` 无错误 | **通过** | 已验证 |
+
+---
+
+### 正确性 (35%) — 得分: 95/100
+
+**优点**:
+- 协议解析使用 `strings.SplitN(msg.Payload, "|", 2)` 与 `protocol.go` 的 `Decode` 模式一致，payload 可包含 `|`
+- 格式错误处理到位：`len(parts) < 2` 时输出 "malformed role message" 并 `continue`
+- 角色名映射使用 `roleDisplayNames` map，对未知角色名有 fallback 到原始名称的处理
+- 白板特殊逻辑基于 `roleName == "Blank"` 判断，不依赖 `word` 内容
+
+**建议改进 (非必须)**:
+- **词语含 `|` 的边界情况**: 服务端 `sendRoleToPlayers` 发送的 payload 是 `roleName + "|" + word`，如果 `word` 本身包含 `|`，客户端 `SplitN(payload, "|", 2)` 会正确分割（因为 `SplitN` 限制为 2 段）。但如果 `roleName` 含 `|` 则会出错。由于 `roleName` 来自硬编码字符串 `"Civilian"/"Undercover"/"Blank"`，不存在此风险。当前实现正确。
+
+---
+
+### 测试质量 (25%) — 得分: 88/100
+
+**覆盖的场景**:
+- `TestRunPlayer_ReceivesRole_Civilian` — 平民接收词语
+- `TestRunPlayer_ReceivesRole_Undercover` — 单底接收词语
+- `TestRunPlayer_ReceivesRole_Blank` — 白板特殊提示
+- `TestRunPlayer_ReceivesRole_Stealth` — stealth 模式下无 `[DATA]`
+- `TestRunPlayer_ReceivesMultipleMessages` — READY + ROLE 混合消息
+
+**建议改进**:
+- 缺少**格式错误 ROLE 消息**的测试（如 `ROLE|xxx` 无 `|` 分隔符的 payload，或空 payload）。当前代码有 `len(parts) < 2` 的防护，但无对应测试验证该路径。
+
+---
+
+### 代码质量 (20%) — 得分: 95/100
+
+**优点**:
+- `roleDisplayNames` map 提取为包级变量，结构清晰
+- 使用 `dispLabel` 变量避免重复 map 查找
+- 分支逻辑简洁，if/else 结构清晰
+- 伪装输出风格 (`assigned token: ...`) 与诊断工具风格一致
+
+**无问题**。
+
+---
+
+### 安全性 (10%) — 得分: 100/100
+
+- 无敏感信息泄露（词语通过伪装格式显示，不暴露内部结构）
+- 无注入风险（`SplitN` 限制了分割次数）
+- ROLE 消息处理不影响其他分支的安全逻辑
+
+---
+
+### 性能 (10%) — 得分: 100/100
+
+- 无不必要的内存分配
+- `SplitN` 是高效的字符串操作
+- 无并发问题（单 goroutine 消息循环）
+
+---
+
+### 审核结论
+
+- [x] **通过** - 代码质量达标，可以进入人工审核
+
+**评分明细**:
+- 正确性: 95 × 0.35 = 33.25
+- 测试质量: 88 × 0.25 = 22.00
+- 代码质量: 95 × 0.20 = 19.00
+- 安全性: 100 × 0.10 = 10.00
+- 性能: 100 × 0.10 = 10.00
+- **总分: 94.25 → 94/100**
+
+**下一步行动**: 代码已达标，建议进入人工审核阶段。
+
+---
+
+## Learnings
+
+- **模式**: ROLE 消息的客户端-服务端协议对齐模式：服务端 `sendRoleToPlayers` 使用 `payload = roleName + "|" + word`，客户端用 `SplitN(payload, "|", 2)` 解析，两层都使用 `SplitN(..., "|", 2)` 保证一致性
+- **经验**: `protocol.go` 中 `MsgWord` 常量已定义但从未被使用（T-002 确认词语嵌入 ROLE 负载），后续应考虑移除以避免混淆
+- **经验**: 测试中 `time.Sleep(10ms)` 用于在发送 JOIN 确认和 ROLE 消息之间添加间隔，确保客户端按序处理消息。这种方式在实际测试中稳定通过，但对 CI 环境可能需要关注
