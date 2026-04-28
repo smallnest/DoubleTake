@@ -1117,3 +1117,268 @@ func waitForOutput(t *testing.T, out *safeBuffer, substr string, timeout time.Du
 	}
 	t.Fatalf("timed out waiting for %q in output: %s", substr, out.String())
 }
+
+// --- Description phase integration tests ---
+
+// findConnByName finds the connection for a player by name (P0, P1, ...).
+func findConnByName(conns []net.Conn, name string) net.Conn {
+	for i, conn := range conns {
+		if fmt.Sprintf("P%d", i) == name {
+			return conn
+		}
+	}
+	return nil
+}
+
+// consumeMsgs reads and discards the specified number of messages from a connection.
+func consumeMsgs(t *testing.T, conn net.Conn, count int) {
+	t.Helper()
+	reader := bufio.NewReader(conn)
+	for i := 0; i < count; i++ {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("consumeMsgs: failed to read msg %d/%d: %v", i+1, count, err)
+		}
+		_, _ = game.Decode(line)
+	}
+}
+
+// readerForConn returns a bufio.Reader for the given connection, creating one if needed.
+// This avoids data loss from creating multiple bufio.Readers on the same conn.
+func readerForConn(conn net.Conn) *bufio.Reader {
+	type readerKey struct{}
+	// Use a simple approach: store in a package-level map.
+	readersMu.Lock()
+	defer readersMu.Unlock()
+	if r, ok := readers[conn]; ok {
+		return r
+	}
+	r := bufio.NewReader(conn)
+	readers[conn] = r
+	return r
+}
+
+var (
+	readers   = make(map[net.Conn]*bufio.Reader)
+	readersMu sync.Mutex
+)
+
+// readMsgFromConn reads one message from a connection with timeout.
+func readMsgFromConn(t *testing.T, conn net.Conn) game.Message {
+	t.Helper()
+	reader := readerForConn(conn)
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read message: %v", err)
+	}
+	msg, err := game.Decode(line)
+	if err != nil {
+		t.Fatalf("failed to decode message: %v", err)
+	}
+	return msg
+}
+
+// setupDescPhaseTest is a test helper that starts a judge, connects players,
+// and advances through the config, waiting, word collection, and role assignment
+// phases. It returns the player connections and cleanup function.
+// After this returns, all connections have consumed JOIN, ROLE, and READY messages,
+// and are ready for the description phase.
+func setupDescPhaseTest(t *testing.T, numPlayers int) ([]net.Conn, func()) {
+	t.Helper()
+
+	// 1U 0B for any count >= 4
+	configInput := fmt.Sprintf("%d\n1\n0\n", numPlayers)
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, configInput)
+
+	names := make([]string, numPlayers)
+	for i := 0; i < numPlayers; i++ {
+		names[i] = fmt.Sprintf("P%d", i)
+	}
+
+	conns := make([]net.Conn, numPlayers)
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume JOIN confirmation from each connection.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // JOIN confirmation
+	}
+
+	// Start the game.
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Each connection gets ROLE + READY. Consume them.
+	for i, conn := range conns {
+		msg1 := readMsgFromConn(t, conn)
+		t.Logf("conn %d: msg1=%s|%s", i, msg1.Type, msg1.Payload)
+		msg2 := readMsgFromConn(t, conn)
+		t.Logf("conn %d: msg2=%s|%s", i, msg2.Type, msg2.Payload)
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+
+	// Return conns and a cleanup that closes stdin.
+	// NOTE: we don't close stdin here because the description phase
+	// blocks on srv.OnDescMsg, not stdin. The caller must send DESC messages.
+	_ = stdin
+	return conns, cleanup
+}
+
+func TestDescriptionPhase_NormalFlow(t *testing.T) {
+	conns, cleanup := setupDescPhaseTest(t, 4)
+	defer cleanup()
+
+	t.Logf("setup complete, reading messages")
+
+	// All players should receive ROUND|1|P0,P1,P2,P3 (order may vary due to shuffle).
+	// For this test we'll just verify the message types.
+	// The speaker order is random due to AssignRoles shuffle, so we read ROUND to learn it.
+	roundMsg := readMsgFromConn(t, conns[0])
+	if roundMsg.Type != game.MsgRound {
+		t.Fatalf("expected ROUND, got %s", roundMsg.Type)
+	}
+	// Parse round number and speaker order from ROUND|1|P0,P1,...
+	roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+	if len(roundParts) < 2 {
+		t.Fatalf("malformed ROUND payload: %q", roundMsg.Payload)
+	}
+	speakers := strings.Split(roundParts[1], ",")
+
+	// All players should also get the first TURN message.
+	turnMsg := readMsgFromConn(t, conns[0])
+	if turnMsg.Type != game.MsgTurn {
+		t.Fatalf("expected TURN, got %s", turnMsg.Type)
+	}
+
+	// Consume ROUND+TURN from remaining connections.
+	for i := 1; i < len(conns); i++ {
+		msg := readMsgFromConn(t, conns[i])
+		if msg.Type != game.MsgRound {
+			t.Errorf("conn %d: expected ROUND, got %s", i, msg.Type)
+		}
+		msg = readMsgFromConn(t, conns[i])
+		if msg.Type != game.MsgTurn {
+			t.Errorf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+	}
+
+	// Each speaker describes in order.
+	for si, speaker := range speakers {
+		speakerConn := findConnByName(conns, speaker)
+
+		// Send DESC from the current speaker.
+		fmt.Fprintf(speakerConn, "DESC|description from %s\n", speaker)
+
+		// All players should receive DESC|speaker|description broadcast.
+		for _, conn := range conns {
+			msg := readMsgFromConn(t, conn)
+			if msg.Type != game.MsgDesc {
+				t.Fatalf("expected DESC broadcast, got %s: %s", msg.Type, msg.Payload)
+			}
+		}
+
+		// After DESC, a TURN for the next speaker is broadcast (unless this is the last speaker).
+		if si < len(speakers)-1 {
+			for _, conn := range conns {
+				msg := readMsgFromConn(t, conn)
+				if msg.Type != game.MsgTurn {
+					t.Fatalf("expected TURN for next speaker, got %s: %s", msg.Type, msg.Payload)
+				}
+			}
+		}
+	}
+}
+
+func TestDescriptionPhase_EmptyDescRejected(t *testing.T) {
+	conns, cleanup := setupDescPhaseTest(t, 4)
+	defer cleanup()
+
+	// Read ROUND + TURN from all connections.
+	var currentSpeaker string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // ROUND
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentSpeaker = msg.Payload
+		}
+	}
+
+	// Find the current speaker's connection.
+	speakerConn := findConnByName(conns, currentSpeaker)
+
+	// Send empty description.
+	fmt.Fprintf(speakerConn, "DESC|   \n")
+
+	// Speaker should get ERROR.
+	msg := readMsgFromConn(t, speakerConn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR for empty desc, got %s: %s", msg.Type, msg.Payload)
+	}
+	if !strings.Contains(msg.Payload, "描述不能为空") {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+
+	// Send valid description to complete.
+	fmt.Fprintf(speakerConn, "DESC|valid description\n")
+
+	// All players get DESC broadcast.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC broadcast, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+
+	// Then TURN for the next speaker.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN for next speaker, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+}
+
+func TestDescriptionPhase_NotYourTurn(t *testing.T) {
+	conns, cleanup := setupDescPhaseTest(t, 4)
+	defer cleanup()
+
+	// Read ROUND + TURN from all connections.
+	var currentSpeaker string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // ROUND
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentSpeaker = msg.Payload
+		}
+	}
+
+	// Find a player who is NOT the current speaker and send DESC from them.
+	for i, conn := range conns {
+		name := fmt.Sprintf("P%d", i)
+		if name != currentSpeaker {
+			fmt.Fprintf(conn, "DESC|sneaky description\n")
+
+			// Should get ERROR.
+			msg := readMsgFromConn(t, conn)
+			if msg.Type != game.MsgError {
+				t.Errorf("expected ERROR for not-your-turn, got %s: %s", msg.Type, msg.Payload)
+			}
+			if !strings.Contains(msg.Payload, "还没轮到你") {
+				t.Errorf("unexpected error payload: %q", msg.Payload)
+			}
+			return
+		}
+	}
+}

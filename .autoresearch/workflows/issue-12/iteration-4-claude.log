@@ -1,0 +1,26 @@
+## 总结
+
+T-002 的实现实际上已经完成（`descriptionPhase` 函数、`handleDesc` 消息处理、`DESC` 消息路由均已存在），但存在两个测试 bug 导致审核未通过：
+
+### 修复内容
+
+1. **`readMsgFromConn` 缓冲区数据丢失** (`judge_test.go:1148-1163`)
+   - **问题**: 每次调用 `readMsgFromConn` 都创建新的 `bufio.NewReader`，导致上一个 Reader 缓冲区中的未读数据丢失
+   - **修复**: 引入 `readerForConn` 函数 + 包级 `readers` map，确保每个连接复用同一个 `bufio.Reader`
+
+2. **`TestDescriptionPhase_NormalFlow` 消息读取逻辑错误** (`judge_test.go:1277-1301`)
+   - **问题**: 每个 speaker 发送 DESC 后，服务器广播 DESC + TURN（两条独立消息），但测试只读取一条消息，导致后续连接读到 TURN 而非 DESC
+   - **修复**: 分两步读取——先读所有连接的 DESC 广播，再读所有连接的 TURN 消息
+
+3. **`TestDescriptionPhase_EmptyDescRejected` 同样的问题** (`judge_test.go:1333-1354`)
+   - **修复**: 有效描述后分开读取 DESC 和 TURN 消息
+
+### 验证结果
+- 所有 4 个包测试通过：`game`、`server`、`client`、`cmd/doubletake`
+- `server` 覆盖率 92.2%，`cmd/doubletake` 覆盖率 92.2%
+
+## 经验总结
+
+- **踩坑**: `bufio.NewReader` 每次调用都会从底层 Reader 读取数据到缓冲区。在同一个 `net.Conn` 上创建多个 `bufio.Reader` 会导致数据丢失，因为前一个 Reader 的缓冲区中可能还有未消费的数据。集成测试必须为每个连接维护单一的 Reader 实例。
+- **模式**: 服务器广播多条消息时（如 DESC 后紧接 TURN），测试应按消息类型分批读取，而非一次性读取一条然后猜测类型。
+- **经验**: 描述阶段的消息时序为：`ROUND → TURN → [DESC广播 + TURN广播] × (N-1) → DESC广播`，测试中读取顺序必须与此一致。

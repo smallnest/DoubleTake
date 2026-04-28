@@ -7,7 +7,10 @@ import (
 
 func TestNewDescRound(t *testing.T) {
 	players := []string{"alice", "bob", "carol"}
-	d := NewDescRound(1, players)
+	d, err := NewDescRound(1, players)
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
 	if d.RoundNum != 1 {
 		t.Errorf("RoundNum = %d, want 1", d.RoundNum)
@@ -29,7 +32,10 @@ func TestNewDescRound(t *testing.T) {
 }
 
 func TestCurrentSpeaker(t *testing.T) {
-	d := NewDescRound(2, []string{"alice", "bob", "carol"})
+	d, err := NewDescRound(2, []string{"alice", "bob", "carol"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
 	if got := d.CurrentSpeaker(); got != "alice" {
 		t.Errorf("CurrentSpeaker() = %q, want %q", got, "alice")
@@ -37,7 +43,10 @@ func TestCurrentSpeaker(t *testing.T) {
 }
 
 func TestCurrentSpeaker_AllDone(t *testing.T) {
-	d := NewDescRound(1, []string{"alice"})
+	d, err := NewDescRound(1, []string{"alice"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 	d.CurrentIndex = 1
 
 	if got := d.CurrentSpeaker(); got != "" {
@@ -46,7 +55,10 @@ func TestCurrentSpeaker_AllDone(t *testing.T) {
 }
 
 func TestRecordDesc_NormalFlow(t *testing.T) {
-	d := NewDescRound(1, []string{"alice", "bob", "carol"})
+	d, err := NewDescRound(1, []string{"alice", "bob", "carol"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
 	if err := d.RecordDesc("alice", "it is a fruit"); err != nil {
 		t.Fatalf("RecordDesc(alice) error: %v", err)
@@ -77,7 +89,10 @@ func TestRecordDesc_NormalFlow(t *testing.T) {
 }
 
 func TestRecordDesc_EmptyDescription(t *testing.T) {
-	d := NewDescRound(1, []string{"alice", "bob"})
+	d, err := NewDescRound(1, []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
 	tests := []struct {
 		name string
@@ -104,15 +119,21 @@ func TestRecordDesc_EmptyDescription(t *testing.T) {
 }
 
 func TestRecordDesc_NotYourTurn(t *testing.T) {
-	d := NewDescRound(1, []string{"alice", "bob"})
+	d, err := NewDescRound(1, []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
-	err := d.RecordDesc("bob", "something")
+	err = d.RecordDesc("bob", "something")
 	if err != ErrNotYourTurn {
 		t.Errorf("RecordDesc(bob) err = %v, want ErrNotYourTurn", err)
 	}
 
 	// After all done, any player gets ErrNotYourTurn.
-	d2 := NewDescRound(1, []string{"alice"})
+	d2, err2 := NewDescRound(1, []string{"alice"})
+	if err2 != nil {
+		t.Fatalf("NewDescRound error: %v", err2)
+	}
 	_ = d2.RecordDesc("alice", "ok")
 	err = d2.RecordDesc("alice", "another")
 	if err != ErrNotYourTurn {
@@ -121,7 +142,10 @@ func TestRecordDesc_NotYourTurn(t *testing.T) {
 }
 
 func TestAllDone_EmptyPlayers(t *testing.T) {
-	d := NewDescRound(1, []string{})
+	d, err := NewDescRound(1, []string{})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 	if !d.AllDone() {
 		t.Error("AllDone() = false for 0 players, want true")
 	}
@@ -131,7 +155,10 @@ func TestAllDone_EmptyPlayers(t *testing.T) {
 }
 
 func TestAllDone_OnePlayer(t *testing.T) {
-	d := NewDescRound(1, []string{"solo"})
+	d, err := NewDescRound(1, []string{"solo"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 	if d.AllDone() {
 		t.Error("AllDone() = true before solo player describes")
 	}
@@ -145,7 +172,10 @@ func TestAllDone_OnePlayer(t *testing.T) {
 
 func TestDescRound_RecordsAllDescriptions(t *testing.T) {
 	players := []string{"alice", "bob", "carol"}
-	d := NewDescRound(3, players)
+	d, err := NewDescRound(3, players)
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
 	descs := map[string]string{
 		"alice": "round and sweet",
@@ -169,9 +199,12 @@ func TestDescRound_RecordsAllDescriptions(t *testing.T) {
 }
 
 func TestRecordDesc_AllowsWhitespaceInContent(t *testing.T) {
-	d := NewDescRound(1, []string{"alice"})
+	d, err := NewDescRound(1, []string{"alice"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
 
-	err := d.RecordDesc("alice", "  has leading and trailing  ")
+	err = d.RecordDesc("alice", "  has leading and trailing  ")
 	if err != nil {
 		t.Fatalf("RecordDesc with whitespace content: err = %v", err)
 	}

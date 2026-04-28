@@ -706,3 +706,53 @@ func TestBroadcastToNamedPlayers(t *testing.T) {
 		t.Errorf("unnamed client should not receive broadcast, got: %q", buf[:n])
 	}
 }
+
+func TestDesc_UnnamedPlayer(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Send DESC without joining — should get ERROR.
+	fmt.Fprintf(conn, "DESC|some description\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR for unnamed DESC, got %s", msg.Type)
+	}
+	if msg.Payload != "请先加入游戏" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestDesc_NamedPlayerForwarded(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	fmt.Fprintf(conn, "DESC|it is a fruit\n")
+
+	select {
+	case evt := <-srv.OnDescMsg:
+		if evt.PlayerName != "Alice" {
+			t.Errorf("expected player Alice, got %s", evt.PlayerName)
+		}
+		if evt.Description != "it is a fruit" {
+			t.Errorf("expected description %q, got %q", "it is a fruit", evt.Description)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for DescEvent")
+	}
+}

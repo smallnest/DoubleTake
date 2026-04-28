@@ -1,0 +1,27 @@
+=== 硬门禁检查 (迭代 2) ===
+时间: 2026-04-29 05:40:35
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+# github.com/smallnest/doubletake/game
+# [github.com/smallnest/doubletake/game]
+vet: game/game_test.go:10:7: assignment mismatch: 1 variable but NewDescRound returns 2 values
+结果: 失败 (exit code: 1)
+
+
+=== 汇总 ===
+状态: 失败
+## Lint 失败 (go vet ./...)
+
+```
+# github.com/smallnest/doubletake/game
+# [github.com/smallnest/doubletake/game]
+vet: game/game_test.go:10:7: assignment mismatch: 1 variable but NewDescRound returns 2 values
+```
+
+

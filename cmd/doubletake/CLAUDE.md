@@ -37,8 +37,9 @@
 - `collectWordsFromCh` 也使用同一个 `stdinSource` channel，确保 waitingPhase 返回后词语输入不会被 stdin goroutine 抢先消费
 - 嵌套的 `select`（如确认 Y/N 时）也必须包含 `<-stdinSrc.done` case，防止 EOF 时死锁
 - `collectConfig` 中 `readIntInput` 在 EOF 时返回 -1 依赖 `validateConfig` 拒绝，会导致 EOF 场景下无限循环。如需优雅退出，应在 `collectConfig` 层检测 `scanner.Err()` 或 `readInt` 的 error
-- `RunJudge` 流程：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady
+- `RunJudge` 流程：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady → descriptionPhase
 - 集成测试中 `extraLines` channel 提供的输入不仅包括 "start"/"Y"，还需包括词语输入（如 "苹果"、"香蕉"）
+- `descriptionPhase` 在 `broadcastReady` 之后被调用，广播 ROUND|轮次号|发言顺序 和 TURN|playerName 消息
 
 ## 测试集成验证模式
 - 集成测试验证 ROLE 消息内容时，使用 `strings.SplitN(msg.Payload, "|", 2)` 解析 roleName 和 word，与服务端 `sendRoleToPlayers` 保持一致
@@ -49,3 +50,28 @@
   1. 客户端 `messages` channel 缓冲大小为 64
   2. TCP 保证消息按序到达
   3. `bufio.Scanner` 正确按换行符分割消息
+
+## 描述环节测试约定
+- `readMsgFromConn` 使用 `readerForConn` 获取或创建 per-connection 的 `bufio.Reader`，**不能**每次调用都新建 `bufio.NewReader`，否则缓冲区中未读数据会丢失
+- `readerForConn` 使用包级 `readers` map + `readersMu` mutex 管理连接到 Reader 的映射
+- `setupDescPhaseTest` 辅助函数处理完整的游戏初始化流程：创建服务器 → 玩家加入 → start → 词语输入 → 消费 ROLE + READY
+- 描述阶段的消息序列：ROUND → TURN（首位发言者）→ [DESC广播 + TURN（下一位）] × N-1 → DESC广播（最后一位）
+- 集成测试读取描述阶段消息时，必须**分开读取 DESC 和 TURN**：先读所有连接的 DESC，再读所有连接的 TURN（因为服务器广播 DESC 后立即广播 TURN）
+- `descriptionPhase` 使用 `game.DescRound` 管理发言顺序和状态，通过 `srv.OnDescMsg` channel 接收玩家描述
+- 空描述和非当前发言者错误由 `descriptionPhase`（而非 server 层）处理，server 层只负责转发 DESC 消息
+
+## 玩家端描述环节约定
+- `player.go` 使用三态 `descPhase` 类型跟踪描述阶段状态：`descIdle`（空闲/等待他人）、`descWaitingInput`（等待 stdin 输入）、`descSubmitted`（已提交等待服务端响应）
+- `descWaitingInput` 时使用 `select` 同时监听网络消息和 stdin 输入（通过 lazily initialized goroutine + channel）
+- stdin goroutine 在首次进入 `descWaitingInput` 时启动，从同一个 `bufio.Scanner(in)` 读取后续行
+- **关键**: 发送 DESC 后不应立即将 phase 设为 idle（`descSubmitted`），必须等服务端响应（DESC 广播表示接受，ERROR 表示拒绝需重新提示）
+- ERROR 处理：`descSubmitted` 和 `descWaitingInput` 状态下重新提示输入，其他状态下直接退出
+- TURN 消息区分自己/他人：比较 `msg.Payload` 与 `playerName`，自己时 prompt 输入，他人时显示等待提示
+- 客户端空描述检查：stdin 读取到空行时本地拒绝（不发 DESC），显示 "描述不能为空" 并重新提示
+- 消息格式化：ROUND→"轮次 N，发言顺序: P0 → P1 → P2"，DESC→"P0: 描述内容"，TURN(他人)→"等待 P0 描述..."
+
+## 玩家端描述环节测试约定
+- 描述阶段测试使用 `startTestPlayerServer` 创建 TCP 服务器，模拟发送 ROUND/TURN/DESC/ERROR 消息
+- 测试覆盖：其他玩家回合显示等待提示、自己回合提示输入并发送 DESC、空描述客户端拦截、服务端 ERROR 重试、非描述阶段 ERROR 致命退出
+- 服务端模拟 ERROR 重试测试：先读取第一个 DESC（被拒绝），发送 ERROR，再读取第二个有效 DESC
+- 客户端空描述拦截测试：发送空行后客户端本地拦截，服务器只收到有效的描述

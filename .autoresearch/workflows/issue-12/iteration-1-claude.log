@@ -1,0 +1,19 @@
+## 实现总结
+
+**T-001 完成** — `game/game.go` 中的 `DescRound`：
+
+- **结构体**: `DescRound` 包含 `RoundNum`、`SpeakerOrder`、`CurrentIndex`、`Descriptions` map
+- **`NewDescRound`**: 通过复制输入切片来初始化，以避免共享支持数组
+- **`CurrentSpeaker()`**: 返回当前发言者，当所有发言者都已完成时返回空字符串 `""`
+- **`RecordDesc(playerName, desc)`**: 验证非空（`ErrEmptyDesc`），然后验证是否轮到该玩家（`ErrNotYourTurn`），记录描述并推进索引
+- **`AllDone()`**: 当所有玩家都描述完毕时返回 `true`（0 名玩家 → `true`）
+
+**测试** (`game/game_test.go`): 10 个测试函数，涵盖正常流程、空白描述拒绝（表格驱动）、轮次错误、边界情况（0/1 名玩家）、完整记录验证、内容中包含空格。覆盖率为 95.0%。
+
+**自我检查**: `go build` ✓, `go vet` ✓, `go test -cover` ✓ (95.0%)
+
+## 经验
+
+- **模式**: `NewDescRound` 会复制输入切片 (`copy(order, alivePlayers)`)——与 `AssignRoles` 使用的模式相同。测试验证修改原始切片不会影响 `DescRound`。
+- **坑点**: `RecordDesc` 验证顺序很重要：首先检查空白描述，然后检查轮次顺序。如果顺序反转，玩家可能会通过发送空白描述来“窃取”其他人的轮次。
+- **经验**: 对状态机方法（`CurrentSpeaker` 返回 `""`，`AllDone` 返回 `true`）使用 0 名玩家边缘情况，可以干净地处理空切片，而无需特殊大小写。

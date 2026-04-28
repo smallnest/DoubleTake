@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -22,7 +23,18 @@ type DescRound struct {
 }
 
 // NewDescRound creates a description round for the given alive players.
-func NewDescRound(roundNum int, alivePlayers []string) *DescRound {
+// It returns an error if the list contains empty names or duplicates.
+func NewDescRound(roundNum int, alivePlayers []string) (*DescRound, error) {
+	seen := make(map[string]bool, len(alivePlayers))
+	for _, name := range alivePlayers {
+		if strings.TrimSpace(name) == "" {
+			return nil, errors.New("player name must not be empty")
+		}
+		if seen[name] {
+			return nil, fmt.Errorf("duplicate player name: %s", name)
+		}
+		seen[name] = true
+	}
 	order := make([]string, len(alivePlayers))
 	copy(order, alivePlayers)
 	return &DescRound{
@@ -30,7 +42,7 @@ func NewDescRound(roundNum int, alivePlayers []string) *DescRound {
 		SpeakerOrder: order,
 		CurrentIndex: 0,
 		Descriptions: make(map[string]string),
-	}
+	}, nil
 }
 
 // CurrentSpeaker returns the name of the player who should speak now.
@@ -60,4 +72,11 @@ func (d *DescRound) RecordDesc(playerName, desc string) error {
 // AllDone returns true when every player in the speaker order has described.
 func (d *DescRound) AllDone() bool {
 	return d.CurrentIndex >= len(d.SpeakerOrder)
+}
+
+// Description returns the description submitted by the given player.
+// If the player has not yet described, the second return value is false.
+func (d *DescRound) Description(player string) (string, bool) {
+	v, ok := d.Descriptions[player]
+	return v, ok
 }

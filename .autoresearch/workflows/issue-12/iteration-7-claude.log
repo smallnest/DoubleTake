@@ -1,0 +1,31 @@
+所有任务已完成。以下是已完成工作的总结：
+
+## 实施总结
+
+### 已做的更改
+
+**`cmd/doubletake/player.go`** — 完整重写，增加了描述阶段支持：
+
+1.  **ROUND 消息处理** — 解析 `1|P0,P1,P2` 格式，显示“轮次 1，发言顺序: P0 → P1 → P2”
+2.  **TURN 消息处理** — 区分轮到自己的回合（提示“请输入描述:”）和轮到其他玩家的回合（显示“等待 P0 描述...”）
+3.  **DESC 消息处理** — 解析 `P0|苹果是红色的` 格式，显示“P0: 苹果是红色的”
+4.  **带重试功能的 ERROR 消息处理** — 三态设计（`descIdle`/`descWaitingInput`/`descSubmitted`）：
+    -   `descSubmitted` 或 `descWaitingInput` 中的 ERROR → 重新提示
+    -   其他状态下的 ERROR → 以退出码 1 致命退出
+5.  **客户端空白检查** — 在发送前本地拒绝空白输入，并显示“描述不能为空”
+6.  **并发 stdin 读取器** — 延迟初始化的 goroutine，将 scanner 行馈送到 channel 中，允许在描述回合期间在 select 中交错处理网络消息和 stdin
+
+**`cmd/doubletake/player_test.go`** — 增加了 5 个新的集成测试：
+-   `TestRunPlayer_DescPhase_OtherPlayerTurn` — 验证 ROUND 显示，等待其他玩家，DESC 广播显示
+-   `TestRunPlayer_DescPhase_OwnTurn` — 验证提示和 DESC 发送
+-   `TestRunPlayer_DescPhase_EmptyDescRetry` — 验证客户端空白检查和重试
+-   `TestRunPlayer_DescPhase_ServerErrorRetry` — 验证服务器端 ERROR 拒绝和重试提示
+-   `TestRunPlayer_DescPhase_ErrorFatal` — 验证非描述阶段的 ERROR 导致致命退出
+
+**`cmd/doubletake/CLAUDE.md`** — 增加了描述阶段约定和测试约定
+
+### 学习要点
+
+-   **模式**: 三态 `descPhase`（空闲/等待输入/已提交）对于正确处理 ERROR 重试至关重要。如果在发送 DESC 后过早地将状态设置为空闲，服务器端的 ERROR 拒绝将被视为致命错误。
+-   **陷阱**: `stdin goroutine` 必须延迟初始化（仅在首次进入 `descWaitingInput` 时）。在函数开始时过早启动它会消耗 stdin EOF 并导致过早退出。
+-   **经验**: 当在单个函数中交错阻塞网络 I/O（`channel range`）和阻塞 stdin 读取时，请使用 `select` 和 goroutine 馈送的 channel 来交错它们，而不是尝试进行顺序处理。
