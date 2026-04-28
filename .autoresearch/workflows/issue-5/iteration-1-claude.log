@@ -1,0 +1,24 @@
+## 自检清单
+
+- [x] 代码编译通过 (`go build ./...`)
+- [x] Lint 无错误 (`go vet ./...`)
+- [x] 所有测试通过 (10/10, coverage 93.1%)
+- [x] 新代码有测试覆盖
+- [x] 所有公共 API 有文档注释
+
+## 实现总结
+
+**client/client.go** — `Client` 结构体，包含：
+- `NewClient()` — 创建客户端实例
+- `Connect(addr string) error` — 建立TCP连接，启动接收goroutine
+- `Send(msg Message) error` — 编码并发送消息
+- `Messages() <-chan game.Message` — 返回消息channel供主循环读取
+- `Disconnect()` — 幂等关闭，`sync.Once`保护
+- `receiveLoop()` — 后台goroutine读取消息，服务端EOF时优雅退出
+
+**client/client_test.go** — 10个测试用例：连接成功/失败、发送/接收、服务端断连EOF检测、多次消息、无效消息跳过、幂等Disconnect。
+
+## 学习总结
+
+- **模式**: 客户端镜像了服务端的架构模式 — `bufio.Scanner` 按行读取、`game.Encode`/`Decode` 编解码、`sync.Once` 幂等关闭
+- **经验**: 客户端使用带buffer的channel (64) 传递消息，避免接收goroutine阻塞；`receiveLoop`通过`select`同时监听`done` channel，确保`Disconnect()`不会死锁
