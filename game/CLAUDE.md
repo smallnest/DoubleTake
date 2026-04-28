@@ -10,7 +10,7 @@
 - `protocol_test.go`: Encode/Decode 单元测试
 - `base62.go`: 房间密码编解码（EncodeRoomCode/DecodeRoomCode），将 IP:port 编码为 base62 短字符串
 - `base62_test.go`: 房间密码编解码单元测试
-- `game.go`: 游戏逻辑（预留）
+- `game.go`: 描述环节状态管理（DescRound 结构体及相关方法）
 - `network.go`: 网络工具函数（GetLocalIP），获取本机非 loopback IPv4 地址
 - `network_test.go`: 网络工具函数单元测试
 - `role.go`: 角色定义（Role 类型、Player 结构体）和角色分配（AssignRoles 函数）
@@ -50,3 +50,14 @@
 - 边界测试「刚好触发」场景（如 P=4, U=1, B=1, C=2, U+B=2 >= C）单独在 Error 表中覆盖
 - 随机性测试 `TestAssignRoles_Shuffled` 使用 20 人 x 5 次试验，统计判断是否打乱
 - Player 字段验证：每个成功路径测试均检查 `Alive=true`、`Connected=false`、`Name` 非空
+
+## 描述环节约定
+- `DescRound` 管理单轮描述阶段的状态：轮次号、发言顺序、当前发言者索引、描述记录 map
+- `NewDescRound(roundNum int, alivePlayers []string)` 拷贝输入切片，避免共享底层数组
+- `CurrentSpeaker()` 返回当前应发言的玩家名，全部发言完毕返回空字符串
+- `RecordDesc(playerName, desc string)` 校验顺序：先检查空描述（`ErrEmptyDesc`），再检查是否轮到该玩家（`ErrNotYourTurn`）
+- 空描述判定使用 `strings.TrimSpace`，纯空白视为空；有实际内容的描述保留原始内容（不做 trim）
+- `AllDone()` 在 `CurrentIndex >= len(SpeakerOrder)` 时返回 true，0 人场景天然为 true
+- 错误变量 `ErrEmptyDesc`、`ErrNotYourTurn` 定义在 `game.go` 中作为包级变量
+- 描述记录使用 `map[string]string`，以玩家名为 key，方便裁判端按名回溯
+- `game_test.go` 覆盖：正常流程、空描述拒绝（表格驱动）、非当前玩家拒绝、边界（0人、1人）、完整记录验证
