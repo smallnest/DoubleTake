@@ -1,0 +1,26 @@
+## T-001 Implementation Complete
+
+### Summary
+
+Implemented `server/server.go` with:
+
+- **`Server` struct** — `net.Listener`, `port`, `connections map[net.Conn]*Player`, `sync.Mutex`, `done` channel
+- **`Player` struct** — wraps `net.Conn`
+- **`NewServer(port string)`** — initializes all fields
+- **`Start()`** — listens on TCP, accept loop, spawns goroutine per connection; uses `done` channel for graceful shutdown
+- **`Stop()`** — closes `done` channel, listener, and all connections
+- **`handleConn()`** — `bufio.Scanner` line reader + `game.Decode`, logs errors without panicking
+- **`Broadcast(msg)`** / **`Send(conn, msg)`** — send encoded messages to all/single connections
+- **Connection registry** — `register`/`unregister` with mutex-protected map
+
+### Quality Checks
+- `go build ./...` — pass
+- `go vet ./...` — pass
+- `go test ./server/` — 8/8 tests pass, **90.7% coverage**
+- No external dependencies added
+
+## Learnings
+
+- **模式**: 使用 `done` channel 而非 `context.Context` 来区分 Accept 错误是正常关闭还是异常，保持简洁
+- **踩坑**: Go 1.26 的 `go vet` 会检测 `fmt.Fprintf(conn, variable)` 的 non-constant format string 问题，应改用 `fmt.Fprint`
+- **经验**: 测试 TCP 服务器时，用 `net.Listen("tcp", "127.0.0.1:0")` 获取随机端口，然后关闭 listener 再让 Server 监听同一端口，比硬编码端口更可靠

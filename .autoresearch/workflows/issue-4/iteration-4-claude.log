@@ -1,0 +1,30 @@
+所有任务已完成。以下是总结：
+
+## 已应用的修复
+
+### 1. 监听器数据竞争 (关键)
+- 为 `Start()` 和 `Stop()` 中的 `s.listener` 访问添加了 `sync.Mutex` 保护
+- 添加了 `ready` channel：`Start()` 在绑定监听器后关闭它；`Stop()` 在继续之前等待它 (`< -s.ready`)
+- 在监听错误时，`Start()` 也会关闭 `ready`，以防止 `Stop()` 永久挂起
+
+### 2. `Stop()` 死锁 (关键)
+- `Stop()` 现在在持有锁时收集连接并清除 map，然后在释放锁后关闭连接
+- 这避免了 `conn.Close()` → `unregister()` → `s.mu.Lock()` 的死锁
+
+### 3. `Stop()` 幂等性 (关键)
+- 添加了 `sync.Once` 来包裹 `Stop()` 逻辑
+- 多次调用 `Stop()` 是安全的 — 不会因重复关闭 `done` channel 而导致 panic
+
+### 4. 新增测试：`TestStopIdempotent`
+- 验证两次调用 `Stop()` 不会 panic
+
+## 验证
+- `go vet` — 通过
+- `go build` — 通过
+- `go test -race -count=5` — 所有 5 次运行通过
+- 覆盖率 — 90.5%
+
+## 经验总结
+- **模式**: TCP 服务器应使用 `ready` channel 同步 `Start()` 监听器设置与 `Stop()` 调用 — 防止 `Start()` 返回前监听器为 nil 的竞争
+- **陷阱**: 在持有互斥锁时关闭连接，如果连接处理程序的 defer 清理也需要该锁，会导致死锁。应收集、解锁，然后关闭
+- **经验**: `sync.Once` 是使 `close(done)` 模式安全用于重复 `Stop()` 调用的标准惯用法

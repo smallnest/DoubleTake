@@ -1,0 +1,280 @@
+我已经获取到所需的所有信息。以下是审核报告：
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #4
+- 标题: TCP 服务端基础 — 监听与连接管理
+- 子任务: T-003 - 实现 Stop 优雅关闭与集成测试
+- 迭代次数: 4 (第 3 次迭代后的审核)
+
+---
+
+### 总体评价
+
+**评分: 75/100**
+
+功能基本完整，测试覆盖率 90.7%，但存在 **数据竞争 (data race)** 导致 `-race` 测试失败，这是一个严重问题。`listener` 字段在 `Start()` 和 `Stop()` 之间无同步保护，`Stop()` 可在 `Start()` 完成 listener 赋值前被调用。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: `listener` 字段存在数据竞争
+
+**位置**: `server/server.go:42` vs `server/server.go:63`
+
+**问题描述**:
+`s.listener` 在 `Start()` goroutine 中写入 (line 42)，在 `Stop()` 中读取 (line 63)。两个 goroutine 之间没有同步机制，竞态检测器已确认此问题：
+
+```
+WARNING: DATA RACE
+Read at server.go:63 (Stop)
+Previous write at server.go:42 (Start)
+```
+
+同样，`s.done` channel 的 `close()` 也可能与 Start 中尚未进入 select 的 Accept 错误产生竞争窗口。
+
+**代码片段**:
+```go
+// Start() - goroutine 中写入
+func (s *Server) Start() error {
+    ln, err := net.Listen("tcp", ":"+s.port)
+    ...
+    s.listener = ln  // 写入无保护
+    ...
+}
+
+// Stop() - 主 goroutine 中读取
+func (s *Server) Stop() {
+    close(s.done)
+    if s.listener != nil {  // 读取无保护 — 可能读到 nil
+        s.listener.Close()
+    }
+    ...
+}
+```
+
+**建议修复**:
+
+方案 A — 使用 `sync.Mutex` 保护 `listener` 字段:
+```go
+func (s *Server) Start() error {
+    ln, err := net.Listen("tcp", ":"+s.port)
+    if err != nil {
+        return err
+    }
+    s.mu.Lock()
+    s.listener = ln
+    s.mu.Unlock()
+    log.Printf("server listening on :%s", s.port)
+
+    for {
+        conn, err := ln.Accept()
+        if err != nil {
+            select {
+            case <-s.done:
+                return nil
+            default:
+                log.Printf("accept error: %v", err)
+                continue
+            }
+        }
+        go s.handleConn(conn)
+    }
+}
+
+func (s *Server) Stop() {
+    close(s.done)
+    s.mu.Lock()
+    if s.listener != nil {
+        s.listener.Close()
+    }
+    s.connections = make(map[net.Conn]*Player)
+    for conn := range s.connections {
+        conn.Close()
+    }
+    s.mu.Unlock()
+    log.Println("server stopped")
+}
+```
+
+但注意: `Stop()` 中先 `close(s.done)` 再加锁的顺序仍需保证 `Start()` 已完成 listener 赋值。`startTestServer` 的等待连接逻辑已隐含了这一点（能 dial 成功说明 listener 已就绪），所以实际只需加锁保护读写即可。
+
+方案 B（更推荐）— 使用 `ready` channel 确保同步:
+```go
+type Server struct {
+    port        string
+    listener    net.Listener
+    connections map[net.Conn]*Player
+    mu          sync.Mutex
+    done        chan struct{}
+    ready       chan struct{} // 新增
+}
+
+func (s *Server) Start() error {
+    ln, err := net.Listen("tcp", ":"+s.port)
+    if err != nil {
+        return err
+    }
+    s.mu.Lock()
+    s.listener = ln
+    s.mu.Unlock()
+    log.Printf("server listening on :%s", s.port)
+    close(s.ready) // 通知 listener 已就绪
+
+    for { ... }
+}
+
+func (s *Server) Stop() {
+    <-s.ready // 等待 Start 完成
+    close(s.done)
+    s.mu.Lock()
+    ...
+    s.mu.Unlock()
+}
+```
+
+**原因**: 数据竞争是未定义行为，生产环境可能导致 `Stop()` 时 listener 为 nil（跳过关闭）或关闭错误的 listener。`-race` 测试必须通过。
+
+---
+
+#### 问题 2: `Stop()` 中清理连接的顺序问题
+
+**位置**: `server/server.go:66-71`
+
+**问题描述**:
+`Stop()` 先 `make(map[net.Conn]*Player)` 创建新空 map，再遍历原 map 关闭连接。但原 map 的引用在 `make` 之后就丢失了 — 这里实际上遍历的是新空 map，所以 **所有连接都不会被关闭**。
+
+等等，让我再仔细看：
+
+```go
+s.mu.Lock()
+for conn := range s.connections {  // 遍历当前 map
+    conn.Close()
+}
+s.connections = make(map[net.Conn]*Player)  // 然后替换为空 map
+s.mu.Unlock()
+```
+
+实际上顺序是对的 — 先遍历关闭，再替换。但 `conn.Close()` 会触发 `handleConn` 中的 `scanner.Err()` → `unregister` → `s.mu.Lock()`。由于 `Stop()` 已持有锁，**这会导致死锁**。
+
+**代码路径**:
+1. `Stop()` 获取 `s.mu.Lock()`
+2. `conn.Close()` 关闭连接
+3. `handleConn` goroutine 中 `scanner.Scan()` 返回 false → defer `unregister`
+4. `unregister` 尝试 `s.mu.Lock()` → **死锁**
+
+**建议修复**:
+
+先收集所有连接，释放锁后再关闭：
+```go
+func (s *Server) Stop() {
+    close(s.done)
+    s.mu.Lock()
+    if s.listener != nil {
+        s.listener.Close()
+    }
+    conns := make([]net.Conn, 0, len(s.connections))
+    for conn := range s.connections {
+        conns = append(conns, conn)
+    }
+    s.connections = make(map[net.Conn]*Player)
+    s.mu.Unlock()
+
+    // 在锁外关闭连接，避免与 unregister 死锁
+    for _, conn := range conns {
+        conn.Close()
+    }
+    log.Println("server stopped")
+}
+```
+
+**原因**: 当前代码在持有锁期间关闭连接，而 `unregister` 也需要获取同一把锁，造成死锁。实际上因为 `Stop()` 遍历关闭连接后清空了 map，`unregister` 的 `delete` 不会找到 conn 所以操作空 map 无害，但锁竞争本身仍是问题 — `unregister` 的 `s.mu.Lock()` 会阻塞直到 `Stop` 释放锁。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 3: `TestHandleConnMessages` 中 TestConn 被关闭导致 handleConn 的第二个 goroutine 提前退出
+
+**位置**: `server/server_test.go:94-124`
+
+**问题描述**:
+`TestHandleConnMessages` 只创建了一个连接，但 `TestHandleConnMessages` 的 `TestHandleConnMessages` 中连接 `conn` 在 `defer conn.Close()` 后，test 函数返回时连接被关闭。`TestHandleConnMessages` 的 `TestStop` 中连接未被 defer 关闭（是故意的），但测试中只等了 50ms — 如果 server 处理慢可能导致时序问题。
+
+更关键的是，`TestHandleConnMessages` 中连接 `conn` 有 `defer conn.Close()`，但当 `srv.Stop()` (defer) 执行时连接会被 `Stop()` 关闭。这不是 bug 但属于冗余关闭。
+
+#### 问题 4: `startTestServer` 先 listen 再 close 再重新 listen 有端口竞争风险
+
+**位置**: `server/server_test.go:14-37`
+
+**问题描述**:
+`startTestServer` 先 `net.Listen` 获取一个空闲端口，然后立即 `Close()`，再用该端口创建 Server。在 close 和重新 listen 之间有一个时间窗口，其他进程可能占用该端口。
+
+**建议修复**:
+
+让 Server.Start() 接受一个 net.Listener 参数，或者让 NewServer 支持传入 ":0" 由 Start() 绑定随机端口后通过回调/channel 返回实际地址。
+
+---
+
+### 建议改进 (可选)
+
+- `Stop()` 方法没有处理重复调用（`close(s.done)` 会 panic）。可以加 `sync.Once` 或检查 channel 状态。
+- `handleConn` 中收到消息后只打印日志，没有回调或 channel 通知机制。目前 T-003 没有要求消息处理，所以可以接受，但后续任务需要考虑扩展点。
+- `Broadcast` 和 `Send` 中的写错误没有断开连接，可能导致注册表中残留不可用连接。
+
+---
+
+### 验收条件检查
+
+| 条件 | 状态 | 说明 |
+|------|------|------|
+| Stop() 关闭 listener 停止接受新连接 | ✅ | 功能已实现 |
+| Stop() 关闭所有已注册客户端连接 | ⚠️ | 有死锁风险 |
+| Stop() 清理连接注册表 | ✅ | 已实现 |
+| context/done channel 控制 Start 退出 | ✅ | 使用 done channel |
+| Start/Stop 生命周期测试 | ✅ | TestStartAndStop + TestStop |
+| 多客户端连接与断开测试 | ✅ | TestMultipleClients |
+| Broadcast 和 Send 消息测试 | ✅ | TestBroadcast + TestSend |
+| 客户端异常断开不 panic | ✅ | TestClientDisconnect + TestInvalidMessageNoPanic |
+| 测试覆盖率 ≥ 70% | ✅ | 90.7% |
+| go vet 无错误 | ✅ | 通过 |
+| go build 无错误 | ✅ | 通过 |
+| **`go test -race` 无错误** | **❌** | **数据竞争** |
+
+---
+
+### 评分明细
+
+| 维度 | 得分 | 说明 |
+|------|------|------|
+| 正确性 (35%) | 65 | 功能基本正确，但存在数据竞争和潜在死锁 |
+| 测试质量 (25%) | 85 | 覆盖率 90.7%，场景全面，但依赖 time.Sleep 不够稳定 |
+| 代码质量 (20%) | 85 | 结构清晰，命名合理，遵循 Go 惯用法 |
+| 安全性 (10%) | 95 | 无安全风险，输入验证通过 game.Decode |
+| 性能 (10%) | 90 | 无明显性能问题 |
+
+**总分** = 65×0.35 + 85×0.25 + 85×0.20 + 95×0.10 + 90×0.10 = 22.75 + 21.25 + 17.0 + 9.5 + 9.0 = **79.5 → 75** (race 条件是硬伤，加重扣分)
+
+---
+
+### 审核结论
+
+- [x] 需要修改 - 存在必须修复的问题
+
+**下一步行动**:
+1. **必须修复**: 解决 `listener` 字段数据竞争（加锁保护或使用 ready channel）
+2. **必须修复**: 避免在持有 `mu` 锁时关闭连接（防止死锁）
+3. **必须修复**: 确保 `go test -race ./server/...` 通过
+4. 建议增加 `sync.Once` 防止 `Stop()` 重复调用 panic
+
+---
+
+## Learnings
+
+- **模式**: TCP 服务器中 `Start()` 和 `Stop()` 跨 goroutine 共享 `listener` 字段是常见的数据竞争源，必须在设计时就加锁或使用 channel 同步
+- **踩坑**: 在持有 mutex 时关闭网络连接会与连接处理 goroutine 的 defer 清理（也需要锁）产生死锁。应该先收集、释放锁、再关闭
+- **经验**: `-race` 检测应作为测试的必选项，不可省略。端口 0 绑定是测试 TCP 服务端的标准方式，但需注意端口复用竞争
