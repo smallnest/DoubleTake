@@ -1,0 +1,144 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead client/display.go
+[0m→ [0mRead client
+Let me first examine the existing implementation and tests.
+[0m→ [0mRead client/display_test.go
+[0m
+[0m$ [0mgo build ./...
+(no output)
+[0m
+[0m$ [0mgo vet ./client/...
+(no output)
+[0m
+[0m$ [0mgo test -v -cover ./client/
+=== RUN   TestNewClient
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestConnectSuccess
+--- PASS: TestConnectSuccess (0.00s)
+=== RUN   TestConnectFailure
+--- PASS: TestConnectFailure (0.00s)
+=== RUN   TestSendNotConnected
+--- PASS: TestSendNotConnected (0.00s)
+=== RUN   TestSendAndReceive
+--- PASS: TestSendAndReceive (0.00s)
+=== RUN   TestReceiveFromServer
+--- PASS: TestReceiveFromServer (0.00s)
+=== RUN   TestDisconnect
+--- PASS: TestDisconnect (0.00s)
+=== RUN   TestServerDisconnectDetectsEOF
+--- PASS: TestServerDisconnectDetectsEOF (0.00s)
+=== RUN   TestMultipleMessages
+--- PASS: TestMultipleMessages (0.00s)
+=== RUN   TestInvalidMessagesSkipped
+--- PASS: TestInvalidMessagesSkipped (0.00s)
+=== RUN   TestPrintStartup
+--- PASS: TestPrintStartup (0.00s)
+=== RUN   TestInfo
+--- PASS: TestInfo (0.00s)
+=== RUN   TestInfoStealth
+--- PASS: TestInfoStealth (0.00s)
+=== RUN   TestWarn
+--- PASS: TestWarn (0.00s)
+=== RUN   TestData
+--- PASS: TestData (0.00s)
+=== RUN   TestDataStealth
+--- PASS: TestDataStealth (0.00s)
+=== RUN   TestListPlayers
+--- PASS: TestListPlayers (0.00s)
+=== RUN   TestListPlayersEmpty
+--- PASS: TestListPlayersEmpty (0.00s)
+=== RUN   TestNewDisplayNilWriter
+--- PASS: TestNewDisplayNilWriter (0.00s)
+PASS
+coverage: 85.7% of statements
+ok  	github.com/smallnest/doubletake/client	(cached)	coverage: 85.7% of statements
+[0m
+[0m✱ [0mGrep "func Test.*Prompt"[90m in . · 0 matches[0m
+[0m✱ [0mGrep "Prompt\("[90m in client · 0 matches[0m
+[0m
+[0m$ [0mgo tool cover -func=$(go test -coverprofile=/tmp/cover.out ./client/ 2>&1 | grep -o 'cover.*' || echo "") 2>/dev/null || go test -coverprofile=/tmp/cover.out ./client/ >/dev/null 2>&1 && go tool cover -func=/tmp/cover.out
+github.com/smallnest/doubletake/client/client.go:21:	NewClient	100.0%
+github.com/smallnest/doubletake/client/client.go:29:	Connect		100.0%
+github.com/smallnest/doubletake/client/client.go:40:	Send		85.7%
+github.com/smallnest/doubletake/client/client.go:53:	Messages	100.0%
+github.com/smallnest/doubletake/client/client.go:59:	Disconnect	100.0%
+github.com/smallnest/doubletake/client/client.go:71:	receiveLoop	88.9%
+github.com/smallnest/doubletake/client/display.go:20:	NewDisplay	100.0%
+github.com/smallnest/doubletake/client/display.go:28:	PrintStartup	100.0%
+github.com/smallnest/doubletake/client/display.go:34:	Prompt		0.0%
+github.com/smallnest/doubletake/client/display.go:44:	Info		100.0%
+github.com/smallnest/doubletake/client/display.go:53:	Warn		100.0%
+github.com/smallnest/doubletake/client/display.go:58:	Data		100.0%
+github.com/smallnest/doubletake/client/display.go:67:	ListPlayers	100.0%
+total:							(statements)	85.7%
+[0m
+## 审核报告
+
+### Issue
+- **编号**: #6
+- **迭代次数**: 2
+- **子任务**: T-001 — 实现 client/display.go 核心伪装输出函数集
+
+### 总体评价
+**评分: 91/100**
+
+### 严重问题 (必须修复)
+
+无。所有验收条件均已满足，代码编译通过（`go build ./...` 和 `go vet ./client/...` 无错误），全部 19 个测试通过。
+
+### 一般问题 (建议修复)
+
+1. **`Prompt()` 零测试覆盖** (`client/display.go:34`)
+   - 问题: `Prompt()` 是核心函数之一，但覆盖率为 **0.0%**，是整个 display.go 中唯一未覆盖的函数。
+   - 原因: 当前实现硬编码 `os.Stdin`，无法在测试中注入模拟输入。
+   - 建议: 至少增加一个基础测试（通过临时替换 stdin 的方式验证）。更彻底的方案可考虑将 reader 抽象为 `Display` 的可选字段。
+
+2. **`TestListPlayers` 中的索引生成方式脆弱** (`client/display_test.go:100`)
+   - 问题: 使用 `string(rune('0'+tt.idx))` 生成索引，当列表超过 10 项时会生成非数字字符（如 `idx=10` → `rune(58)` = `:`）。
+   - 建议: 导入 `strconv`，改用 `strconv.Itoa(tt.idx)`。不过当前测试数据仅有 3 项，该问题不会导致测试失败。
+
+### 建议改进 (可选)
+
+- `Warn()` 在 stealth 模式下行为与其他函数不一致（仍输出 `[WARN]` 前缀）。如果 stealth 模式的目的是完全隐藏 `[DATA]`/`[INFO]` 标签，建议保持一致。
+
+### 评分明细
+
+| 维度 | 权重 | 分数 | 加权得分 | 理由 |
+|------|------|------|----------|------|
+| 正确性 | 35% | 100 | 35.0 | 所有格式要求完全匹配；边界情况（nil players、空字符串）处理正确 |
+| 测试质量 | 25% | 70 | 17.5 | 8/9 函数有测试；`Prompt()` 无测试覆盖(0%)；`TestListPlayers` 断言方式较脆弱 |
+| 代码质量 | 20% | 90 | 18.0 | 命名清晰、结构一致；遵循 io.Writer 模式；Prompt 的 stdin 耦合是已知取舍 |
+| 安全性 | 10% | 100 | 10.0 | 仅写入配置的 io.Writer，无输入注入风险 |
+| 性能 | 10% | 100 | 10.0 | 无性能问题；简单的 fmt.Fprintf 调用 |
+| **总计** | **100%** | | **90.5** | **→ 91/100** |
+
+### 审核结论
+- [x] **通过** — 评分 ≥ 85，功能完全符合验收条件
+
+| 条件 | 状态 |
+|------|------|
+| `client/display.go` 存在且编译通过 | ✅ |
+| `PrintStartup()` 格式 `[sysmon] v2.4.1 — diagnostics mode` | ✅ |
+| `Prompt(nodeID)` 输出 `[node-XX]$` 并返回用户输入 | ✅ (但零测试覆盖) |
+| `Info(session, msg)` 格式 `[INFO] [session:XXXX] msg` | ✅ |
+| `Warn(msg)` 格式 `[WARN] msg` | ✅ |
+| `Data(nodeID, msg)` 格式 `[DATA] [node-XX] msg` | ✅ |
+| `ListPlayers(players)` 类 grep 输出 | ✅ |
+| `Display` 接受 `io.Writer` 参数 | ✅ |
+| 测试覆盖率 ≥ 70% | ✅ (85.7%) |
+
+### 实现者自检确认
+- [x] 实现者已执行编译/类型检查
+- [x] 实现者已执行 Lint 检查
+- [x] 实现者已运行相关测试
+- [x] 实现者已确认测试覆盖
+
+---
+
+## Learnings
+
+- **模式**: `Display` 结构体通过 `io.Writer` 实现输出可测试性 + `stealth bool` 控制输出风格 — 这是一种轻量级的策略模式，无需接口抽象即可切换行为
+- **踩坑**: `Prompt()` 硬编码 `os.Stdin` 导致无法编写单元测试。这是"终端交互函数"的通用测试难题，后续可考虑将 reader 也注入 `Display` 结构体以支持测试
+- **经验**: `TestListPlayers` 中 `string(rune('0'+idx))` 在 idx ≥ 10 时会生成非数字字符，应统一使用 `strconv.Itoa(idx)` 或 `fmt.Sprintf`

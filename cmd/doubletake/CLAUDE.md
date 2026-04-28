@@ -5,8 +5,15 @@
 - 核心逻辑在 `run(stdout, stderr io.Writer, args []string) int` 中，`main()` 只负责调用
 - `run` 接受 `io.Writer` 参数，便于测试捕获输出
 - 手动解析 flag（不使用 `flag` 包），避免 `flag.Parse()` 调用 `os.Exit` 导致测试无法捕获
+- 通过 `client.NewDisplay(stdout, stealth)` 创建 Display 实例进行输出，不直接 `fmt.Fprintf`
+
+## 命令行参数
+- `--role string` — judge 或 player（必填）
+- `--port int` — 服务端口（默认 8127）
+- `--stealth` — 启用伪装精简输出模式（布尔开关，无值）
+- `--help / -h` — 显示帮助
 
 ## 测试约定
 - 测试文件 `main_test.go` 使用 `bytes.Buffer` 捕获 stdout/stderr
 - 每个测试用例验证退出码和输出内容
-- 覆盖场景：正常参数、无效 role、默认 port、自定义 port、缺失值、未知选项、help
+- 覆盖场景：正常参数、无效 role、默认 port、自定义 port、缺失值、未知选项、help、stealth 开关
