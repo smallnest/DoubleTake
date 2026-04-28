@@ -1,0 +1,37 @@
+{
+  "issueNumber": 1,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "创建项目目录结构与 Go module 初始化",
+      "description": "确认 go.mod 模块路径正确，创建项目所需的目录结构（cmd/、server/、client/、game/），确保目录就绪并为后续代码文件提供放置位置。go.mod 已存在，需确认模块名是否符合要求（当前为 github.com/smallnest/doubletake，Issue 要求 github.com/smallnest/DoubleTake，需统一）。",
+      "acceptanceCriteria": [
+        "go.mod 存在且模块路径为 github.com/smallnest/doubletake（与现有 go.mod 保持一致）",
+        "目录 cmd/、server/、client/、game/ 均已创建",
+        "每个目录下有对应的包文件或 .gitkeep 占位",
+        "go build ./... 可正常执行（无编译错误）"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "实现 main.go 命令行入口与角色模式骨架",
+      "description": "在项目根目录创建 main.go，使用 flag 包解析 --role（judge/player）和 --port（默认 8127）参数。根据 --role 值进入对应模式骨架：judge 模式打印裁判模式提示信息，player 模式打印玩家模式提示信息。无参数或 --help 时显示用法说明。编写单元测试验证参数解析逻辑。",
+      "acceptanceCriteria": [
+        "main.go 解析 --role 参数，仅接受 judge 或 player，其他值报错并提示用法",
+        "main.go 解析 --port 参数，默认值为 8127",
+        "执行 ./doubletake --role judge 输出裁判模式提示信息（如 \"Starting DoubleTake in judge mode on port 8127\"）",
+        "执行 ./doubletake --role player 输出玩家模式提示信息（如 \"Starting DoubleTake in player mode on port 8127\"）",
+        "执行 ./doubletake 或 ./doubletake --help 显示用法说明",
+        "go build 编译通过，生成 doubletake 二进制文件",
+        "包含参数解析逻辑的单元测试，覆盖正常参数、无效 role、默认 port 等场景",
+        "go vet ./... 无警告"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

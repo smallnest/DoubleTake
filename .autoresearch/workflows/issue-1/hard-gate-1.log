@@ -1,0 +1,23 @@
+=== 硬门禁检查 (迭代 1) ===
+时间: 2026-04-29 00:46:33
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+
+结果: 通过
+
+--- 测试 ---
+命令: go test ./... -v
+?   	github.com/smallnest/doubletake/client	[no test files]
+?   	github.com/smallnest/doubletake/cmd/doubletake	[no test files]
+?   	github.com/smallnest/doubletake/game	[no test files]
+?   	github.com/smallnest/doubletake/server	[no test files]
+结果: 通过
+
+=== 汇总 ===
+状态: 全部通过
