@@ -1,3 +1,4 @@
 2026-04-29T01:01:12+08:00	1	#1 项目骨架与命令行入口	completed	6	true	100	100	feature/issue-1	
 2026-04-29T01:14:03+08:00	2	#2 TCP 通信协议定义与解析	completed	6	true	100	100	feature/issue-2	
 2026-04-29T01:27:09+08:00	3	#3 base62 房间密码编解码	completed	4	true	88	88	feature/issue-3	
+2026-04-29T01:50:57+08:00	4	#4 TCP 服务端基础 — 监听与连接管理	completed	6	true	92	92	feature/issue-4	

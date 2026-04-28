@@ -1,0 +1,34 @@
+# server
+
+## 架构约定
+- 包名与目录名一致，使用 `server` 包
+- Server 结构体管理 TCP 监听和所有客户端连接
+- Player 结构体代表一个已连接的客户端，目前包含 `Conn net.Conn` 字段
+- 连接注册表使用 `map[net.Conn]*Player`，通过 `sync.Mutex` 保护并发访问
+- 使用 `done` channel 实现 Stop() 的优雅关闭，Accept 循环通过 select 检查 done
+
+## 依赖关系
+- 依赖 `game` 包的 `Message` 类型、`Encode`/`Decode` 函数
+- 依赖标准库: `net`, `bufio`, `log`, `sync`
+
+## 消息处理流程
+1. Start() 监听 TCP 端口，循环 Accept 连接
+2. 每个连接启动独立 goroutine 运行 handleConn
+3. handleConn 使用 bufio.Scanner 按行读取，调用 game.Decode 解析
+4. 解析失败仅记录日志不关闭连接（允许客户端恢复）
+5. 客户端断开时（scanner.Scan() 返回 false），defer 中 unregister 清理连接
+
+## 并发安全模式
+- `listener` 字段由 `sync.Mutex` 保护，Start() 中赋值和 Stop() 中读取都在锁内
+- `ready` channel 确保 Stop() 等待 Start() 完成 listener 设置后再关闭，避免竞态
+- `stopOnce` (`sync.Once`) 防止 Stop() 重复调用导致 `close(done)` panic
+- Stop() 中先收集连接并清空 map（持锁），再在锁外逐个 Close，避免与 unregister() 死锁
+- unregister() 也获取 `s.mu`，因此绝不能在持锁期间调用 conn.Close()
+
+## 注意事项
+- Start() 是阻塞方法，需在 goroutine 中调用
+- Stop() 是幂等的（可安全多次调用）
+- Stop() 会阻塞直到 Start() 完成 listener 绑定（通过 `<-s.ready`）
+- Stop() 关闭 listener 后 Accept 会返回错误，通过 done channel 区分正常关闭与异常
+- Broadcast 和 Send 使用 game.Encode 编码消息，格式为 `TYPE|payload\n`
+- unregister 中会关闭连接的 Conn，不要重复 Close

@@ -1,0 +1,233 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m# [0mTodos
+[ ] Read existing codebase: server/, client/, game/ packages
+[ ] Review T-003 implementation against acceptance criteria
+[ ] Run tests, vet, build, race detection
+[ ] Write audit report with score
+[0m
+[0m→ [0mRead .
+[0m→ [0mRead server
+[0m→ [0mRead client
+[0m→ [0mRead cmd
+[0m→ [0mRead game
+[0m→ [0mRead server/server.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead client/client.go
+[0m→ [0mRead go.mod
+[0m→ [0mRead server/CLAUDE.md
+[0m→ [0mRead CLAUDE.md
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/protocol_test.go
+[0m→ [0mRead cmd/doubletake/main.go
+[0m✱ [0mGlob "**/tasks/**"[90m in . · 1 match[0m
+[0m✱ [0mGlob "**/progress.md"[90m in . · 5 matches[0m
+[0m→ [0mRead .autoresearch/workflows/issue-4/progress.md
+[0m→ [0mRead tasks/prd-undercover-game.md
+[0m
+[0m# [0mTodos
+[x] Read existing codebase: server/, client/, game/ packages
+[x] Review T-003 implementation against acceptance criteria
+[ ] Run tests, vet, build, race detection
+[ ] Write audit report with score
+[0m
+[0m$ [0mgo vet ./server/... 2>&1
+(no output)
+[0m
+[0m$ [0mgo build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo test -cover -count=1 ./server/... 2>&1
+ok  	github.com/smallnest/doubletake/server	1.237s	coverage: 90.5% of statements
+[0m
+[0m$ [0mgo test -race -count=1 -v ./server/... 2>&1
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 01:49:40 server listening on :64781
+2026/04/29 01:49:40 player connected: 127.0.0.1:64785
+2026/04/29 01:49:40 player connected: 127.0.0.1:64786
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64785
+2026/04/29 01:49:40 server stopped
+2026/04/29 01:49:40 connection error from 127.0.0.1:64786: read tcp 127.0.0.1:64781->127.0.0.1:64786: use of closed network connection
+--- PASS: TestStartAndAccept (0.06s)
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64786
+=== RUN   TestStop
+2026/04/29 01:49:40 server listening on :64789
+2026/04/29 01:49:40 player connected: 127.0.0.1:64791
+2026/04/29 01:49:40 player connected: 127.0.0.1:64792
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64791
+2026/04/29 01:49:40 connection error from 127.0.0.1:64792: read tcp 127.0.0.1:64789->127.0.0.1:64792: use of closed network connection
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64792
+2026/04/29 01:49:40 server stopped
+--- PASS: TestStop (0.06s)
+=== RUN   TestStopIdempotent
+2026/04/29 01:49:40 server listening on :64793
+2026/04/29 01:49:40 server stopped
+--- PASS: TestStopIdempotent (0.01s)
+=== RUN   TestHandleConnMessages
+2026/04/29 01:49:40 server listening on :64796
+2026/04/29 01:49:40 player connected: 127.0.0.1:64798
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64798
+2026/04/29 01:49:40 player connected: 127.0.0.1:64799
+2026/04/29 01:49:40 received from 127.0.0.1:64799: JOIN player1
+2026/04/29 01:49:40 decode error from 127.0.0.1:64799: invalid message format
+2026/04/29 01:49:40 received from 127.0.0.1:64799: READY 
+2026/04/29 01:49:40 server stopped
+2026/04/29 01:49:40 connection error from 127.0.0.1:64799: read tcp 127.0.0.1:64796->127.0.0.1:64799: use of closed network connection
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64799
+--- PASS: TestHandleConnMessages (0.06s)
+=== RUN   TestClientDisconnect
+2026/04/29 01:49:40 server listening on :64800
+2026/04/29 01:49:40 player connected: 127.0.0.1:64802
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64802
+2026/04/29 01:49:40 player connected: 127.0.0.1:64803
+2026/04/29 01:49:40 player disconnected: 127.0.0.1:64803
+2026/04/29 01:49:41 server stopped
+--- PASS: TestClientDisconnect (0.17s)
+=== RUN   TestBroadcast
+2026/04/29 01:49:41 server listening on :64804
+2026/04/29 01:49:41 player connected: 127.0.0.1:64805
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64805
+2026/04/29 01:49:41 player connected: 127.0.0.1:64806
+2026/04/29 01:49:41 player connected: 127.0.0.1:64807
+2026/04/29 01:49:41 player connected: 127.0.0.1:64808
+2026/04/29 01:49:41 server stopped
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64807
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64808
+--- PASS: TestBroadcast (0.05s)
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64806
+=== RUN   TestSend
+2026/04/29 01:49:41 server listening on :64809
+2026/04/29 01:49:41 player connected: 127.0.0.1:64811
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64811
+2026/04/29 01:49:41 player connected: 127.0.0.1:64812
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64812
+2026/04/29 01:49:41 server stopped
+--- PASS: TestSend (0.06s)
+=== RUN   TestMultipleClients
+2026/04/29 01:49:41 server listening on :64813
+2026/04/29 01:49:41 player connected: 127.0.0.1:64815
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64815
+2026/04/29 01:49:41 player connected: 127.0.0.1:64816
+2026/04/29 01:49:41 player connected: 127.0.0.1:64817
+2026/04/29 01:49:41 player connected: 127.0.0.1:64818
+2026/04/29 01:49:41 player connected: 127.0.0.1:64819
+2026/04/29 01:49:41 player connected: 127.0.0.1:64820
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64817
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64818
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64816
+2026/04/29 01:49:41 server stopped
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64819
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64820
+--- PASS: TestMultipleClients (0.22s)
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 01:49:41 server listening on :64821
+2026/04/29 01:49:41 player connected: 127.0.0.1:64824
+2026/04/29 01:49:41 decode error from 127.0.0.1:64824: invalid message format
+2026/04/29 01:49:41 player connected: 127.0.0.1:64823
+2026/04/29 01:49:41 decode error from 127.0.0.1:64824: invalid message format
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64823
+2026/04/29 01:49:41 received from 127.0.0.1:64824:  |
+2026/04/29 01:49:41 decode error from 127.0.0.1:64824: invalid message format
+2026/04/29 01:49:41 decode error from 127.0.0.1:64824: invalid message format
+2026/04/29 01:49:41 received from 127.0.0.1:64824: JOIN test
+2026/04/29 01:49:41 server stopped
+2026/04/29 01:49:41 player disconnected: 127.0.0.1:64824
+--- PASS: TestInvalidMessageNoPanic (0.07s)
+PASS
+ok  	github.com/smallnest/doubletake/server	2.358s
+[0m
+[0m$ [0mgo vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo test -race -count=1 ./... 2>&1
+?   	github.com/smallnest/doubletake/client	[no test files]
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.476s
+ok  	github.com/smallnest/doubletake/game	2.081s
+ok  	github.com/smallnest/doubletake/server	2.421s
+[0m
+[0m$ [0mgo test -coverprofile=coverage2.out ./server/... 2>&1 && go tool cover -func=coverage2.out 2>&1
+ok  	github.com/smallnest/doubletake/server	1.049s	coverage: 90.5% of statements
+github.com/smallnest/doubletake/server/server.go:29:	NewServer	100.0%
+github.com/smallnest/doubletake/server/server.go:40:	Start		76.5%
+github.com/smallnest/doubletake/server/server.go:69:	Stop		100.0%
+github.com/smallnest/doubletake/server/server.go:97:	handleConn	100.0%
+github.com/smallnest/doubletake/server/server.go:117:	register	100.0%
+github.com/smallnest/doubletake/server/server.go:124:	unregister	100.0%
+github.com/smallnest/doubletake/server/server.go:133:	Broadcast	83.3%
+github.com/smallnest/doubletake/server/server.go:145:	Send		66.7%
+total:							(statements)	90.5%
+[0m
+[0m# [0mTodos
+[x] Read existing codebase: server/, client/, game/ packages
+[x] Review T-003 implementation against acceptance criteria
+[x] Run tests, vet, build, race detection
+[ ] Write audit report with score
+[0m
+## 审核报告
+
+### Issue
+- 编号: #4
+- 子任务: T-003 - 实现 Stop 优雅关闭与集成测试
+- 迭代次数: 6
+
+### 自检验证
+
+| 检查项 | 结果 |
+|--------|------|
+| `go build ./...` | ✅ 通过 |
+| `go vet ./...` | ✅ 无警告 |
+| `go test -race -count=1 ./server/...` | ✅ 9/9 PASS, 无 data race |
+| 测试覆盖率 `server` | ✅ 90.5% (≥70%) |
+
+### 验收条件逐项审核
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | `Stop()` 关闭 listener 并停止接受新连接 | ✅ | listener.Close() + done channel 退出 Accept 循环 |
+| 2 | `Stop()` 关闭所有已注册客户端连接 | ✅ | 收集后锁外逐个 Close，避免与 unregister 死锁 |
+| 3 | `Stop()` 清理连接注册表 | ✅ | `s.connections = make(map[net.Conn]*Player)` |
+| 4 | 使用 done channel 控制 Start 循环退出 | ✅ | select + done channel 区分正常关闭与异常 |
+| 5 | Start/Stop 生命周期测试 | ✅ | TestStartAndAccept, TestStop, TestStopIdempotent |
+| 6 | 多客户端连接与断开测试 | ✅ | TestMultipleClients (5连接3断开), TestClientDisconnect |
+| 7 | Broadcast/Send 消息发送测试 | ✅ | TestBroadcast (3客户端验证), TestSend |
+| 8 | 客户端异常断开不 panic | ✅ | TestInvalidMessageNoPanic (5种非法消息) |
+| 9 | 测试覆盖率 ≥ 70% | ✅ | 90.5% |
+| 10 | go vet + go build 无错误 | ✅ | 均通过 |
+
+### 总体评价
+
+**评分: 92/100**
+
+实现质量优秀，所有 10 项验收条件均通过。并发安全设计成熟（ready channel 确保 Start/Stop 时序、stopOnce 防重复 close、锁外关闭连接避免死锁），测试覆盖全面（90.5%），无 data race。
+
+| 维度 | 权重 | 得分 | 加权 |
+|------|------|------|------|
+| 正确性 | 35% | 95 | 33.25 |
+| 测试质量 | 25% | 90 | 22.50 |
+| 代码质量 | 20% | 90 | 18.00 |
+| 安全性 | 10% | 95 | 9.50 |
+| 性能 | 10% | 90 | 9.00 |
+| **总分** | **100%** | | **92.25 → 92** |
+
+### 建议改进（可选）
+
+1. **`Broadcast` 持锁期间执行 I/O** (`server/server.go:133-142`): 若某个客户端阻塞，会阻塞全局广播。建议改为先复制 conn 列表（持锁），再遍历写入（不持锁）。
+
+2. **`startTestServer` TOCTOU 窗口** (`server/server_test.go:14-37`): 先 listen 随机端口后关闭再让 Server 监听，期间端口可能被抢占。建议让 Server 直接 listen port 0 并暴露实际端口。
+
+3. **测试中用 `time.Sleep` 同步** (多处): 建议改用 retry/poll 模式减少脆弱性。
+
+### 审核结论
+- ✅ **通过** — 可直接进入人工审核
+
+---
+
+## Learnings
+
+- **模式**: `sync.Once` 用于确保 Stop() 幂等性 + `done` channel 区分 Accept 正常/异常退出，是 TCP 服务端优雅关闭的标准组合
+- **踩坑**: 测试覆盖率 `go tool cover -func=` 可精确到函数级别，方便追踪未覆盖分支
+- **经验**: 本次迭代评分 92，比第 3 次迭代的 88 和第 4 次的 75 均有提升，证实了「ready channel + listener 锁保护 + 锁外关闭连接」模式正确修复了之前的 data race
