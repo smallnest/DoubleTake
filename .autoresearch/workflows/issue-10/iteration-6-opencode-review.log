@@ -1,0 +1,112 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead game
+[0m✱ [0mGlob "game/*.go"[90m in . · 9 matches[0m
+[0m→ [0mRead game/role.go
+[0m→ [0mRead game/role_test.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/CLAUDE.md
+[0m
+[0m$ [0mgo vet ./game/...
+(no output)
+[0m
+[0m$ [0mgo test ./game/ -v -run TestAssignRoles 2>&1
+=== RUN   TestAssignRoles_Success
+--- PASS: TestAssignRoles_Success (0.00s)
+=== RUN   TestAssignRoles_Shuffled
+--- PASS: TestAssignRoles_Shuffled (0.00s)
+=== RUN   TestAssignRoles_NoUndercover
+--- PASS: TestAssignRoles_NoUndercover (0.00s)
+=== RUN   TestAssignRoles_Errors
+=== RUN   TestAssignRoles_Errors/empty_names
+=== RUN   TestAssignRoles_Errors/nil_names
+=== RUN   TestAssignRoles_Errors/empty_name_in_list
+=== RUN   TestAssignRoles_Errors/negative_undercover
+=== RUN   TestAssignRoles_Errors/negative_blank
+=== RUN   TestAssignRoles_Errors/undercover+blank_equals_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_exceeds_total
+--- PASS: TestAssignRoles_Errors (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/nil_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_name_in_list (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_undercover (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_blank (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_equals_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_exceeds_total (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	(cached)
+[0m
+[0m# [0mTodos
+[x] 审核 AssignRoles 实现的正确性（逐条验收条件）
+[x] 审核测试质量（覆盖率、边界情况、错误路径）
+[x] 运行 go vet 和 go test 验证
+[ ] 输出审核报告
+[0m
+[0m# [0mTodos
+[x] 审核 AssignRoles 实现的正确性（逐条验收条件）
+[x] 审核测试质量（覆盖率、边界情况、错误路径）
+[x] 运行 go vet 和 go test 验证
+[x] 输出审核报告
+[0m
+## 审核报告
+
+### Issue
+- 编号: #10
+- 子任务: T-002 - 实现 AssignRoles 随机角色分配函数
+
+### 总体评价
+**评分: 57/100**
+
+### 严重问题 (必须修复)
+
+**1. 参数校验逻辑与验收条件不符 (`game/role.go:63`)**
+
+验收条件要求"当卧底+白板 >= 平民人数时返回错误"，即 `numUndercover + numBlank >= numCivilian`。当前实现检查的是 `numCivilian <= 0`，即 `numUndercover + numBlank >= len(names)`。
+
+示例：6 名玩家、3 卧底、1 白板 → C = 2。此时 U+B=4 >= C=2，应报错，但当前代码 `numCivilian=2 > 0` 通过检查，不会报错。
+
+**2. 测试中存在死代码 (`game/role_test.go:139`)**
+
+```go
+if !errors.Is(err, err) && err.Error() == "" {
+```
+`errors.Is(err, err)` 永远返回 `true`，整个条件永远为 `false`，这行是死代码。测试结构体中的 `wantErrSubstr` 字段从未被使用，错误消息内容完全没有被验证。
+
+### 一般问题 (建议修复)
+
+**3. 缺少 U+B >= C 边界测试用例**
+
+当前 `TestAssignRoles_Errors` 只覆盖了 `U+B >= total` 的情况，没有覆盖 `U+B >= C` 但 `U+B < total` 的情况（如 P=6, U=3, B=1）。需要补充用例。
+
+**4. Shuffle 测试的 name 生成方式 (`game/role_test.go:82`)**
+
+```go
+names[i] = string(rune('a' + i))
+```
+对于 i >= 26 会生成非字母字符。当前 i 最大 19 无问题，但若未来增大测试规模可能引入不可见字符。建议使用 `fmt.Sprintf("p%d", i)` 或字母表切片。
+
+**5. Player 初始化未显式设置 Word 为零值**
+
+`AssignRoles` 在创建 Player 时未设置 `Word` 字段（留空字符串），语义上该字段属于后续阶段设置，但建议在函数文档（注释）中显式说明 Word 留空的原因，避免调用者困惑。
+
+### 建议改进 (可选)
+
+**6. Shuffle 测试的确定性不足**
+
+`TestAssignRoles_Shuffled` 依赖 5 次 trial 的随机结果，理论上仍有可能 flake（概率极低但存在）。可考虑固定随机种子后验证：保存一次 shuffle 结果，再运行一次并断言两次结果不同。
+
+### 审核结论
+- [x] 需要修改 — 参数校验逻辑有实际 bug，测试中有死代码
+
+**汇总**: 实现主体结构良好，函数签名正确、角色分配逻辑清晰、基本错误路径覆盖。但存在一个真实的参数校验 bug（验收条件未满足）和测试中的死代码问题。修复后需重新审核。
+
+---
+
+## Learnings
+
+- **模式**: `game/CLAUDE.md` 已更新角色分配约定，与验收条件对齐
+- **踩坑**: 参数校验条件 `numCivilian <= 0` 误将"卧底+白板不得>=平民数"实现为"卧底+白板不得>=总人数"，条件过于宽松
+- **踩坑**: 测试中 `errors.Is(err, err)` 是比较自身（始终 true），导致后续检查成为死代码；`wantErrSubstr` 字段未使用
+- **经验**: 审核时应构造"刚好触发边界条件"的测试用例，验证校验条件的正确性（如 P=6, U=3, B=1 应触发 U+B>=C 错误）
+审核完成。核心发现：`game/role.go:63` 的参数校验条件 `numCivilian <= 0` 与验收条件"卧底+白板 >= 平民人数时返回错误"不符 — 当前仅拦截了"卧底+白板 >= 总人数"的极端情况，遗漏了如 P=6, U=3, B=1 → C=2（U+B >= C 应报错）的边界场景。同时 `game/role_test.go:139` 存在死代码（`errors.Is(err, err)` 永远为 true 导致后续检查无效），`wantErrSubstr` 字段从未被使用。总分 **57/100**，需要修改后重新审核。
