@@ -319,3 +319,132 @@ func TestInvalidMessageNoPanic(t *testing.T) {
 		t.Errorf("expected 1 connection after invalid messages, got %d", count)
 	}
 }
+
+func readMsg(t *testing.T, conn net.Conn) game.Message {
+	t.Helper()
+	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	reader := bufio.NewReader(conn)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read message: %v", err)
+	}
+	msg, err := game.Decode(line)
+	if err != nil {
+		t.Fatalf("failed to decode message: %v", err)
+	}
+	return msg
+}
+
+func TestJoinSuccess(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgJoin {
+		t.Errorf("expected JOIN response, got %s", msg.Type)
+	}
+	if msg.Payload != "Alice" {
+		t.Errorf("expected payload 'Alice', got %q", msg.Payload)
+	}
+}
+
+func TestJoinDuplicateName(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	// First client joins as Alice
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn1.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1) // consume JOIN confirmation
+
+	// Second client tries to join with the same name
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "JOIN|Alice\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR response, got %s", msg.Type)
+	}
+	if msg.Payload != "名字已存在，请换一个" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+
+	// Second client can retry with a different name
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	msg = readMsg(t, conn2)
+	if msg.Type != game.MsgJoin {
+		t.Errorf("expected JOIN response after retry, got %s", msg.Type)
+	}
+	if msg.Payload != "Bob" {
+		t.Errorf("expected payload 'Bob', got %q", msg.Payload)
+	}
+}
+
+func TestJoinEmptyName(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR response, got %s", msg.Type)
+	}
+	if msg.Payload != "名字不能为空" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestJoinDisconnectCleanup(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	conn.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// New client should be able to use the name "Alice" after disconnect
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "JOIN|Alice\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgJoin {
+		t.Errorf("expected JOIN response for reused name, got %s", msg.Type)
+	}
+}

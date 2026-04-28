@@ -1,0 +1,132 @@
+我已经掌握了撰写审核所需的所有信息。
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #8
+- 标题: 玩家通过密码连接并加入房间
+- 迭代次数: 7
+- 子任务: T-003 — CLI 集成 player 模式并完成端到端验证
+
+---
+
+### 验收条件逐条检查
+
+| # | 验收条件 | 状态 | 备注 |
+|---|---------|------|------|
+| 1 | main.go 中 role=player 时调用 RunPlayer 函数 | ✅ | `main.go:88` — `return RunPlayer(stdout, stdin, stealth)` |
+| 2 | stealth 参数正确传递给 RunPlayer | ✅ | `main.go:88` — `stealth` 从 `run` 参数传递到 `RunPlayer` |
+| 3 | go build ./... 编译通过无错误 | ✅ | 验证通过 |
+| 4 | go vet ./... 无新增警告 | ✅ | 验证通过 |
+| 5 | go test ./... 所有测试通过 | ✅ | 全部 4 个包 PASS |
+| 6 | 玩家模式和裁判模式的现有功能不受影响 | ✅ | judge 测试和 server 测试全部通过 |
+
+---
+
+### 总体评价
+
+**评分: 92/100**
+
+T-003 实现完整、干净，所有验收条件均满足。`player.go` 的 `RunPlayer` 函数已正确创建并通过 `main.go` 的 `switch role` 分发调用。测试覆盖率高（96.6%），端到端 TCP 测试验证了完整的连接流程。
+
+---
+
+### 正确性 (得分: 95/100)
+
+**通过项**:
+- `main.go:83-89` 的 `switch role` 结构正确分发 `judge` 和 `player` 两种角色
+- `RunPlayer` 函数流程完整：输入房间码 → base62 解码 → TCP 连接 → 输入名字 → 发送 JOIN → 消息循环
+- 边界处理到位：空输入（exit 1）、空房间码（错误提示）、无效房间码（Decode 错误）、连接失败、空名字、服务端 ERROR 响应
+- `defer cc.Disconnect()` 确保资源释放
+- `stealth` 参数正确传递给 `client.NewDisplay`
+
+**小问题**:
+- `RunPlayer` 中 `scanner.Scan()` 返回 false 时直接 `return 1`，没有区分 EOF 和真实错误。不过对于当前 CLI 交互场景这是合理的。
+
+---
+
+### 测试质量 (得分: 93/100)
+
+**通过项**:
+- 覆盖率优秀：`RunPlayer` 94.7%，`run` 97.7%，整体 96.6%
+- `player_test.go` 包含 8 个测试用例，覆盖核心路径和边界：
+  - `EmptyStdin` — 输入流为空
+  - `EmptyRoomCode` — 空房间码
+  - `InvalidRoomCode` — 无效房间码
+  - `ConnectionRefused` — 连接失败
+  - `SuccessfulJoin` — 端到端成功流程（真实 TCP 服务器）
+  - `ServerErrorResponse` — 服务端返回 ERROR
+  - `EmptyPlayerName` — 空玩家名
+  - `StealthMode` / `NonStealthMode` — 隐身模式验证
+  - `ReceivesMultipleMessages` — 多消息接收
+- `main_test.go` 包含 stealth 相关测试：`TestRun_StealthFlag`、`TestRun_NoStealthByDefault`、`TestRun_StealthInHelp`、`TestRun_StealthWithJudge`
+- 使用 `startTestPlayerServer` 辅助函数创建临时 TCP 服务器进行真实端到端测试，不依赖 mock
+- 测试使用 `<-serverDone` 同步等待 goroutine 完成
+
+**小问题**:
+- `TestRunPlayer_StealthMode` / `TestRunPlayer_NonStealthMode` 只发送房间码不发送名字，测试的是"隐身模式下输出不含 `[INFO]`"而非完整流程中的隐身行为。不过这个验证足够说明 stealth 传递正确。
+
+---
+
+### 代码质量 (得分: 92/100)
+
+**通过项**:
+- `RunPlayer` 使用 `bufio.NewScanner(in)` 读取输入（而非 `Display.Prompt()`），符合 CLAUDE.md 中记录的约定
+- 错误处理清晰，每一步都有 `disp.Warn()` 提示用户
+- 代码结构清晰：初始化 Display → 读取输入 → 解码 → 连接 → 发送 → 消息循环
+- 返回 `int` 退出码，与 `RunJudge` 保持一致的函数签名风格
+- `main.go` 中 `strconv` import 用于 `strconv.Itoa(port)`，无多余依赖
+
+**小问题**:
+- `player.go:19` 和 `player.go:43` 中 `disp.Info("0000", ...)` 使用硬编码 session ID `"0000"`，不够灵活。但考虑到这是伪装输出的一部分，不影响功能。
+
+---
+
+### 安全性 (得分: 90/100)
+
+**通过项**:
+- 房间码通过 `game.DecodeRoomCode` 解码验证，无效输入会被拒绝
+- 玩家名有非空检查
+- TCP 连接地址来自解码后的房间码，不直接暴露给用户
+- 无敏感信息泄露风险
+
+**无重大安全问题**。
+
+---
+
+### 性能 (得分: 90/100)
+
+**通过项**:
+- 使用 `bufio.Scanner` 逐行读取，内存效率好
+- `Client.messages` channel buffered (64)，避免阻塞
+- `defer cc.Disconnect()` 确保连接关闭
+- 无不必要的内存分配
+
+**无性能问题**。
+
+---
+
+### 审核结论
+
+- [x] **通过** - 代码质量达标，可以进入人工审核
+
+**评分明细**:
+- 正确性: 95 × 0.35 = 33.25
+- 测试质量: 93 × 0.25 = 23.25
+- 代码质量: 92 × 0.20 = 18.4
+- 安全性: 90 × 0.10 = 9.0
+- 性能: 90 × 0.10 = 9.0
+- **总分: 92/100**
+
+**下一步行动**: 代码已达标，建议进入人工审核阶段。
+
+---
+
+## Learnings
+
+- **模式**: `RunPlayer` 使用 `bufio.NewScanner(in)` 而非 `Display.Prompt()` 读取输入，因为后者硬编码 `os.Stdin`。这是项目中的固定模式：CLI 函数（`RunPlayer`/`RunJudge`）使用 `io.Reader` 参数 + scanner，而 `Display.Prompt()` 仅用于交互式终端场景。
+- **经验**: 测试端到端流程时，`startTestPlayerServer` 模式（创建临时 TCP listener + goroutine 处理连接）比 mock 更可靠，能验证真实网络行为。
+- **经验**: 迭代 6 审核评分 46/100 是因为 `player.go` 未创建。迭代 7 中文件已存在且实现完整，说明实现者最终完成了前置任务。审核时应先确认所有前置文件存在。
+- **经验**: `main.go` 中 `strconv` import 是有意义的（用于 `strconv.Itoa(port)`），之前迭代曾误报为无用 import。

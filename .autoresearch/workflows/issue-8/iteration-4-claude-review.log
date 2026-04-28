@@ -1,0 +1,88 @@
+Now I have a complete understanding. The T-002 implementation files (`player.go` and `player_test.go`) **do not exist**. The iteration 3 review by opencode gave 93/100 but only reviewed the T-001 server-side code, not the actual T-002 implementation. The `player.go` file was never created.
+
+## 审核报告
+
+### Issue
+- 编号: #8
+- 标题: 玩家通过密码连接并加入房间
+- 迭代次数: 4
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+T-002 的核心实现文件 `cmd/doubletake/player.go` 和 `cmd/doubletake/player_test.go` **不存在**。所有 9 条验收条件均未满足。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: 实现文件不存在
+
+**位置**: `cmd/doubletake/player.go`
+
+**问题描述**:
+子任务 T-002 要求创建 `cmd/doubletake/player.go` 文件，实现 `RunPlayer(out io.Writer, in io.Reader)` 函数，但该文件从未被创建。`cmd/doubletake/` 目录下仅有 `main.go`、`main_test.go`、`judge.go`、`judge_test.go` 四个文件。
+
+**原因**: 上一次迭代（Iteration 3, opencode agent）审核时只验证了 T-001 的服务端代码和整体构建/测试通过，未实际检查 T-002 的实现文件是否存在，却给出了 93/100 的评分。
+
+#### 问题 2: 测试文件不存在
+
+**位置**: `cmd/doubletake/player_test.go`
+
+**问题描述**:
+验收条件要求"测试覆盖：密码解码失败、连接失败、重名重试、正常加入流程"，但 `player_test.go` 文件不存在。
+
+---
+
+### 验收条件逐项检查
+
+| # | 验收条件 | 状态 |
+|---|---------|------|
+| 1 | 创建 cmd/doubletake/player.go 文件，包含 RunPlayer 函数 | **未完成** - 文件不存在 |
+| 2 | 提示输入房间密码并调用 game.DecodeRoomCode 解码 | **未完成** - 文件不存在 |
+| 3 | 密码解码失败时显示错误提示并返回非零退出码 | **未完成** - 文件不存在 |
+| 4 | 连接失败时显示错误提示并返回非零退出码 | **未完成** - 文件不存在 |
+| 5 | 连接成功后提示输入玩家名字并发送 JOIN 消息 | **未完成** - 文件不存在 |
+| 6 | 收到 ERROR 消息时提示重新输入名字（循环直到成功） | **未完成** - 文件不存在 |
+| 7 | 加入成功后显示等待提示 | **未完成** - 文件不存在 |
+| 8 | 函数签名接受 io.Writer 和 io.Reader 参数便于测试 | **未完成** - 文件不存在 |
+| 9 | 测试覆盖：密码解码失败、连接失败、重名重试、正常加入流程 | **未完成** - 文件不存在 |
+
+---
+
+### 基础设施确认
+
+已验证以下基础设施完备，T-002 实现所需的所有依赖均已就绪：
+
+- `game.DecodeRoomCode()` — `game/base62.go:59` ✅
+- `client.Client` (含 `Connect()`, `Send()`, `Messages()`, `Disconnect()`) — `client/client.go` ✅
+- `client.Display` (含 `Prompt()`, `Warn()`, `Info()`) — `client/display.go` ✅
+- `game.Message`, `game.MsgJoin`, `game.MsgError` — `game/protocol.go` ✅
+- Server 端 `handleJoin` 已支持 JOIN/ERROR 响应 — `server/server.go:155` ✅
+- `RunJudge` 参考模式 — `cmd/doubletake/judge.go:87` ✅
+
+**注意**: `Display.Prompt()` 当前从 `os.Stdin` 读取（`display.go:37`），而 `RunPlayer` 的需求描述提到通过 `in io.Reader` 参数读取输入。实现时需要注意：要么修改 `Prompt()` 支持 `io.Reader` 参数，要么在 `RunPlayer` 中直接使用 `bufio.Scanner` 读取输入（类似 `RunJudge` 的做法）。
+
+---
+
+### 审核结论
+
+- [ ] 阻塞 - 实现文件完全缺失，需要从零开始实现
+
+**下一步行动**:
+需要创建 `cmd/doubletake/player.go` 实现 `RunPlayer()` 函数，以及 `cmd/doubletake/player_test.go` 编写完整测试。建议参考 `judge.go` 的 `RunJudge` 模式：
+
+1. **player.go**: 使用 `bufio.Scanner(in)` 读取输入，`Display` 用于输出
+2. **流程**: 输入房间密码 → `DecodeRoomCode` → `Client.Connect` → 输入名字 → 发送 JOIN → 监听 Messages channel → ERROR 则重试 → JOIN 成功则显示等待
+3. **player_test.go**: 使用真实 TCP 服务器（参考 `server_test.go` 的 `startTestServer` 模式）测试连接和消息交互
+
+---
+
+## Learnings
+
+- **模式**: `RunJudge` 使用 `bufio.NewScanner(in)` 而非 `Display.Prompt()` 读取输入，`RunPlayer` 应遵循相同模式
+- **踩坑**: 上一次审核 Agent（opencode）只验证了整体构建和 T-001 测试通过，未检查 T-002 的实现文件是否存在，导致 93/100 评分严重虚高。审核时必须逐条对照验收条件检查
+- **经验**: `Display.Prompt()` 硬编码从 `os.Stdin` 读取，不适用于 `io.Reader` 测试场景，`RunPlayer` 应使用 `scanner` 直接读取输入

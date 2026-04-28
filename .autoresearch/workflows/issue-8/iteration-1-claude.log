@@ -1,0 +1,28 @@
+## 实现总结 — T-001 服务端 JOIN 消息处理与玩家重名校验
+
+### 改动文件
+
+**`server/server.go`** — 核心实现：
+- `Player` 结构体新增 `Name string` 字段
+- `Server` 结构体新增 `names map[string]bool` 用于重名校验
+- `handleConn` 中增加 `switch msg.Type` 路由，分发 `JOIN` 消息到 `handleJoin`
+- 新增 `handleJoin` 方法：空名字返回 ERROR，重名返回 ERROR，正常则设置名字并返回 JOIN 确认
+- `unregister` 中清理已注册名字（断开连接后名字可被复用）
+
+**`server/server_test.go`** — 新增 4 个测试：
+- `TestJoinSuccess` — 正常加入，验证返回 JOIN 确认
+- `TestJoinDuplicateName` — 重名拒绝 + 换名后成功加入
+- `TestJoinEmptyName` — 空名字返回 ERROR
+- `TestJoinDisconnectCleanup` — 断开后名字可被新玩家复用
+
+### 自检结果
+- `go build ./...` — 通过
+- `go vet ./...` — 通过
+- `go test ./...` — 全部通过（12 个 server 测试）
+- 测试覆盖率：**92.5%**
+
+## Learnings
+
+- **模式**: Server 使用 `names map[string]bool` 与 `connections map` 共享同一个 `sync.Mutex`，避免多锁死锁
+- **踩坑**: `handleJoin` 中检查重名后必须先 `Unlock` 再调用 `Send()`，因为 `Send` 可能阻塞在网络 I/O 上，持锁期间做 I/O 有死锁风险
+- **经验**: 测试中使用 `readMsg` helper 统一处理带超时的消息读取，简化断言逻辑
