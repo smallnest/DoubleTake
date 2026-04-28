@@ -1,0 +1,28 @@
+## 子任务 T-001 完成总结
+
+**已创建** `game/role.go`，包含：
+
+1. **`Role` 类型** — 基于 `int` 的枚举类型，定义三种角色常量：
+   - `Civilian` (平民)
+   - `Undercover` (卧底)
+   - `Blank` (白板)
+
+2. **`Role.String()` 方法** — 实现 `fmt.Stringer` 接口，返回可读的角色名称
+
+3. **`Player` 结构体** — 包含 5 个字段：
+   - `Name string` — 玩家名称
+   - `Role Role` — 角色类型
+   - `Word string` — 分配的词语
+   - `Alive bool` — 是否存活
+   - `Connected bool` — 是否已连接
+
+**自检验证**：
+- [x] `go build ./...` 编译通过
+- [x] `go vet ./...` 无错误
+- [x] `go test ./...` 全部通过
+- [x] Role 实现了 `fmt.Stringer` 接口
+
+## Learnings
+
+- **模式**: 项目使用 `game` 包存放核心游戏逻辑，已有 `protocol.go`、`base62.go`、`network.go` 等文件，新增 `role.go` 遵循一个文件聚焦一个关注点的模式
+- **经验**: `game.go` 当前为空文件（只有 `package game`），新的角色和玩家定义放在独立的 `role.go` 中更清晰

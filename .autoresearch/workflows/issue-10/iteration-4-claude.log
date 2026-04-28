@@ -1,0 +1,27 @@
+所有任务已完成。这是本次实现的总结：
+
+## 变更内容
+
+### `game/role.go` — 添加了 `AssignRoles` 函数
+- **参数校验**: 空名字列表、空字符串名字、负数参数、卧底+白板>=总数
+- **随机洗牌**: 使用 `math/rand.Shuffle` 打乱名字索引
+- **角色分配**: 前 N 个为卧底，接下来 M 个为白板，其余为平民
+- **初始化**: `Alive=true`, `Connected=false`
+
+### `game/role_test.go` — 新测试文件
+- `TestRole_String`: 验证 Role 的 String() 方法
+- `TestAssignRoles_Success`: 验证正确分配和字段值
+- `TestAssignRoles_Shuffled`: 统计验证随机打乱生效
+- `TestAssignRoles_NoUndercover`: 全平民场景
+- `TestAssignRoles_Errors`: 表格驱动测试覆盖所有错误路径
+
+### 验证
+- `go vet` 通过
+- `go build` 通过
+- `gofmt` 通过
+- 所有测试通过
+
+## 学习要点
+- **模式**: 项目使用表格驱动测试风格，错误消息用描述性字符串而非哨兵错误变量
+- **经验**: `gofmt` 是前置检查，`math/rand.Shuffle` 是 Go 标准的随机打乱方式
+- **经验**: 索引洗牌模式（洗牌索引而非直接洗牌名字切片）可以避免分配额外的字符串切片

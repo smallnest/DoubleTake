@@ -1,0 +1,57 @@
+{
+  "issueNumber": 10,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "定义 Role 类型和 Player 结构体",
+      "description": "在 game/role.go 中定义三种角色类型（Civilian 平民、Undercover 卧底、Blank 白板）的 Role 类型，以及 Player 结构体（包含 Name、Role、Word、Alive、Connected 字段）。Role 类型应实现 Stringer 接口以便于调试输出。",
+      "acceptanceCriteria": [
+        "game/role.go 文件存在且编译通过",
+        "定义了 Role 类型常量 Civilian、Undercover、Blank",
+        "Player 结构体包含 Name(string)、Role(Role)、Word(string)、Alive(bool)、Connected(bool) 字段",
+        "Role 类型实现了 fmt.Stringer 接口",
+        "代码通过 go vet 检查"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "实现 AssignRoles 随机角色分配函数",
+      "description": "在 game/role.go 中实现 AssignRoles(names []string, numUndercover, numBlank int) ([]*Player, error) 函数。逻辑：1) 校验参数合法性（名字非空、人数合理、卧底+白板 < 平民）；2) 随机打乱玩家顺序；3) 前 N 个分配为卧底，接下来 M 个分配为白板，其余为平民；4) 返回 []*Player 列表。",
+      "acceptanceCriteria": [
+        "AssignRoles 函数签名正确：AssignRoles(names []string, numUndercover, numBlank int) ([]*Player, error)",
+        "当卧底+白板 >= 平民人数时返回错误",
+        "当名字列表为空或包含空字符串时返回错误",
+        "当 numUndercover 或 numBlank 为负数时返回错误",
+        "玩家列表被随机打乱（非原始顺序）",
+        "正确分配卧底、白板、平民数量",
+        "所有返回的 Player 的 Alive=true, Connected=false",
+        "代码通过 go vet 检查"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "编写角色分配的完整测试用例",
+      "description": "在 game/role_test.go 中编写全面的测试。包括：4 人场景（1 卧底 0 白板）、10 人场景（3 卧底 1 白板）、边界场景（最少 4 人全平民、刚好满足条件）、错误路径（卧底过多、白板过多、空名字列表、负数参数）。验证每种角色数量正确、所有 Player 字段正确、随机性（多次调用结果不同）。",
+      "acceptanceCriteria": [
+        "测试 4 人分配（1 卧底 0 白板）：验证角色数量正确",
+        "测试 10 人分配（3 卧底 1 白板）：验证角色数量正确",
+        "测试错误场景：卧底+白板 >= 平民时返回错误",
+        "测试错误场景：空名字列表或包含空字符串时返回错误",
+        "测试错误场景：负数参数时返回错误",
+        "测试 Player 字段：Name、Role、Alive(true)、Connected(false)",
+        "测试随机性：多次调用产生不同的分配结果",
+        "所有测试通过 go test ./game/...",
+        "测试覆盖 AssignRoles 函数 >= 90%"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}
