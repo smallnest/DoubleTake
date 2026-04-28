@@ -1,0 +1,17 @@
+T-002 实现完成。所有验收条件已满足：
+
+| 验收条件 | 状态 |
+|---|---|
+| VoteEvent 结构体（PlayerName、Target 字段） | ✅ `server.go:48-51` |
+| Server.OnVoteMsg channel (buffered 64) | ✅ `server.go:32, 64` |
+| handleConn 中 MsgVote case 路由到 handleVote | ✅ `server.go:150-151` |
+| handleVote 对未命名玩家返回 ERROR | ✅ `server.go:292-295` |
+| handleVote 对已命名玩家转发 VoteEvent | ✅ `server.go:298-301` |
+| 测试覆盖 VOTE 转发和未命名玩家拒绝 | ✅ `TestVote_UnnamedPlayer` + `TestVote_NamedPlayerForwarded` |
+| go vet 和 go test 通过 | ✅ 全包通过 |
+
+## Learnings
+
+- **模式**: server 包消息处理遵循统一模板：Event 结构体 → OnXxxMsg channel (buffered 64) → handleConn switch case → handleXxx 方法。DESC 和 VOTE 完全对称，后续新消息类型可直接复用此模式
+- **踩坑**: Edit 工具对 tab 缩进敏感，需先读取文件确认实际缩进再编辑
+- **经验**: `game.MsgVote` 已在 `protocol.go` 中定义，无需新增协议常量

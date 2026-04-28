@@ -1,0 +1,34 @@
+## T-001 实现完成
+
+### 创建的文件
+
+- **`game/vote.go`** — `VoteRound` 结构体及所有方法
+- **`game/vote_test.go`** — 22 个测试用例
+
+### 实现概要
+
+**`VoteRound` 结构体**:
+- `RoundNum` / `Voters` / `CurrentIndex` / `Votes` 字段
+
+**方法**:
+| 方法 | 说明 |
+|------|------|
+| `NewVoteRound(roundNum, alivePlayers)` | 构造，校验空名/重复名，拷贝切片 |
+| `CurrentVoter()` | 返回当前投票者 |
+| `RecordVote(voter, target, alivePlayers)` | 5 层校验：空目标→非轮到→投自己→投已出局→投不存在 |
+| `AllDone()` | 是否全部投完 |
+| `Tally()` | 统计票数 map |
+| `FindEliminated()` | 返回最高票者，平票返回空字符串 |
+
+**测试覆盖**: 正常流程、空目标(表格驱动)、非当前投票者、投自己、投已出局、投不存在、0人/1人边界、平票、全平票、无投票、完整轮次集成
+
+### 自检结果
+- `go build ./...` ✅
+- `go vet ./...` ✅  
+- `go test ./...` ✅ — 覆盖率 94.5% (game 包)
+
+## Learnings
+
+- **模式**: `DescRound` 和 `VoteRound` 共享 `ErrNotYourTurn` 错误变量（定义在 `game.go`），后续更多轮次类型也可复用
+- **踩坑**: 测试函数不能与同包已有函数同名（`TestAllDone_OnePlayer` 在 `game_test.go` 已存在），需加后缀区分
+- **经验**: 区分「已出局」vs「不存在」玩家需要两个数据源：`alivePlayers`（当前存活）和 `Voters`（轮次参与者）。在 Voters 中但不在 alive 中 = 已出局；都不在 = 不存在

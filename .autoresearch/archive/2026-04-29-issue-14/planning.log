@@ -1,0 +1,86 @@
+现在我对代码库有了全面的了解。让我分析一下 PK 机制的 Issue #14。
+
+根据我的分析：
+
+**当前状态：**
+- 协议已定义 `MsgPKStart` 和 `MsgPKVote`
+- `VoteRound.FindEliminated()` 在平局时已返回 `("", true)`
+- 游戏流程：descriptionPhase → votingPhase → (此处需要 PK)
+- 服务器已路由 DESC 和 VOTE 消息；需要路由 PK 特定消息
+
+**PK 机制需要：**
+1. 在 `FindEliminated` 中检测平局 → 识别出平局玩家
+2. 一个新的 `PKRound` 游戏逻辑（平局玩家的描述 + 所有存活玩家的投票）
+3. 裁判编排（多轮 PK 循环）
+4. 服务器处理 PK_DESC 和 PK_VOTE 消息
+5. 玩家端处理 PK_START、PK 描述、PK 投票
+
+这是 Issue 子任务规划：
+
+```json
+{
+  "issueNumber": 14,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "PK 状态管理与核心逻辑（game 包）",
+      "description": "在 game 包中实现 PK 机制的核心逻辑：(1) 在 VoteRound 中添加 FindTiedPlayers() 方法，返回平票玩家列表；(2) 新建 PKRound 结构体管理 PK 阶段状态，包含平票玩家列表、存活玩家列表、描述记录和投票记录；(3) PKRound 支持两阶段：PK 描述阶段（仅平票玩家描述，复用 DescRound 的发言顺序模式）和 PK 投票阶段（所有存活玩家对平票玩家投票，限制只能投平票玩家之一）；(4) PK 投票完成后检查是否仍有平票，若有则返回需继续 PK 的标志。包含完整的单元测试。",
+      "acceptanceCriteria": [
+        "FindTiedPlayers() 正确返回最高票数 >=2 人的玩家列表",
+        "PKRound 结构体包含 PK 轮次号、平票玩家列表、存活玩家列表",
+        "PK 描述阶段：仅平票玩家按顺序发言，RecordPKDesc 校验发言者必须是平票玩家",
+        "PK 投票阶段：所有存活玩家投票，RecordPKVote 校验只能投平票玩家之一（不能投自己）",
+        "PKRound.FindPKResult() 返回唯一最高票者或标记需要继续 PK",
+        "单元测试覆盖：平票检测、PK 描述流程、PK 投票校验、单轮 PK 分出结果、多轮 PK 平票场景",
+        "go test ./game/... 全部通过"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "裁判端 PK 编排流程（judge.go）",
+      "description": "在 cmd/doubletake/judge.go 中实现 PK 编排逻辑：(1) votingPhase 返回平票信息后，若有平票则进入 pkPhase 函数；(2) pkPhase 广播 PK_START|roundNum|tiedPlayerList 通知所有玩家；(3) 仅平票玩家执行描述（调用 descriptionPhase 的变体或新函数 pkDescriptionPhase，发言者仅限平票玩家）；(4) 所有存活玩家执行 PK 投票（新函数 pkVotingPhase，投票目标仅限平票玩家）；(5) PK 投票结果广播后检查是否仍有平票，若有则继续循环直到分出唯一最高票；(6) 最终淘汰 PK 败者并标记 Alive=false。在 RunJudge 中将 votingPhase 后的平票逻辑接入。包含集成测试。",
+      "acceptanceCriteria": [
+        "votingPhase 后检测到平票时，自动进入 pkPhase",
+        "PK_START 消息格式为 PK_START|pkRoundNum|tiedPlayer1,tiedPlayer2,...",
+        "仅平票玩家被要求描述，描述内容广播给所有人",
+        "所有存活玩家对平票玩家投票，投票目标限制为平票玩家之一",
+        "PK 投票结果以 RESULT 格式广播",
+        "若 PK 后仍有平票，自动进行下一轮 PK 直到分出结果",
+        "PK 结束后正确淘汰败者（p.Alive = false）",
+        "集成测试覆盖：单轮 PK 分出结果、多轮 PK 循环场景",
+        "go test ./cmd/doubletake/... 全部通过"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "服务端 PK 消息路由与玩家端 PK 交互",
+      "description": "实现 PK 阶段的服务端消息路由和玩家端交互：(1) server/server.go 中 OnPKDescMsg 和 OnPKVoteMsg channel 支持（或复用 OnDescMsg/OnVoteMsg 通过上下文区分）；(2) 玩家端 player.go 处理 PK_START 消息显示平票 PK 开始及平票玩家列表；(3) PK 描述阶段：平票玩家收到 TURN 时提示输入 PK 描述，非平票玩家显示等待提示；(4) PK 投票阶段：所有存活玩家收到 TURN 时提示投票（仅限平票玩家），显示"PK 投票"而非普通投票提示；(5) PK 结果 RESULT 消息正常显示；(6) 错误处理与重试逻辑。包含单元测试。",
+      "acceptanceCriteria": [
+        "服务端正确转发 PK_DESC 和 PK_VOTE 消息（或通过现有 channel + 上下文区分）",
+        "玩家端收到 PK_START 后显示 PK 开始信息和平票玩家列表",
+        "PK 描述阶段：平票玩家提示输入描述，非平票玩家显示等待",
+        "PK 投票阶段：所有存活玩家可投票，目标限制为平票玩家之一",
+        "空投票/投非平票玩家时客户端本地拦截并提示重新输入",
+        "PK RESULT 结果正确显示",
+        "多轮 PK 时客户端状态正确重置",
+        "go test ./... 全部通过，无 lint 错误"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
+
+**拆分说明：**
+
+- **T-001（优先级1）**：游戏包核心逻辑 — `FindTiedPlayers`、`PKRound` 结构体、PK 描述/投票阶段的状态管理和校验规则。这是最底层的基础，后续任务都依赖它。
+- **T-002（优先级2）**：裁判端编排 — 将 PK 逻辑接入游戏流程（votingPhase → pkPhase → 循环），处理多轮 PK 循环、广播、淘汰。依赖 T-001 的 PKRound。
+- **T-003（优先级3）**：服务端路由 + 玩家端交互 — 让消息在服务端正确转发，玩家端正确显示和响应 PK 相关消息。依赖 T-002 的裁判端协议。

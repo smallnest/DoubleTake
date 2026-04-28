@@ -26,6 +26,15 @@ const (
 	descSubmitted                   // description submitted, waiting for server response
 )
 
+// votePhase tracks the player's state during the voting phase.
+type votePhase int
+
+const (
+	voteIdle       votePhase = iota // not in vote phase or waiting for other players
+	voteWaitingInput                // waiting for user to type vote target
+	voteSubmitted                   // vote submitted, waiting for server response
+)
+
 func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 	disp := client.NewDisplay(out, stealth)
 	disp.PrintStartup()
@@ -72,16 +81,22 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 		return 1
 	}
 
-	// phase tracks the description phase state.
-	phase := descIdle
+	// descP tracks the description phase state; voteP tracks the voting phase state.
+	descP := descIdle
+	voteP := voteIdle
+	// inVotePhase is set to true when a VOTE message is received,
+	// indicating we have entered the voting phase.
+	inVotePhase := false
 
 	// stdinCh is lazily initialized when first needed
-	// (when we enter descWaitingInput during the desc phase).
+	// (when we enter a waiting-input state during either phase).
 	var stdinCh <-chan string
 
 	for {
+		waitingInput := descP == descWaitingInput || voteP == voteWaitingInput
+
 		// If we need stdin input, start the reader if not already running.
-		if phase == descWaitingInput && stdinCh == nil {
+		if waitingInput && stdinCh == nil {
 			ch := make(chan string, 1)
 			stdinCh = ch
 			go func() {
@@ -92,30 +107,43 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 			}()
 		}
 
-		if phase == descWaitingInput {
+		if waitingInput {
 			// Select between network messages and stdin input.
 			select {
 			case msg, ok := <-cc.Messages():
 				if !ok {
 					return 0
 				}
-				if !handleMessage(msg, disp, out, cc, playerName, &phase) {
+				if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
 					return 1
 				}
 			case line, ok := <-stdinCh:
 				if !ok {
 					return 0
 				}
-				if line == "" {
-					fmt.Fprintln(out, "  描述不能为空")
-					fmt.Fprint(out, "  请输入描述: ")
-					continue
+				if descP == descWaitingInput {
+					if line == "" {
+						fmt.Fprintln(out, "  描述不能为空")
+						fmt.Fprint(out, "  请输入描述: ")
+						continue
+					}
+					if err := cc.Send(game.Message{Type: game.MsgDesc, Payload: line}); err != nil {
+						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						return 1
+					}
+					descP = descSubmitted
+				} else if voteP == voteWaitingInput {
+					if line == "" {
+						fmt.Fprintln(out, "  投票目标不能为空")
+						fmt.Fprint(out, "  请输入投票目标: ")
+						continue
+					}
+					if err := cc.Send(game.Message{Type: game.MsgVote, Payload: line}); err != nil {
+						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						return 1
+					}
+					voteP = voteSubmitted
 				}
-				if err := cc.Send(game.Message{Type: game.MsgDesc, Payload: line}); err != nil {
-					disp.Warn(fmt.Sprintf("send failed: %v", err))
-					return 1
-				}
-				phase = descSubmitted
 			}
 		} else {
 			// Simple blocking read from network messages only.
@@ -123,7 +151,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 			if !ok {
 				return 0
 			}
-			if !handleMessage(msg, disp, out, cc, playerName, &phase) {
+			if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
 				return 1
 			}
 		}
@@ -132,7 +160,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 
 // handleMessage processes a single network message. It returns false if the
 // player should exit (fatal error).
-func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, phase *descPhase) bool {
+func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool) bool {
 	switch msg.Type {
 	case game.MsgJoin:
 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
@@ -154,28 +182,49 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		}
 	case game.MsgRound:
 		handleRoundMsg(disp, msg.Payload)
+	case game.MsgVote:
+		handleVoteMsg(disp, msg.Payload)
+		*voteP = voteIdle
+		*inVotePhase = true
 	case game.MsgTurn:
 		speaker := msg.Payload
-		if speaker == playerName {
-			// Our turn — prompt for input
-			fmt.Fprint(out, "  请输入描述: ")
-			*phase = descWaitingInput
+		if *inVotePhase {
+			// In voting phase
+			if speaker == playerName {
+				fmt.Fprint(out, "  请输入投票目标: ")
+				*voteP = voteWaitingInput
+			} else {
+				disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+				*voteP = voteIdle
+			}
 		} else {
-			disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
-			*phase = descIdle
+			// In description phase (or pre-phase)
+			if speaker == playerName {
+				fmt.Fprint(out, "  请输入描述: ")
+				*descP = descWaitingInput
+			} else {
+				disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
+				*descP = descIdle
+			}
 		}
 	case game.MsgDesc:
 		handleDescMsg(disp, msg.Payload)
 		// If we were in descSubmitted, our description was accepted
-		if *phase == descSubmitted {
-			*phase = descIdle
+		if *descP == descSubmitted {
+			*descP = descIdle
 		}
+	case game.MsgResult:
+		handleResultMsg(disp, msg.Payload)
 	case game.MsgError:
 		disp.Warn(msg.Payload)
-		if *phase == descSubmitted || *phase == descWaitingInput {
+		if *descP == descSubmitted || *descP == descWaitingInput {
 			// In desc phase: re-prompt for input
 			fmt.Fprint(out, "  请输入描述: ")
-			*phase = descWaitingInput
+			*descP = descWaitingInput
+		} else if *voteP == voteSubmitted || *voteP == voteWaitingInput {
+			// In vote phase: re-prompt for input
+			fmt.Fprint(out, "  请输入投票目标: ")
+			*voteP = voteWaitingInput
 		} else {
 			return false
 		}
@@ -210,4 +259,37 @@ func handleDescMsg(disp *client.Display, payload string) {
 	playerName := parts[0]
 	desc := parts[1]
 	disp.Data("00", fmt.Sprintf("%s: %s", playerName, desc))
+}
+
+// handleVoteMsg parses and displays the VOTE broadcast.
+// Payload format: "roundNum|alivePlayerList"
+func handleVoteMsg(disp *client.Display, payload string) {
+	parts := strings.SplitN(payload, "|", 2)
+	if len(parts) < 2 {
+		disp.Data("00", fmt.Sprintf("VOTE %s", payload))
+		return
+	}
+	roundNum := parts[0]
+	playerList := strings.Split(parts[1], ",")
+	orderStr := strings.Join(playerList, " → ")
+	disp.Data("00", fmt.Sprintf("投票环节 轮次 %s，可投票: %s", roundNum, orderStr))
+}
+
+// handleResultMsg parses and displays the RESULT broadcast.
+// Payload format: "playerA:count,playerB:count,..."
+func handleResultMsg(disp *client.Display, payload string) {
+	if payload == "" {
+		disp.Data("00", "投票结果: 无")
+		return
+	}
+	pairs := strings.Split(payload, ",")
+	disp.Data("00", "投票结果:")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, ":", 2)
+		if len(kv) < 2 {
+			disp.Data("00", fmt.Sprintf("  %s", pair))
+			continue
+		}
+		disp.Data("00", fmt.Sprintf("  %s: %s 票", kv[0], kv[1]))
+	}
 }

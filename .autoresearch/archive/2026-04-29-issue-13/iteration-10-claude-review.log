@@ -1,0 +1,138 @@
+我现在对情况已经完全了解了。让我来汇总审核报告。
+
+## 审核报告
+
+### Issue
+- 编号: #13
+- 标题: #13 投票环节 — 收集与统计
+- 子任务: T-004 - 玩家端投票交互 — 三态状态机与消息处理
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 10/100**
+
+**T-004 子任务未实现。** player.go 中没有任何投票相关代码：没有 `votePhase` 三态类型、没有 `MsgVote`/`MsgResult` 的 handleMessage 处理、没有投票输入交互、没有投票测试。当前 player.go 仅有描述阶段（desc phase）的实现。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: votePhase 三态类型完全缺失
+
+**位置**: `cmd/doubletake/player.go`
+
+**问题描述**:
+验收条件要求定义 `votePhase` 三态类型（`voteIdle`/`voteWaitingInput`/`voteSubmitted`），但代码中不存在任何投票相关的类型定义。当前只有 `descPhase` 及其三个状态。
+
+**原因**: 核心数据结构缺失，整个投票交互无法工作。
+
+---
+
+#### 问题 2: handleMessage 未处理 MsgVote 消息
+
+**位置**: `cmd/doubletake/player.go:136-186`
+
+**问题描述**:
+`handleMessage` 的 switch 语句中没有 `case game.MsgVote` 分支。VOTE 消息会落入 `default` 分支以原始格式输出，无法解析显示投票环节通知和存活玩家列表。
+
+服务端发送的 VOTE 消息格式为 `VOTE|roundNum|alivePlayerList`，需要解析并显示。
+
+**原因**: 玩家无法看到投票环节开始通知和可投票的存活玩家列表。
+
+---
+
+#### 问题 3: TURN 消息未区分投票阶段 vs 描述阶段
+
+**位置**: `cmd/doubletake/player.go:157-166`
+
+**问题描述**:
+当前 TURN 消息处理始终按描述阶段处理——自己回合提示"请输入描述"，他人回合显示"等待 X 描述..."。投票阶段需要不同的提示文案（"请输入投票目标" vs "等待 X 投票..."）。
+
+需要一个独立的状态机（`votePhase`）来区分当前处于哪个阶段，或者在 `handleMessage` 中增加阶段上下文。
+
+**原因**: 投票阶段的 TURN 消息会产生错误的用户界面提示。
+
+---
+
+#### 问题 4: 缺少投票输入交互（VOTE|targetName 发送）
+
+**位置**: `cmd/doubletake/player.go`
+
+**问题描述**:
+验收条件要求：
+- 投票输入使用 `select` 监听网络 + stdin
+- 空输入本地拦截
+- 发送 `VOTE|targetName` 消息
+- 进入 `voteSubmitted` 状态
+
+当前主循环中 `select` 仅服务于 `descWaitingInput` 状态。需要增加 `voteWaitingInput` 的 `select` 逻辑或复用现有 select 并根据阶段区分行为。
+
+**原因**: 核心投票交互完全缺失，玩家无法投票。
+
+---
+
+#### 问题 5: handleMessage 未处理 MsgResult 消息
+
+**位置**: `cmd/doubletake/player.go:136-186`
+
+**问题描述**:
+`handleMessage` 没有 `case game.MsgResult` 分支。RESULT 消息会落入 `default` 分支。服务端发送格式为 `RESULT|playerA:count,playerB:count,...`，需要解析并显示每人得票数和出局结果。
+
+**原因**: 玩家无法看到投票结果和出局信息。
+
+---
+
+#### 问题 6: ERROR 消息未区分投票阶段重新提示
+
+**位置**: `cmd/doubletake/player.go:173-181`
+
+**问题描述**:
+当前 ERROR 处理仅检查 `descSubmitted` 和 `descWaitingInput` 状态，需要扩展为也检查 `voteSubmitted` 和 `voteWaitingInput` 状态，并在投票阶段重新提示"请输入投票目标"。
+
+**原因**: 投票阶段的错误（如投给自己、投已出局的玩家）无法正确处理。
+
+---
+
+#### 问题 7: 完全没有投票相关的测试
+
+**位置**: `cmd/doubletake/player_test.go`
+
+**问题描述**:
+player_test.go 共有约 20 个测试函数，全部是连接、角色接收和描述阶段相关的测试。没有任何投票交互的测试用例（如 TestRunPlayer_VotePhase_OtherPlayerTurn、TestRunPlayer_VotePhase_OwnTurn、TestRunPlayer_VotePhase_ResultDisplay 等）。
+
+**原因**: 验收条件要求"测试覆盖投票交互的状态转换和消息处理"，当前覆盖率为 0%。
+
+---
+
+### 实现者自检确认
+- [x] `go vet ./...` 通过
+- [x] `go test ./...` 通过
+- [ ] 投票相关代码实现 — **未完成**
+- [ ] 投票相关测试覆盖 — **未完成**
+
+> 现有测试全部通过是因为没有新增任何投票相关代码。
+
+---
+
+### 审核结论
+
+- [ ] 阻塞 - 存在严重问题，需要完整实现 T-004
+
+**下一步行动**:
+T-004 需要从零实现。建议按以下顺序：
+
+1. 在 player.go 中添加 `votePhase` 三态类型（`voteIdle`/`voteWaitingInput`/`voteSubmitted`）
+2. 修改主循环和 `handleMessage`，增加 `MsgVote` 和 `MsgResult` 处理分支
+3. 修改 TURN 消息处理，根据当前阶段（desc vs vote）显示不同提示
+4. 添加投票输入的 `select` 监听逻辑（发送 `VOTE|targetName`）
+5. 扩展 ERROR 处理支持投票阶段的重新提示
+6. 编写投票交互测试覆盖所有状态转换
+
+## Learnings
+
+- **模式**: `player.go` 的描述阶段使用了"三态状态机 + select 监听网络/stdin + handleMessage 分发"模式，投票阶段应严格复用此模式，但需要独立的 phase 变量来区分两个阶段
+- **踩坑**: `handleMessage` 中 TURN 消息的处理需要知道当前处于描述阶段还是投票阶段，否则会显示错误的提示文案。需要将 descPhase 和 votePhase 都传入 handleMessage（或使用更高层的阶段枚举）
+- **经验**: 主循环中的 `select` 在 `descWaitingInput` 时启动 stdin goroutine，投票阶段需要类似机制。可以考虑将 stdinCh 提升为跨阶段共享，避免重复创建 goroutine

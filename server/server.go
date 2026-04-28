@@ -29,6 +29,7 @@ type Server struct {
 	ready        chan struct{}
 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
+	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -44,6 +45,12 @@ type DescEvent struct {
 	Description string
 }
 
+// VoteEvent carries a VOTE message received from a named player.
+type VoteEvent struct {
+	PlayerName string
+	Target     string
+}
+
 // NewServer creates a new Server that will listen on the given port.
 // totalPlayers sets the expected player capacity for join notifications.
 func NewServer(port string, totalPlayers int) *Server {
@@ -56,6 +63,7 @@ func NewServer(port string, totalPlayers int) *Server {
 		ready:        make(chan struct{}),
 		OnPlayerJoin: make(chan PlayerJoinEvent, 64),
 		OnDescMsg:    make(chan DescEvent, 64),
+		OnVoteMsg:    make(chan VoteEvent, 64),
 	}
 }
 
@@ -138,6 +146,8 @@ func (s *Server) handleConn(conn net.Conn) {
 			s.handleJoin(player, msg.Payload)
 		case game.MsgDesc:
 			s.handleDesc(player, msg.Payload)
+		case game.MsgVote:
+			s.handleVote(player, msg.Payload)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -275,5 +285,21 @@ func (s *Server) handleDesc(player *Player, payload string) {
 	case s.OnDescMsg <- DescEvent{PlayerName: player.Name, Description: payload}:
 	default:
 		log.Printf("OnDescMsg channel full, dropping DESC from %s", player.Name)
+	}
+}
+
+// handleVote processes a VOTE message from a player.
+// Unnamed players receive an error. Named players' votes are forwarded
+// to the OnVoteMsg channel for the judge to validate and process.
+func (s *Server) handleVote(player *Player, payload string) {
+	if player.Name == "" {
+		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
+		return
+	}
+
+	select {
+	case s.OnVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
+	default:
+		log.Printf("OnVoteMsg channel full, dropping VOTE from %s", player.Name)
 	}
 }
