@@ -1,0 +1,27 @@
+## T-001 完成总结
+
+**子任务**: T-001 - 创建项目目录结构与 Go module 初始化
+
+### 验收条件检查
+
+| 验收条件 | 状态 |
+|---------|------|
+| go.mod 存在且模块路径为 `github.com/smallnest/doubletake` | ✅ 已确认 |
+| 目录 cmd/、server/、client/、game/ 均已创建 | ✅ 已创建 |
+| 每个目录下有对应的包文件 | ✅ 已创建 |
+| `go build ./...` 可正常执行 | ✅ 通过 |
+| `go vet ./...` 无错误 | ✅ 通过 |
+
+### 创建的文件
+
+- `cmd/doubletake/main.go` - 主入口骨架（空 main 函数）
+- `server/server.go` - server 包
+- `client/client.go` - client 包
+- `game/game.go` - game 包
+- `CLAUDE.md` - 项目级知识文件
+
+## Learnings
+
+- **模式**: Go 项目使用 `cmd/<binary-name>/main.go` 约定组织入口点，包名与功能模块对应
+- **踩坑**: 无，`go.mod` 已存在且模块路径正确，无需修改
+- **经验**: 子任务 T-001 只需确保目录结构和编译通过，`main.go` 的具体实现（`--role`/`--port` 参数解析）属于后续子任务 T-002 的范围
