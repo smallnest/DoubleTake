@@ -1,0 +1,26 @@
+## 实现总结
+
+### 所做修改
+
+**`cmd/doubletake/judge.go`** — 修复了 `waitingPhase` 以正确处理 `stdin EOF`：
+- 添加了 `stdinDone` channel，用于向主循环发出 `stdin goroutine` 退出信号
+- 在外部 `select` 和嵌套的确认 `select` 中都添加了 `case <-stdinDone`，防止在 `input` 耗尽时挂起
+
+**`cmd/doubletake/judge_test.go`** — 修复了集成测试清理和 `message ordering`：
+- `startJudgeForTestWithStdinRaw` 中的 `cleanup` 现在会在关闭 `pipe` 连接之前关闭 `extraLines channel`，确保 `stdin goroutine` 检测到 `EOF`
+- `TestWaitingPhase_StartConfirmed` 现在会在检查 `READY broadcast` 之前消费 `JOIN confirmation messages`
+
+### 自检清单
+
+- [x] `go build ./...` — 通过
+- [x] `go vet ./...` — 通过
+- [x] 所有测试通过（4个包）
+- [x] 覆盖率: `cmd/doubletake 96.1%`, `server 93.0%`
+- [x] 所有 7 个 `AC` 项已验证
+
+## 经验总结
+
+- **关键坑点**: `waitingPhase` 中的 `stdin goroutine` 在 `scanner` 到达 `EOF` 时没有通知主循环，导致 `select` 永久阻塞。修复方法：添加 `stdinDone` channel 并在所有 `select` 语句中检查它。
+- **测试坑点**: 使用 `net.Pipe()` 模拟 `stdin` 的集成测试必须在 `cleanup` 时关闭注入 `channel`，否则 `writer goroutine` 会永远阻塞在 `channel receive` 上。
+- **测试坑点**: 验证 `READY broadcast` 的测试必须先消费 `JOIN confirmation messages`，因为服务器会先发送它们。
+- **模式**: 对于在 `goroutine` 中读取 `input` 并通过 `channel` 发送的 `goroutine-in-goroutine` 模式，始终包含一个 `done channel` 来发出 `EOF` 信号，并在所有消费 `goroutine` 的 `select` 语句中检查它。

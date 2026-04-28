@@ -20,7 +20,7 @@ func startTestServer(t *testing.T) (*Server, string) {
 	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
 	ln.Close()
 
-	srv := NewServer(port)
+	srv := NewServer(port, 6)
 	go srv.Start()
 
 	// Wait for server to be ready
@@ -37,9 +37,12 @@ func startTestServer(t *testing.T) (*Server, string) {
 }
 
 func TestNewServer(t *testing.T) {
-	srv := NewServer("9999")
+	srv := NewServer("9999", 6)
 	if srv.port != "9999" {
 		t.Errorf("expected port 9999, got %s", srv.port)
+	}
+	if srv.totalPlayers != 6 {
+		t.Errorf("expected totalPlayers 6, got %d", srv.totalPlayers)
 	}
 	if srv.connections == nil {
 		t.Error("connections map should be initialized")
@@ -446,5 +449,165 @@ func TestJoinDisconnectCleanup(t *testing.T) {
 	msg := readMsg(t, conn2)
 	if msg.Type != game.MsgJoin {
 		t.Errorf("expected JOIN response for reused name, got %s", msg.Type)
+	}
+}
+
+func TestPlayerCount(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	if count := srv.PlayerCount(); count != 0 {
+		t.Errorf("expected 0 players initially, got %d", count)
+	}
+
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn1.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+
+	if count := srv.PlayerCount(); count != 1 {
+		t.Errorf("expected 1 player after Alice joins, got %d", count)
+	}
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	readMsg(t, conn2)
+
+	if count := srv.PlayerCount(); count != 2 {
+		t.Errorf("expected 2 players after Bob joins, got %d", count)
+	}
+}
+
+func TestPlayerNames(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn1.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	readMsg(t, conn2)
+
+	names := srv.PlayerNames()
+	if len(names) != 2 {
+		t.Fatalf("expected 2 names, got %d", len(names))
+	}
+
+	nameSet := make(map[string]bool)
+	for _, n := range names {
+		nameSet[n] = true
+	}
+	if !nameSet["Alice"] || !nameSet["Bob"] {
+		t.Errorf("expected names Alice and Bob, got %v", names)
+	}
+}
+
+func TestOnPlayerJoinEvent(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	select {
+	case evt := <-srv.OnPlayerJoin:
+		if evt.Name != "Alice" {
+			t.Errorf("expected name Alice, got %s", evt.Name)
+		}
+		if evt.Current != 1 {
+			t.Errorf("expected current 1, got %d", evt.Current)
+		}
+		if evt.Capacity != 6 {
+			t.Errorf("expected capacity 6, got %d", evt.Capacity)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for PlayerJoinEvent")
+	}
+}
+
+func TestBroadcastToNamedPlayers(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	// Connect three clients
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect client1: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect client2: %v", err)
+	}
+	defer conn2.Close()
+
+	conn3, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect client3: %v", err)
+	}
+	defer conn3.Close()
+
+	// Only two of them JOIN
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	readMsg(t, conn2)
+
+	// conn3 does NOT join — should not receive broadcast
+	time.Sleep(50 * time.Millisecond)
+
+	msg := game.Message{Type: game.MsgReady, Payload: ""}
+	srv.BroadcastToNamedPlayers(msg)
+
+	// conn1 and conn2 should receive the message
+	for i, conn := range []net.Conn{conn1, conn2} {
+		conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("named client %d failed to read broadcast: %v", i, err)
+			continue
+		}
+		expected := game.Encode(msg)
+		if line != expected {
+			t.Errorf("named client %d: expected %q, got %q", i, expected, line)
+		}
+	}
+
+	// conn3 should NOT receive the broadcast
+	conn3.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+	buf := make([]byte, 128)
+	n, err := conn3.Read(buf)
+	if err == nil && n > 0 {
+		t.Errorf("unnamed client should not receive broadcast, got: %q", buf[:n])
 	}
 }

@@ -17,24 +17,36 @@ type Player struct {
 
 // Server is a TCP server that manages client connections for the game.
 type Server struct {
-	port        string
-	listener    net.Listener
-	connections map[net.Conn]*Player
-	names       map[string]bool
-	mu          sync.Mutex
-	done        chan struct{}
-	stopOnce    sync.Once
-	ready       chan struct{}
+	port         string
+	totalPlayers int                   // configured player capacity
+	listener     net.Listener
+	connections  map[net.Conn]*Player
+	names        map[string]bool
+	mu           sync.Mutex
+	done         chan struct{}
+	stopOnce     sync.Once
+	ready        chan struct{}
+	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
+}
+
+// PlayerJoinEvent carries info about a player that just joined.
+type PlayerJoinEvent struct {
+	Name      string
+	Current   int // number of named players after this join
+	Capacity  int // configured totalPlayers
 }
 
 // NewServer creates a new Server that will listen on the given port.
-func NewServer(port string) *Server {
+// totalPlayers sets the expected player capacity for join notifications.
+func NewServer(port string, totalPlayers int) *Server {
 	return &Server{
-		port:        port,
-		connections: make(map[net.Conn]*Player),
-		names:       make(map[string]bool),
-		done:        make(chan struct{}),
-		ready:       make(chan struct{}),
+		port:         port,
+		totalPlayers: totalPlayers,
+		connections:  make(map[net.Conn]*Player),
+		names:        make(map[string]bool),
+		done:         make(chan struct{}),
+		ready:        make(chan struct{}),
+		OnPlayerJoin: make(chan PlayerJoinEvent, 64),
 	}
 }
 
@@ -166,10 +178,18 @@ func (s *Server) handleJoin(player *Player, name string) {
 	}
 	player.Name = name
 	s.names[name] = true
+	count := len(s.names)
+	capacity := s.totalPlayers
 	s.mu.Unlock()
 
 	s.Send(player.Conn, game.Message{Type: game.MsgJoin, Payload: name})
 	log.Printf("player %s joined as %s", player.Conn.RemoteAddr(), name)
+
+	// Notify listeners about the new player join (non-blocking).
+	select {
+	case s.OnPlayerJoin <- PlayerJoinEvent{Name: name, Current: count, Capacity: capacity}:
+	default:
+	}
 }
 
 // Send sends a message to a single connection.
@@ -177,5 +197,39 @@ func (s *Server) Send(conn net.Conn, msg game.Message) {
 	data := []byte(game.Encode(msg))
 	if _, err := conn.Write(data); err != nil {
 		log.Printf("send write error to %s: %v", conn.RemoteAddr(), err)
+	}
+}
+
+// PlayerCount returns the number of named (registered) players.
+func (s *Server) PlayerCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.names)
+}
+
+// PlayerNames returns the names of all registered players.
+func (s *Server) PlayerNames() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	names := make([]string, 0, len(s.names))
+	for name := range s.names {
+		names = append(names, name)
+	}
+	return names
+}
+
+// BroadcastToNamedPlayers sends a message to all connections that have
+// completed the JOIN handshake (i.e. have a non-empty Name).
+func (s *Server) BroadcastToNamedPlayers(msg game.Message) {
+	data := []byte(game.Encode(msg))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, player := range s.connections {
+		if player.Name == "" {
+			continue
+		}
+		if _, err := player.Conn.Write(data); err != nil {
+			log.Printf("broadcast write error to %s: %v", player.Conn.RemoteAddr(), err)
+		}
 	}
 }
