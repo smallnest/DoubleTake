@@ -32,3 +32,31 @@
 - 状态: completed
 - 分支: feature/issue-6
 - 结束时间: 2026-04-29 02:25:48
+
+---
+
+## ⚠️ 脚本被中断
+
+- **中断信号**: EXIT
+- **退出码**: 0
+- **退出原因**: 正常退出（但 SCRIPT_COMPLETED_NORMALLY 未设置）
+- **中断时间**: 2026-04-29 02:26:25
+- **Issue**: #6
+- **当前迭代**: 7
+- **当前评分**: 92/100
+- **当前分支**: feature/issue-6
+- **最后执行命令**: `PR_URL=$(gh pr create --title "feat: $ISSUE_TITLE (#$ISSUE_NUMBER)" --body "$(cat <<EOF
+## Summary
+- Implements #$ISSUE_NUMBER
+- Score: $FINAL_SCORE/100
+- Iterations: $ITERATION
+$subtask_summary$ui_verify_summary
+## Test plan
+- [x] All tests pass
+- [x] Code review completed with score >= $PASSING_SCORE
+
+Closes #$ISSUE_NUMBER
+EOF
+)" 2>&1)`
+
+> 使用 `./run.sh -c 6` 可继续运行

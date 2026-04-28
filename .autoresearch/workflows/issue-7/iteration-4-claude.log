@@ -1,0 +1,40 @@
+## 实现完成
+
+### 实现者自检确认
+
+```
+### 编译/类型检查
+- [x] 代码可以编译通过
+- [x] 类型检查无错误（go vet 通过）
+
+### 代码质量
+- [x] Lint 无新增错误
+- [x] 代码风格符合项目规范（参考 base62.go 风格）
+- [x] 无硬编码配置
+
+### 测试验证
+- [x] 相关测试通过（TestGetLocalIP PASS）
+- [x] 新代码有对应的测试覆盖
+- [x] 测试验证：IPv4 格式正则、net.ParseIP 可解析、非 loopback、非 link-local
+
+### 其他检查
+- [x] 错误处理完整（net.Interfaces 失败返回 wrapped error，遍历完毕返回明确错误）
+- [x] 无安全漏洞
+```
+
+### 验收条件核对
+
+| # | 验收条件 | 状态 |
+|---|---------|------|
+| 1 | game 包中新增 GetLocalIP 函数 | ✅ `game/network.go` |
+| 2 | 函数遍历网络接口，取第一个非 loopback 的 IPv4 地址 | ✅ |
+| 3 | 过滤掉 link-local 地址（169.254.x.x） | ✅ |
+| 4 | 获取失败时返回明确的错误信息 | ✅ `"no non-loopback IPv4 address found"` |
+| 5 | 有对应的单元测试 | ✅ `game/network_test.go` |
+| 6 | 编译通过，go vet 无错误 | ✅ |
+
+## Learnings
+
+- **模式**: 网络工具函数与业务逻辑分离为独立文件（`network.go`），保持单一职责。项目已有先例：`base62.go` 专注于编解码，`protocol.go` 专注于协议。
+- **经验**: Go 的 `net.Interfaces()` 无法 mock，测试策略采用「验证返回值格式」（正则 + `net.ParseIP`），这是 Go 网络工具函数测试的标准做法。
+- **模式**: 错误消息使用 `fmt.Errorf("... : %w", err)` 包装底层错误，与项目其他文件（如 `base62.go` 中 `DecodeRoomCode`）风格一致。

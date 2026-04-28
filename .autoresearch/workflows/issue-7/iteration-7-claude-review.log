@@ -1,0 +1,153 @@
+现在我已完整阅读了所有相关代码。让我对照验收条件逐项检查并输出审核报告。
+
+## 审核报告
+
+### Issue
+- 编号: #7
+- 标题: 裁判交互式配置与创建房间
+- 子任务: T-003 - 整合裁判完整流程并集成到 main.go
+- 迭代次数: 7 (opencode 第6次迭代评分 92/100)
+
+---
+
+### 总体评价
+
+**评分: 68/100**
+
+`RunJudge` 函数仅完成了交互式参数输入（T-001 的工作），缺少 T-003 要求的完整流程：获取本机 IP → 生成房间密码 → 显示密码 → 启动 TCP 服务端。`main.go` 中 `role=="judge"` 分支也未调用 `RunJudge`。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: RunJudge 未完成完整裁判流程
+
+**位置**: `cmd/doubletake/judge.go:87-93`
+
+**问题描述**:
+T-003 验收条件要求 `RunJudge` 按顺序完成：参数输入 → 获取IP → 生成房间密码 → 显示密码 → 启动服务端。但当前实现仅完成参数输入，缺少后续全部步骤。
+
+**当前代码**:
+```go
+func RunJudge(out io.Writer, in io.Reader, port string) GameConfig {
+    disp := client.NewDisplay(out, false)
+    disp.PrintStartup()
+    scanner := bufio.NewScanner(in)
+    return collectConfig(out, disp, scanner)
+}
+```
+
+**缺失流程**:
+1. 调用 `game.GetLocalIP()` 获取本机 IP
+2. 使用 `game.EncodeRoomCode(ip+":"+port)` 生成房间密码
+3. 通过 `client.Display` 显示房间密码
+4. 显示等待玩家加入提示
+5. 调用 `server.NewServer(port).Start()` 启动 TCP 服务端
+
+**原因**: 这是 T-003 的核心要求——将前面子任务的成果串联为完整流程。当前实现只包含 T-001 已完成的工作。
+
+#### 问题 2: main.go 中 role=="judge" 分支未调用 RunJudge
+
+**位置**: `cmd/doubletake/main.go:74-88`
+
+**问题描述**:
+验收条件要求 `main.go` 中 `role=="judge"` 的分支调用 `RunJudge(port)` 进入裁判模式。但当前 `run()` 函数对 judge 和 player 的处理完全相同——只打印 mode 和 port 信息后退出，没有进入任何模式分支。
+
+**当前代码**:
+```go
+if role != "judge" && role != "player" {
+    fmt.Fprintf(stderr, "Error: invalid role '%s', must be judge or player\n", role)
+    fmt.Fprint(stderr, usage)
+    return 1
+}
+
+if port == 0 {
+    port = defaultPort
+}
+
+disp := client.NewDisplay(stdout, stealth)
+disp.PrintStartup()
+disp.Info("0000", fmt.Sprintf("mode=%s port=%d", role, port))
+return 0
+```
+
+**原因**: 验收条件明确要求 "main.go 中 role==judge 分支调用 RunJudge(port) 进入裁判模式"。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 3: 缺少集成测试
+
+**位置**: `cmd/doubletake/judge_test.go`
+
+**问题描述**:
+验收条件要求"编写集成测试验证完整流程"。当前测试仅覆盖 `validateConfig` 和 `collectConfig` 的输入/校验逻辑，没有测试 RunJudge 的完整流程（获取 IP → 生成密码 → 显示 → 启动服务端）。
+
+#### 问题 4: RunJudge 固定创建非 stealth Display
+
+**位置**: `cmd/doubletake/judge.go:88`
+
+**问题描述**:
+`RunJudge` 中 `client.NewDisplay(out, false)` 硬编码了 `stealth=false`，但 `main.go` 中用户可以指定 `--stealth` 参数。应将 stealth 参数传入 RunJudge 以保持一致性。
+
+---
+
+### 建议改进 (可选)
+
+- `RunJudge` 返回 `GameConfig` 的设计不太适合完整流程——启动 server 后会阻塞。应考虑返回 error 或使用阻塞式设计（server.Start() 本身阻塞）。
+- 可将 `RunJudge` 拆分为 `ConfigureGame`（纯配置）和 `StartJudgeServer`（启动服务），使测试更容易。
+
+---
+
+### 验收条件逐项检查
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | main.go 中 role=="judge" 分支调用 RunJudge(port) | **未通过** | 无分支逻辑 |
+| 2 | RunJudge 按顺序完成完整流程 | **未通过** | 仅完成参数输入 |
+| 3 | 房间密码使用 game.EncodeRoomCode(ip:port) 生成 | **未通过** | 未实现 |
+| 4 | 显示等待玩家加入提示（伪装格式） | **未通过** | 未实现 |
+| 5 | 服务端使用 server.NewServer(port).Start() 启动 | **未通过** | 未实现 |
+| 6 | 所有输出使用 client.Display 伪装格式 | **部分通过** | 参数输入部分已使用 |
+| 7 | 编译通过，go vet 无错误 | **通过** | 已验证 |
+| 8 | go test ./... 全部通过 | **通过** | 已验证 |
+
+通过率: 2/8 (25%)
+
+---
+
+### 审核结论
+
+- [x] 需要修改 - 存在必须修复的问题
+
+**下一步行动**:
+需要补全 T-003 核心实现：
+1. `RunJudge` 中补充：获取 IP → 编码房间密码 → 显示密码 → 启动 server 的完整流程
+2. `main.go` 中添加 `role=="judge"` 分支调用 `RunJudge`
+3. 编写集成测试验证完整流程
+4. 考虑将 stealth 参数传入 RunJudge
+
+---
+
+### 评分明细
+
+| 维度 | 得分 | 权重 | 加权 |
+|------|------|------|------|
+| 正确性 | 50 | 35% | 17.5 |
+| 测试质量 | 75 | 25% | 18.75 |
+| 代码质量 | 85 | 20% | 17.0 |
+| 安全性 | 90 | 10% | 9.0 |
+| 性能 | 95 | 10% | 9.5 |
+| **总分** | | | **71.75 → 72** |
+
+> 正确性 50: 缺少 T-003 核心流程的 5 个步骤（获取 IP、生成密码、显示密码、等待提示、启动 server），以及 main.go 未集成。已有的参数输入和校验逻辑本身正确。
+> 测试质量 75: 参数校验和交互式输入的测试覆盖良好（表格驱动、边界、重试），但缺少完整流程的集成测试。
+
+---
+
+## Learnings
+
+- **模式**: T-003 的 `RunJudge` 应遵循"编排器"模式——将已有的纯工具函数（`validateConfig`, `GetLocalIP`, `EncodeRoomCode`, `server.NewServer`）串联为完整业务流程，本身不包含复杂逻辑
+- **踩坑**: 当前实现只完成了 T-001（参数输入校验）的部分，未推进到 T-003 要求的整合阶段。后续实现需注意区分"已完成的子任务"和"当前子任务需要串联的步骤"
+- **经验**: `server.Start()` 是阻塞调用，`RunJudge` 的测试设计需考虑：要么在 goroutine 中启动 server，要么将流程拆分为配置阶段（可测）和启动阶段（集成测试）
