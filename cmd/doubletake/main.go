@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/smallnest/doubletake/client"
+	"strconv"
 )
 
 const (
@@ -24,7 +23,7 @@ Examples:
 `
 )
 
-func run(stdout, stderr io.Writer, args []string) int {
+func run(stdout, stderr io.Writer, stdin io.Reader, args []string) int {
 	var role string
 	var port int
 	var stealth bool
@@ -81,13 +80,17 @@ func run(stdout, stderr io.Writer, args []string) int {
 		port = defaultPort
 	}
 
-	disp := client.NewDisplay(stdout, stealth)
-	disp.PrintStartup()
-	disp.Info("0000", fmt.Sprintf("mode=%s port=%d", role, port))
+	switch role {
+	case "judge":
+		RunJudge(stdout, stdin, strconv.Itoa(port), stealth)
+		return 0
+	case "player":
+		return RunPlayer(stdout, stdin, stealth)
+	}
 
 	return 0
 }
 
 func main() {
-	os.Exit(run(os.Stdout, os.Stderr, os.Args))
+	os.Exit(run(os.Stdout, os.Stderr, os.Stdin, os.Args))
 }

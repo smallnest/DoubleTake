@@ -1,0 +1,216 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m✱ [0mGlob "**/*.go"[90m in . · 17 matches[0m
+[0m→ [0mRead .
+[0m→ [0mRead server/server.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead game/protocol.go
+[0m
+[0m$ [0mgo build ./...
+(no output)
+[0m
+[0m$ [0mgo vet ./...
+(no output)
+[0m
+Let me verify the build and tests pass.
+[0m$ [0mgo test ./server/ -v -count=1 -run 'Test(NewServer|StartAndAccept|Stop|StopIdempotent|HandleConnMessages|ClientDisconnect|Broadcast|Send|MultipleClients|InvalidMessageNoPanic|Join|Duplicate|Empty|DisconnectCleanup)'
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 03:06:57 server listening on :51565
+2026/04/29 03:06:57 player connected: 127.0.0.1:51569
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51569
+2026/04/29 03:06:57 player connected: 127.0.0.1:51570
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51570
+2026/04/29 03:06:57 server stopped
+--- PASS: TestStartAndAccept (0.07s)
+=== RUN   TestStop
+2026/04/29 03:06:57 server listening on :51571
+2026/04/29 03:06:57 player connected: 127.0.0.1:51573
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51573
+2026/04/29 03:06:57 player connected: 127.0.0.1:51574
+2026/04/29 03:06:57 server stopped
+2026/04/29 03:06:57 connection error from 127.0.0.1:51574: read tcp 127.0.0.1:51571->127.0.0.1:51574: use of closed network connection
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51574
+--- PASS: TestStop (0.06s)
+=== RUN   TestStopIdempotent
+2026/04/29 03:06:57 server listening on :51575
+2026/04/29 03:06:57 player connected: 127.0.0.1:51577
+2026/04/29 03:06:57 server stopped
+--- PASS: TestStopIdempotent (0.01s)
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51577
+=== RUN   TestHandleConnMessages
+2026/04/29 03:06:57 server listening on :51578
+2026/04/29 03:06:57 player connected: 127.0.0.1:51580
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51580
+2026/04/29 03:06:57 player connected: 127.0.0.1:51581
+2026/04/29 03:06:57 received from 127.0.0.1:51581: JOIN player1
+2026/04/29 03:06:57 player 127.0.0.1:51581 joined as player1
+2026/04/29 03:06:57 decode error from 127.0.0.1:51581: invalid message format
+2026/04/29 03:06:57 received from 127.0.0.1:51581: READY 
+2026/04/29 03:06:57 connection error from 127.0.0.1:51581: read tcp 127.0.0.1:51578->127.0.0.1:51581: read: connection reset by peer
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51581
+2026/04/29 03:06:57 server stopped
+--- PASS: TestHandleConnMessages (0.06s)
+=== RUN   TestClientDisconnect
+2026/04/29 03:06:57 server listening on :51582
+2026/04/29 03:06:57 player connected: 127.0.0.1:51583
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51583
+2026/04/29 03:06:57 player connected: 127.0.0.1:51584
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51584
+2026/04/29 03:06:57 server stopped
+--- PASS: TestClientDisconnect (0.15s)
+=== RUN   TestBroadcast
+2026/04/29 03:06:57 server listening on :51585
+2026/04/29 03:06:57 player connected: 127.0.0.1:51586
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51586
+2026/04/29 03:06:57 player connected: 127.0.0.1:51587
+2026/04/29 03:06:57 player connected: 127.0.0.1:51588
+2026/04/29 03:06:57 player connected: 127.0.0.1:51589
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51589
+2026/04/29 03:06:57 server stopped
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51588
+--- PASS: TestBroadcast (0.05s)
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51587
+=== RUN   TestSend
+2026/04/29 03:06:57 server listening on :51590
+2026/04/29 03:06:57 player connected: 127.0.0.1:51592
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51592
+2026/04/29 03:06:57 player connected: 127.0.0.1:51593
+2026/04/29 03:06:57 server stopped
+--- PASS: TestSend (0.07s)
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51593
+=== RUN   TestMultipleClients
+2026/04/29 03:06:57 server listening on :51594
+2026/04/29 03:06:57 player connected: 127.0.0.1:51596
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51596
+2026/04/29 03:06:57 player connected: 127.0.0.1:51597
+2026/04/29 03:06:57 player connected: 127.0.0.1:51598
+2026/04/29 03:06:57 player connected: 127.0.0.1:51599
+2026/04/29 03:06:57 player connected: 127.0.0.1:51600
+2026/04/29 03:06:57 player connected: 127.0.0.1:51601
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51597
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51599
+2026/04/29 03:06:57 player disconnected: 127.0.0.1:51598
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51600
+2026/04/29 03:06:58 server stopped
+--- PASS: TestMultipleClients (0.22s)
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51601
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 03:06:58 server listening on :51602
+2026/04/29 03:06:58 player connected: 127.0.0.1:51604
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51604
+2026/04/29 03:06:58 player connected: 127.0.0.1:51605
+2026/04/29 03:06:58 decode error from 127.0.0.1:51605: invalid message format
+2026/04/29 03:06:58 decode error from 127.0.0.1:51605: invalid message format
+2026/04/29 03:06:58 received from 127.0.0.1:51605:  |
+2026/04/29 03:06:58 decode error from 127.0.0.1:51605: invalid message format
+2026/04/29 03:06:58 decode error from 127.0.0.1:51605: invalid message format
+2026/04/29 03:06:58 received from 127.0.0.1:51605: JOIN test
+2026/04/29 03:06:58 player 127.0.0.1:51605 joined as test
+2026/04/29 03:06:58 server stopped
+--- PASS: TestInvalidMessageNoPanic (0.06s)
+=== RUN   TestJoinSuccess
+2026/04/29 03:06:58 connection error from 127.0.0.1:51605: read tcp 127.0.0.1:51602->127.0.0.1:51605: read: connection reset by peer
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51605
+2026/04/29 03:06:58 server listening on :51606
+2026/04/29 03:06:58 player connected: 127.0.0.1:51608
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51608
+2026/04/29 03:06:58 player connected: 127.0.0.1:51609
+2026/04/29 03:06:58 received from 127.0.0.1:51609: JOIN Alice
+2026/04/29 03:06:58 player 127.0.0.1:51609 joined as Alice
+2026/04/29 03:06:58 server stopped
+--- PASS: TestJoinSuccess (0.01s)
+=== RUN   TestJoinDuplicateName
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51609
+2026/04/29 03:06:58 server listening on :51610
+2026/04/29 03:06:58 player connected: 127.0.0.1:51612
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51612
+2026/04/29 03:06:58 player connected: 127.0.0.1:51613
+2026/04/29 03:06:58 received from 127.0.0.1:51613: JOIN Alice
+2026/04/29 03:06:58 player 127.0.0.1:51613 joined as Alice
+2026/04/29 03:06:58 player connected: 127.0.0.1:51614
+2026/04/29 03:06:58 received from 127.0.0.1:51614: JOIN Alice
+2026/04/29 03:06:58 received from 127.0.0.1:51614: JOIN Bob
+2026/04/29 03:06:58 player 127.0.0.1:51614 joined as Bob
+2026/04/29 03:06:58 server stopped
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51614
+--- PASS: TestJoinDuplicateName (0.01s)
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51613
+=== RUN   TestJoinEmptyName
+2026/04/29 03:06:58 server listening on :51615
+2026/04/29 03:06:58 player connected: 127.0.0.1:51617
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51617
+2026/04/29 03:06:58 player connected: 127.0.0.1:51618
+2026/04/29 03:06:58 received from 127.0.0.1:51618: JOIN 
+2026/04/29 03:06:58 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51618
+=== RUN   TestJoinDisconnectCleanup
+2026/04/29 03:06:58 server listening on :51619
+2026/04/29 03:06:58 player connected: 127.0.0.1:51621
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51621
+2026/04/29 03:06:58 player connected: 127.0.0.1:51622
+2026/04/29 03:06:58 received from 127.0.0.1:51622: JOIN Alice
+2026/04/29 03:06:58 player 127.0.0.1:51622 joined as Alice
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51622
+2026/04/29 03:06:58 player connected: 127.0.0.1:51623
+2026/04/29 03:06:58 received from 127.0.0.1:51623: JOIN Alice
+2026/04/29 03:06:58 player 127.0.0.1:51623 joined as Alice
+2026/04/29 03:06:58 server stopped
+2026/04/29 03:06:58 player disconnected: 127.0.0.1:51623
+--- PASS: TestJoinDisconnectCleanup (0.12s)
+PASS
+ok  	github.com/smallnest/doubletake/server	1.167s
+[0m
+所有测试通过，构建和 `go vet` 均无问题。以下是完整审核报告：
+
+---
+
+## 审核报告
+
+### Issue
+- **编号**: #8
+- **子任务**: T-001 - 服务端 JOIN 消息处理与玩家重名校验
+
+### 总体评价
+**评分: 93/100**
+
+### 各维度评分
+
+| 维度 | 权重 | 得分 | 加权分 |
+|------|------|------|--------|
+| 正确性 | 35% | 90 | 31.50 |
+| 测试质量 | 25% | 95 | 23.75 |
+| 代码质量 | 20% | 95 | 19.00 |
+| 安全性 | 10% | 95 | 9.50 |
+| 性能 | 10% | 95 | 9.50 |
+| **总分** | **100%** | | **93.25** |
+
+### 验收条件逐项审核
+
+| # | 验收条件 | 状态 | 依据 |
+|---|---------|------|------|
+| 1 | `server.Player` 包含 `Name string` 字段 | ✅ | `server.go:15` |
+| 2 | JOIN 消息解析名字并存入 Player | ✅ | `server.go:117` → `handleJoin`, `server.go:167` |
+| 3 | 重名返回 ERROR 消息 | ✅ | `server.go:162-165` — 先解锁再 Send，无死锁风险 |
+| 4 | 不重复时确认加入成功 | ✅ | `server.go:167-171` — 设置 Name、注册 names、发送 JOIN 确认 |
+| 5 | 断开后名字从注册列表移除 | ✅ | `server.go:135-137` — unregister 中 delete(s.names) |
+| 6 | 测试覆盖正常/重名/空名字/断开清理 | ✅ | `TestJoinSuccess`, `TestJoinDuplicateName`, `TestJoinEmptyName`, `TestJoinDisconnectCleanup` |
+| 7 | `go build ./...` 和 `go vet ./...` 通过 | ✅ | 均通过，无 warning |
+
+### 细节观察（建议改进，非阻塞）
+
+1. **重复 JOIN 导致名字泄露** — 如果同一连接先后发送 `JOIN|Alice` 和 `JOIN|Bob`，`names` 中 `"Alice"` 会成为孤悬条目，只在服务端重启后释放。当前场景下影响很小（正常玩家不会发多次 JOIN），可考虑在 handleJoin 中先清理旧名字再注册新名字。
+2. **空名字检测仅检查空字符串** — 名字为纯空格（`"  "`）可通过校验。可在 `handleJoin` 中增加 `strings.TrimSpace(name) == ""` 检查，或至少在存储前 trim。
+
+### Learnings
+
+- **模式**: `handleJoin` 中锁内做重名检查后先 Unlock 再调用 `Send()`，避免网络 I/O 持锁导致死锁 — 已在 `server/CLAUDE.md` 中记录
+- **经验**: `readMsg` helper 统一带超时的消息读取模式，简化测试断言逻辑，已在 `server_test.go` 中稳定使用
+- **踩坑（已规避）**: `unregister` 删除 `names` 时先检查 `player.Name != ""`，避免空名字触发空 map 写入（虽然 Go map 写空 string key 不会 panic，但逻辑上更清晰）
+
+### 审核结论
+
+- ✅ **通过** — 评分为 93，≥ 85 达标，可进入人工审核。

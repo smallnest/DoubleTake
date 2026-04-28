@@ -344,5 +344,5 @@ func newTestScanner(input string) *bufio.Scanner {
 
 // runJudgeWithInput is a test helper that runs RunJudge with the given input string.
 func runJudgeWithInput(out *bytes.Buffer, input string) GameConfig {
-	return RunJudge(out, strings.NewReader(input), "8127")
+	return RunJudge(out, strings.NewReader(input), "8127", false)
 }

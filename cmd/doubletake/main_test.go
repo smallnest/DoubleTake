@@ -8,51 +8,49 @@ import (
 
 func TestRun_ValidRoleJudge(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge"})
+	input := "6\n1\n0\n" // valid game config
+	exitCode := run(&stdout, &stderr, strings.NewReader(input), []string{"doubletake", "--role", "judge"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "mode=judge") {
-		t.Errorf("expected judge mode message, got: %s", stdout.String())
+	if !strings.Contains(stdout.String(), "[sysmon]") {
+		t.Errorf("expected startup banner, got: %s", stdout.String())
 	}
 }
 
 func TestRun_ValidRolePlayer(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player"})
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
+	// Empty stdin — RunPlayer fails immediately on room code prompt
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1 with no input, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "mode=player") {
-		t.Errorf("expected player mode message, got: %s", stdout.String())
+	if !strings.Contains(stdout.String(), "[sysmon]") {
+		t.Errorf("expected startup banner, got: %s", stdout.String())
 	}
 }
 
 func TestRun_CustomPort(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge", "--port", "9000"})
+	input := "6\n1\n0\n"
+	exitCode := run(&stdout, &stderr, strings.NewReader(input), []string{"doubletake", "--role", "judge", "--port", "9000"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout.String(), "port=9000") {
-		t.Errorf("expected port 9000 in output, got: %s", stdout.String())
 	}
 }
 
 func TestRun_DefaultPort(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player"})
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout.String(), "port=8127") {
-		t.Errorf("expected default port 8127, got: %s", stdout.String())
+	// Player with no input → exit 1 (RunPlayer fails on empty stdin)
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
 }
 
 func TestRun_InvalidRole(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "admin"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "admin"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -63,7 +61,7 @@ func TestRun_InvalidRole(t *testing.T) {
 
 func TestRun_NoArgs(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
@@ -74,7 +72,7 @@ func TestRun_NoArgs(t *testing.T) {
 
 func TestRun_HelpFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--help"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--help"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
@@ -85,7 +83,7 @@ func TestRun_HelpFlag(t *testing.T) {
 
 func TestRun_ShortHelpFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "-h"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "-h"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
@@ -96,7 +94,7 @@ func TestRun_ShortHelpFlag(t *testing.T) {
 
 func TestRun_MissingRoleValue(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -107,7 +105,7 @@ func TestRun_MissingRoleValue(t *testing.T) {
 
 func TestRun_MissingPortValue(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge", "--port"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "judge", "--port"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -118,7 +116,7 @@ func TestRun_MissingPortValue(t *testing.T) {
 
 func TestRun_InvalidPort(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge", "--port", "abc"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "judge", "--port", "abc"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -129,7 +127,7 @@ func TestRun_InvalidPort(t *testing.T) {
 
 func TestRun_UnknownOption(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--unknown"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--unknown"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -140,28 +138,25 @@ func TestRun_UnknownOption(t *testing.T) {
 
 func TestRun_StealthFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player", "--stealth"})
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
+	// Player with stealth — RunPlayer fails on empty stdin but output should lack [INFO]
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player", "--stealth"})
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
 	output := stdout.String()
-	// stealth mode should NOT contain [INFO] or [DATA] markers
 	if strings.Contains(output, "[INFO]") {
 		t.Errorf("stealth mode should not contain [INFO], got: %s", output)
-	}
-	if !strings.Contains(output, "mode=player") {
-		t.Errorf("expected player mode info, got: %s", output)
 	}
 }
 
 func TestRun_NoStealthByDefault(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player"})
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
+	// Player without stealth should contain [INFO]
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
 	output := stdout.String()
-	// default mode should contain [INFO] markers
 	if !strings.Contains(output, "[INFO]") {
 		t.Errorf("default mode should contain [INFO], got: %s", output)
 	}
@@ -169,7 +164,7 @@ func TestRun_NoStealthByDefault(t *testing.T) {
 
 func TestRun_StealthInHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--help"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--help"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
@@ -180,15 +175,13 @@ func TestRun_StealthInHelp(t *testing.T) {
 
 func TestRun_StealthWithJudge(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge", "--stealth"})
+	input := "6\n1\n0\n"
+	exitCode := run(&stdout, &stderr, strings.NewReader(input), []string{"doubletake", "--role", "judge", "--stealth"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := stdout.String()
 	if strings.Contains(output, "[INFO]") {
 		t.Errorf("stealth mode should not contain [INFO], got: %s", output)
-	}
-	if !strings.Contains(output, "mode=judge") {
-		t.Errorf("expected judge mode info, got: %s", output)
 	}
 }

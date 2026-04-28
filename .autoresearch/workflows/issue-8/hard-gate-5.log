@@ -1,0 +1,401 @@
+=== 硬门禁检查 (迭代 5) ===
+时间: 2026-04-29 03:23:47
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+
+结果: 通过
+
+--- 测试 ---
+命令: go test ./... -v
+=== RUN   TestNewClient
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestConnectSuccess
+--- PASS: TestConnectSuccess (0.00s)
+=== RUN   TestConnectFailure
+--- PASS: TestConnectFailure (0.00s)
+=== RUN   TestSendNotConnected
+--- PASS: TestSendNotConnected (0.00s)
+=== RUN   TestSendAndReceive
+--- PASS: TestSendAndReceive (0.00s)
+=== RUN   TestReceiveFromServer
+--- PASS: TestReceiveFromServer (0.00s)
+=== RUN   TestDisconnect
+--- PASS: TestDisconnect (0.00s)
+=== RUN   TestServerDisconnectDetectsEOF
+--- PASS: TestServerDisconnectDetectsEOF (0.00s)
+=== RUN   TestMultipleMessages
+--- PASS: TestMultipleMessages (0.00s)
+=== RUN   TestInvalidMessagesSkipped
+--- PASS: TestInvalidMessagesSkipped (0.00s)
+=== RUN   TestPrintStartup
+--- PASS: TestPrintStartup (0.00s)
+=== RUN   TestInfo
+--- PASS: TestInfo (0.00s)
+=== RUN   TestInfoStealth
+--- PASS: TestInfoStealth (0.00s)
+=== RUN   TestWarn
+--- PASS: TestWarn (0.00s)
+=== RUN   TestWarnStealth
+--- PASS: TestWarnStealth (0.00s)
+=== RUN   TestData
+--- PASS: TestData (0.00s)
+=== RUN   TestDataStealth
+--- PASS: TestDataStealth (0.00s)
+=== RUN   TestListPlayers
+--- PASS: TestListPlayers (0.00s)
+=== RUN   TestListPlayersEmpty
+--- PASS: TestListPlayersEmpty (0.00s)
+=== RUN   TestNewDisplayNilWriter
+--- PASS: TestNewDisplayNilWriter (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/client	(cached)
+=== RUN   TestValidateConfig_Valid
+=== RUN   TestValidateConfig_Valid/minimum_4_players_1_undercover
+=== RUN   TestValidateConfig_Valid/5_players_2_undercovers
+=== RUN   TestValidateConfig_Valid/6_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_Valid/8_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_Valid/10_players_3_undercovers
+=== RUN   TestValidateConfig_Valid/10_players_2_undercovers_2_blanks
+=== RUN   TestValidateConfig_Valid/7_players_1_undercover_2_blanks
+=== RUN   TestValidateConfig_Valid/9_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_Valid (0.00s)
+    --- PASS: TestValidateConfig_Valid/minimum_4_players_1_undercover (0.00s)
+    --- PASS: TestValidateConfig_Valid/5_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/6_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/8_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_2_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/7_players_1_undercover_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/9_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestValidateConfig_TotalOutOfRange
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_3
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_1
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_0
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_11
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_15
+--- PASS: TestValidateConfig_TotalOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_3 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_1 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_0 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_11 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_15 (0.00s)
+=== RUN   TestValidateConfig_UndercoverOutOfRange
+=== RUN   TestValidateConfig_UndercoverOutOfRange/zero_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/negative_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5
+--- PASS: TestValidateConfig_UndercoverOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/zero_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/negative_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4 (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5 (0.00s)
+=== RUN   TestValidateConfig_NegativeBlanks
+--- PASS: TestValidateConfig_NegativeBlanks (0.00s)
+=== RUN   TestValidateConfig_TooManySpecialRoles
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_TooManySpecialRoles (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestCollectConfig_ValidInput
+--- PASS: TestCollectConfig_ValidInput (0.00s)
+=== RUN   TestCollectConfig_InvalidTotalThenValid
+--- PASS: TestCollectConfig_InvalidTotalThenValid (0.00s)
+=== RUN   TestCollectConfig_InvalidUndercoverThenValid
+--- PASS: TestCollectConfig_InvalidUndercoverThenValid (0.00s)
+=== RUN   TestCollectConfig_NegativeBlanksThenValid
+--- PASS: TestCollectConfig_NegativeBlanksThenValid (0.00s)
+=== RUN   TestCollectConfig_TooManySpecialRolesThenValid
+--- PASS: TestCollectConfig_TooManySpecialRolesThenValid (0.00s)
+=== RUN   TestCollectConfig_MultipleRetries
+--- PASS: TestCollectConfig_MultipleRetries (0.00s)
+=== RUN   TestCollectConfig_BoundaryMaxPlayers
+--- PASS: TestCollectConfig_BoundaryMaxPlayers (0.00s)
+=== RUN   TestCollectConfig_BoundaryMinPlayers
+--- PASS: TestCollectConfig_BoundaryMinPlayers (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidTotal
+--- PASS: TestCollectConfig_WarnsOnInvalidTotal (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidUndercover
+--- PASS: TestCollectConfig_WarnsOnInvalidUndercover (0.00s)
+=== RUN   TestCollectConfig_WarnsOnNegativeBlanks
+--- PASS: TestCollectConfig_WarnsOnNegativeBlanks (0.00s)
+=== RUN   TestCollectConfig_WarnsOnTooManySpecialRoles
+--- PASS: TestCollectConfig_WarnsOnTooManySpecialRoles (0.00s)
+=== RUN   TestReadInt_ValidInput
+--- PASS: TestReadInt_ValidInput (0.00s)
+=== RUN   TestReadInt_TrimsWhitespace
+--- PASS: TestReadInt_TrimsWhitespace (0.00s)
+=== RUN   TestReadInt_InvalidInput
+--- PASS: TestReadInt_InvalidInput (0.00s)
+=== RUN   TestReadInt_EmptyInput
+--- PASS: TestReadInt_EmptyInput (0.00s)
+=== RUN   TestCollectConfig_NonNumericInput
+--- PASS: TestCollectConfig_NonNumericInput (0.00s)
+=== RUN   TestCollectConfig_ZeroBlanksAllowed
+--- PASS: TestCollectConfig_ZeroBlanksAllowed (0.00s)
+=== RUN   TestCollectConfig_LargeValidGame
+--- PASS: TestCollectConfig_LargeValidGame (0.00s)
+=== RUN   TestRun_ValidRoleJudge
+--- PASS: TestRun_ValidRoleJudge (0.00s)
+=== RUN   TestRun_ValidRolePlayer
+--- PASS: TestRun_ValidRolePlayer (0.00s)
+=== RUN   TestRun_CustomPort
+--- PASS: TestRun_CustomPort (0.00s)
+=== RUN   TestRun_DefaultPort
+--- PASS: TestRun_DefaultPort (0.00s)
+=== RUN   TestRun_InvalidRole
+--- PASS: TestRun_InvalidRole (0.00s)
+=== RUN   TestRun_NoArgs
+--- PASS: TestRun_NoArgs (0.00s)
+=== RUN   TestRun_HelpFlag
+--- PASS: TestRun_HelpFlag (0.00s)
+=== RUN   TestRun_ShortHelpFlag
+--- PASS: TestRun_ShortHelpFlag (0.00s)
+=== RUN   TestRun_MissingRoleValue
+--- PASS: TestRun_MissingRoleValue (0.00s)
+=== RUN   TestRun_MissingPortValue
+--- PASS: TestRun_MissingPortValue (0.00s)
+=== RUN   TestRun_InvalidPort
+--- PASS: TestRun_InvalidPort (0.00s)
+=== RUN   TestRun_UnknownOption
+--- PASS: TestRun_UnknownOption (0.00s)
+=== RUN   TestRun_StealthFlag
+--- PASS: TestRun_StealthFlag (0.00s)
+=== RUN   TestRun_NoStealthByDefault
+--- PASS: TestRun_NoStealthByDefault (0.00s)
+=== RUN   TestRun_StealthInHelp
+--- PASS: TestRun_StealthInHelp (0.00s)
+=== RUN   TestRun_StealthWithJudge
+--- PASS: TestRun_StealthWithJudge (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	(cached)
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+=== RUN   TestEncodeRoomCode_InvalidInput/port_out_of_range
+=== RUN   TestEncodeRoomCode_InvalidInput/non-numeric_port
+--- PASS: TestEncodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/no_port (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/invalid_IP (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/port_out_of_range (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/non-numeric_port (0.00s)
+=== RUN   TestDecodeRoomCode_InvalidInput
+=== RUN   TestDecodeRoomCode_InvalidInput/empty
+=== RUN   TestDecodeRoomCode_InvalidInput/invalid_char
+=== RUN   TestDecodeRoomCode_InvalidInput/special_char
+=== RUN   TestDecodeRoomCode_InvalidInput/newline
+--- PASS: TestDecodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/invalid_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/special_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/newline (0.00s)
+=== RUN   TestEncodeRoomCode_ShortOutput
+--- PASS: TestEncodeRoomCode_ShortOutput (0.00s)
+=== RUN   TestGetLocalIP
+--- PASS: TestGetLocalIP (0.00s)
+=== RUN   TestEncode
+=== RUN   TestEncode/with_payload
+=== RUN   TestEncode/empty_payload
+--- PASS: TestEncode (0.00s)
+    --- PASS: TestEncode/with_payload (0.00s)
+    --- PASS: TestEncode/empty_payload (0.00s)
+=== RUN   TestDecode
+=== RUN   TestDecode/valid_message
+=== RUN   TestDecode/pipe_in_payload
+=== RUN   TestDecode/empty_payload
+=== RUN   TestDecode/empty_string
+=== RUN   TestDecode/newline_only
+=== RUN   TestDecode/no_separator
+--- PASS: TestDecode (0.00s)
+    --- PASS: TestDecode/valid_message (0.00s)
+    --- PASS: TestDecode/pipe_in_payload (0.00s)
+    --- PASS: TestDecode/empty_payload (0.00s)
+    --- PASS: TestDecode/empty_string (0.00s)
+    --- PASS: TestDecode/newline_only (0.00s)
+    --- PASS: TestDecode/no_separator (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	(cached)
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 03:03:48 server listening on :51348
+2026/04/29 03:03:48 player connected: 127.0.0.1:51352
+2026/04/29 03:03:48 player disconnected: 127.0.0.1:51352
+2026/04/29 03:03:48 player connected: 127.0.0.1:51353
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51353
+2026/04/29 03:03:49 server stopped
+--- PASS: TestStartAndAccept (0.06s)
+=== RUN   TestStop
+2026/04/29 03:03:49 server listening on :51354
+2026/04/29 03:03:49 player connected: 127.0.0.1:51356
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51356
+2026/04/29 03:03:49 player connected: 127.0.0.1:51357
+2026/04/29 03:03:49 server stopped
+--- PASS: TestStop (0.07s)
+2026/04/29 03:03:49 connection error from 127.0.0.1:51357: read tcp 127.0.0.1:51354->127.0.0.1:51357: use of closed network connection
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51357
+=== RUN   TestStopIdempotent
+2026/04/29 03:03:49 server listening on :51358
+2026/04/29 03:03:49 server stopped
+--- PASS: TestStopIdempotent (0.01s)
+=== RUN   TestHandleConnMessages
+2026/04/29 03:03:49 server listening on :51361
+2026/04/29 03:03:49 player connected: 127.0.0.1:51363
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51363
+2026/04/29 03:03:49 player connected: 127.0.0.1:51364
+2026/04/29 03:03:49 received from 127.0.0.1:51364: JOIN player1
+2026/04/29 03:03:49 player 127.0.0.1:51364 joined as player1
+2026/04/29 03:03:49 decode error from 127.0.0.1:51364: invalid message format
+2026/04/29 03:03:49 received from 127.0.0.1:51364: READY 
+2026/04/29 03:03:49 connection error from 127.0.0.1:51364: read tcp 127.0.0.1:51361->127.0.0.1:51364: read: connection reset by peer
+2026/04/29 03:03:49 server stopped
+--- PASS: TestHandleConnMessages (0.06s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51364
+=== RUN   TestClientDisconnect
+2026/04/29 03:03:49 server listening on :51365
+2026/04/29 03:03:49 player connected: 127.0.0.1:51367
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51367
+2026/04/29 03:03:49 player connected: 127.0.0.1:51368
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51368
+2026/04/29 03:03:49 server stopped
+--- PASS: TestClientDisconnect (0.17s)
+=== RUN   TestBroadcast
+2026/04/29 03:03:49 server listening on :51369
+2026/04/29 03:03:49 player connected: 127.0.0.1:51371
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51371
+2026/04/29 03:03:49 player connected: 127.0.0.1:51372
+2026/04/29 03:03:49 player connected: 127.0.0.1:51373
+2026/04/29 03:03:49 player connected: 127.0.0.1:51374
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51374
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51373
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51372
+2026/04/29 03:03:49 server stopped
+--- PASS: TestBroadcast (0.07s)
+=== RUN   TestSend
+2026/04/29 03:03:49 server listening on :51375
+2026/04/29 03:03:49 player connected: 127.0.0.1:51377
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51377
+2026/04/29 03:03:49 player connected: 127.0.0.1:51378
+2026/04/29 03:03:49 server stopped
+--- PASS: TestSend (0.06s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51378
+=== RUN   TestMultipleClients
+2026/04/29 03:03:49 server listening on :51379
+2026/04/29 03:03:49 player connected: 127.0.0.1:51381
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51381
+2026/04/29 03:03:49 player connected: 127.0.0.1:51382
+2026/04/29 03:03:49 player connected: 127.0.0.1:51383
+2026/04/29 03:03:49 player connected: 127.0.0.1:51384
+2026/04/29 03:03:49 player connected: 127.0.0.1:51385
+2026/04/29 03:03:49 player connected: 127.0.0.1:51386
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51382
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51384
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51383
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51386
+2026/04/29 03:03:49 server stopped
+--- PASS: TestMultipleClients (0.22s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51385
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 03:03:49 server listening on :51387
+2026/04/29 03:03:49 player connected: 127.0.0.1:51389
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51389
+2026/04/29 03:03:49 player connected: 127.0.0.1:51390
+2026/04/29 03:03:49 decode error from 127.0.0.1:51390: invalid message format
+2026/04/29 03:03:49 decode error from 127.0.0.1:51390: invalid message format
+2026/04/29 03:03:49 received from 127.0.0.1:51390:  |
+2026/04/29 03:03:49 decode error from 127.0.0.1:51390: invalid message format
+2026/04/29 03:03:49 decode error from 127.0.0.1:51390: invalid message format
+2026/04/29 03:03:49 received from 127.0.0.1:51390: JOIN test
+2026/04/29 03:03:49 player 127.0.0.1:51390 joined as test
+2026/04/29 03:03:49 connection error from 127.0.0.1:51390: read tcp 127.0.0.1:51387->127.0.0.1:51390: read: connection reset by peer
+2026/04/29 03:03:49 server stopped
+--- PASS: TestInvalidMessageNoPanic (0.07s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51390
+=== RUN   TestJoinSuccess
+2026/04/29 03:03:49 server listening on :51391
+2026/04/29 03:03:49 player connected: 127.0.0.1:51393
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51393
+2026/04/29 03:03:49 player connected: 127.0.0.1:51394
+2026/04/29 03:03:49 received from 127.0.0.1:51394: JOIN Alice
+2026/04/29 03:03:49 player 127.0.0.1:51394 joined as Alice
+2026/04/29 03:03:49 server stopped
+--- PASS: TestJoinSuccess (0.01s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51394
+=== RUN   TestJoinDuplicateName
+2026/04/29 03:03:49 server listening on :51395
+2026/04/29 03:03:49 player connected: 127.0.0.1:51397
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51397
+2026/04/29 03:03:49 player connected: 127.0.0.1:51398
+2026/04/29 03:03:49 received from 127.0.0.1:51398: JOIN Alice
+2026/04/29 03:03:49 player 127.0.0.1:51398 joined as Alice
+2026/04/29 03:03:49 player connected: 127.0.0.1:51399
+2026/04/29 03:03:49 received from 127.0.0.1:51399: JOIN Alice
+2026/04/29 03:03:49 received from 127.0.0.1:51399: JOIN Bob
+2026/04/29 03:03:49 player 127.0.0.1:51399 joined as Bob
+2026/04/29 03:03:49 server stopped
+--- PASS: TestJoinDuplicateName (0.01s)
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51398
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51399
+=== RUN   TestJoinEmptyName
+2026/04/29 03:03:49 server listening on :51400
+2026/04/29 03:03:49 player connected: 127.0.0.1:51402
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51402
+2026/04/29 03:03:49 player connected: 127.0.0.1:51403
+2026/04/29 03:03:49 received from 127.0.0.1:51403: JOIN 
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51403
+2026/04/29 03:03:49 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+=== RUN   TestJoinDisconnectCleanup
+2026/04/29 03:03:49 server listening on :51404
+2026/04/29 03:03:49 player connected: 127.0.0.1:51406
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51406
+2026/04/29 03:03:49 player connected: 127.0.0.1:51407
+2026/04/29 03:03:49 received from 127.0.0.1:51407: JOIN Alice
+2026/04/29 03:03:49 player 127.0.0.1:51407 joined as Alice
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51407
+2026/04/29 03:03:49 player connected: 127.0.0.1:51408
+2026/04/29 03:03:49 received from 127.0.0.1:51408: JOIN Alice
+2026/04/29 03:03:49 player 127.0.0.1:51408 joined as Alice
+2026/04/29 03:03:49 server stopped
+2026/04/29 03:03:49 player disconnected: 127.0.0.1:51408
+--- PASS: TestJoinDisconnectCleanup (0.12s)
+PASS
+ok  	github.com/smallnest/doubletake/server	(cached)
+结果: 通过
+
+=== 汇总 ===
+状态: 全部通过

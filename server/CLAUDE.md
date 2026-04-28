@@ -3,8 +3,9 @@
 ## 架构约定
 - 包名与目录名一致，使用 `server` 包
 - Server 结构体管理 TCP 监听和所有客户端连接
-- Player 结构体代表一个已连接的客户端，目前包含 `Conn net.Conn` 字段
+- Player 结构体代表一个已连接的客户端，包含 `Conn net.Conn` 和 `Name string` 字段
 - 连接注册表使用 `map[net.Conn]*Player`，通过 `sync.Mutex` 保护并发访问
+- 已注册名字集合使用 `map[string]bool`（`names` 字段），由同一个 `sync.Mutex` 保护
 - 使用 `done` channel 实现 Stop() 的优雅关闭，Accept 循环通过 select 检查 done
 
 ## 依赖关系
@@ -16,7 +17,8 @@
 2. 每个连接启动独立 goroutine 运行 handleConn
 3. handleConn 使用 bufio.Scanner 按行读取，调用 game.Decode 解析
 4. 解析失败仅记录日志不关闭连接（允许客户端恢复）
-5. 客户端断开时（scanner.Scan() 返回 false），defer 中 unregister 清理连接
+5. 有效消息通过 switch msg.Type 路由到对应处理函数（如 handleJoin）
+6. 客户端断开时（scanner.Scan() 返回 false），defer 中 unregister 清理连接和注册名字
 
 ## 并发安全模式
 - `listener` 字段由 `sync.Mutex` 保护，Start() 中赋值和 Stop() 中读取都在锁内
@@ -32,3 +34,5 @@
 - Stop() 关闭 listener 后 Accept 会返回错误，通过 done channel 区分正常关闭与异常
 - Broadcast 和 Send 使用 game.Encode 编码消息，格式为 `TYPE|payload\n`
 - unregister 中会关闭连接的 Conn，不要重复 Close
+- handleJoin 等消息处理函数中，先解锁再调用 Send()，避免在持锁期间执行网络 I/O（防止死锁）
+- Player.Name 在连接期间有效，断开后 unregister 会从 names map 中移除

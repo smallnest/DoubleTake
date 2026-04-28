@@ -84,8 +84,8 @@ func validateConfig(total, undercovers, blanks int) error {
 
 // RunJudge runs the referee interactive configuration flow.
 // out is used for display output; in provides the interactive input source.
-func RunJudge(out io.Writer, in io.Reader, port string) GameConfig {
-	disp := client.NewDisplay(out, false)
+func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig {
+	disp := client.NewDisplay(out, stealth)
 	disp.PrintStartup()
 
 	scanner := bufio.NewScanner(in)

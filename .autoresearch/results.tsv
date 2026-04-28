@@ -5,3 +5,4 @@
 2026-04-29T02:04:45+08:00	5	#5 TCP 客户端基础 — 连接与收发消息	completed	3	true	87	87	feature/issue-5	
 2026-04-29T02:25:48+08:00	6	#6 伪装显示模块 — 日志风格输出	completed	7	true	92	92	feature/issue-6	
 2026-04-29T02:56:55+08:00	7	#7 裁判交互式配置与创建房间	completed	7	true	92	92	feature/issue-7	
+2026-04-29T03:36:52+08:00	8	#8 玩家通过密码连接并加入房间	completed	7	true	92	92	feature/issue-8	

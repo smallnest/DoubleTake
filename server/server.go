@@ -12,6 +12,7 @@ import (
 // Player represents a connected client in the game.
 type Player struct {
 	Conn net.Conn
+	Name string
 }
 
 // Server is a TCP server that manages client connections for the game.
@@ -19,6 +20,7 @@ type Server struct {
 	port        string
 	listener    net.Listener
 	connections map[net.Conn]*Player
+	names       map[string]bool
 	mu          sync.Mutex
 	done        chan struct{}
 	stopOnce    sync.Once
@@ -30,6 +32,7 @@ func NewServer(port string) *Server {
 	return &Server{
 		port:        port,
 		connections: make(map[net.Conn]*Player),
+		names:       make(map[string]bool),
 		done:        make(chan struct{}),
 		ready:       make(chan struct{}),
 	}
@@ -108,6 +111,11 @@ func (s *Server) handleConn(conn net.Conn) {
 			continue
 		}
 		log.Printf("received from %s: %s %s", conn.RemoteAddr(), msg.Type, msg.Payload)
+
+		switch msg.Type {
+		case game.MsgJoin:
+			s.handleJoin(player, msg.Payload)
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Printf("connection error from %s: %v", conn.RemoteAddr(), err)
@@ -124,6 +132,9 @@ func (s *Server) register(player *Player) {
 func (s *Server) unregister(player *Player) {
 	s.mu.Lock()
 	delete(s.connections, player.Conn)
+	if player.Name != "" {
+		delete(s.names, player.Name)
+	}
 	s.mu.Unlock()
 	player.Conn.Close()
 	log.Printf("player disconnected: %s", player.Conn.RemoteAddr())
@@ -139,6 +150,26 @@ func (s *Server) Broadcast(msg game.Message) {
 			log.Printf("broadcast write error to %s: %v", conn.RemoteAddr(), err)
 		}
 	}
+}
+
+func (s *Server) handleJoin(player *Player, name string) {
+	if name == "" {
+		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "名字不能为空"})
+		return
+	}
+
+	s.mu.Lock()
+	if s.names[name] {
+		s.mu.Unlock()
+		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "名字已存在，请换一个"})
+		return
+	}
+	player.Name = name
+	s.names[name] = true
+	s.mu.Unlock()
+
+	s.Send(player.Conn, game.Message{Type: game.MsgJoin, Payload: name})
+	log.Printf("player %s joined as %s", player.Conn.RemoteAddr(), name)
 }
 
 // Send sends a message to a single connection.

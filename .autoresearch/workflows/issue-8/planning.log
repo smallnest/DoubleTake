@@ -1,0 +1,105 @@
+现在我对代码库有了全面的了解。让我来分析问题并规划子任务。
+
+## Issue #8 分析
+
+**核心功能**: 实现玩家模式的连接流程 — 输入密码解码连接、输入名字、服务端重名校验。
+
+**已有基础设施**:
+- `game/base62.go`: `DecodeRoomCode()` 已实现密码解码
+- `client/client.go`: TCP 连接、消息收发已完整实现
+- `client/display.go`: 伪装显示模块已完整
+- `server/server.go`: TCP 服务端、消息接收、广播已实现，但缺少 JOIN 消息处理和玩家名管理
+- `game/protocol.go`: `MsgJoin`、`MsgError` 等消息类型常量已定义
+- `cmd/doubletake/judge.go`: 裁判模式已实现，可作参考
+
+**需要新增/修改的内容**:
+1. **服务端**: Player 结构体增加 Name 字段，处理 JOIN 消息（重名校验），增加 OnJoin 回调机制
+2. **客户端**: `cmd/doubletake/player.go` — `RunPlayer()` 函数，整合密码输入→解码→连接→输入名字→发送 JOIN→处理响应的完整流程
+3. **CLI 入口**: `main.go` 中 role=player 时调用 `RunPlayer()`
+
+---
+
+基于以上分析，拆分为 3 个子任务，按依赖顺序排列：
+
+**T-001 — 服务端 JOIN 消息处理与重名校验** (优先实现，客户端依赖此功能)
+- Player 结构体增加 Name 字段
+- handleConn 中解析 JOIN 消息，提取玩家名字
+- 检查名字是否重复，重复返回 ERROR 消息
+- 加入成功返回确认消息
+- 添加 `OnJoin` 回调或类似机制让上层可获取玩家信息
+- 编写测试覆盖：正常加入、重名拒绝、空名字等场景
+
+**T-002 — 实现 RunPlayer() 客户端玩家流程** (依赖 T-001 的服务端支持)
+- 创建 `cmd/doubletake/player.go`，实现 `RunPlayer()` 函数
+- 提示输入房间密码 → 调用 `game.DecodeRoomCode()` 解码 → 连接 TCP
+- 连接成功后提示输入玩家名字 → 发送 JOIN 消息 → 监听响应
+- 收到 ERROR 时提示重新输入名字
+- 加入成功后显示等待提示
+- 复用 `client.Display` 的 Info/Warn/Prompt 等方法
+- 编写测试覆盖：密码解码失败、连接失败、重名重试等
+
+**T-003 — CLI 集成与端到端验证** (依赖 T-001、T-002)
+- 修改 `cmd/doubletake/main.go`，在 role=player 时调用 `RunPlayer()`
+- 传递 port 参数给 `RunPlayer()`
+- 运行完整的编译、lint、测试自检
+- 验证裁判模式 + 玩家模式的完整交互流程
+
+```json
+{
+  "issueNumber": 8,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "服务端 JOIN 消息处理与玩家重名校验",
+      "description": "扩展 server.Player 结构体增加 Name 字段，在 server.handleConn 中实现 JOIN 消息处理逻辑：解析玩家名字、检查是否与已连接玩家重名、重名返回 ERROR 消息、加入成功返回确认消息。需要维护已连接玩家名字集合用于重名检查。编写测试覆盖正常加入、重名拒绝、空名字等场景。",
+      "acceptanceCriteria": [
+        "server.Player 结构体包含 Name string 字段",
+        "服务端收到 JOIN 消息后解析玩家名字并存入 Player 结构体",
+        "玩家名字与已有玩家重复时，服务端返回 ERROR 消息（payload 含重复提示）",
+        "玩家名字不重复时，服务端确认加入成功",
+        "玩家断开连接后其名字从已注册列表中移除",
+        "测试覆盖：正常加入、重名拒绝、空名字等场景",
+        "go build ./... 和 go vet ./... 通过"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "实现 RunPlayer() 玩家连接与加入房间流程",
+      "description": "创建 cmd/doubletake/player.go，实现 RunPlayer(out io.Writer, in io.Reader) 函数。流程：使用 Display.Prompt() 提示输入房间密码 → 调用 game.DecodeRoomCode() 解码获取 IP:port → 解码失败用 Display.Warn() 提示并退出 → 使用 client.Client.Connect() 连接服务端 → 连接失败提示并退出 → 提示输入玩家名字 → 发送 JOIN 消息 → 监听 client.Messages() channel 等待响应 → 收到 ERROR 消息时提示重新输入名字（循环）→ 加入成功后用 Display.Info() 显示等待提示。参考 judge.go 的 RunJudge 函数风格。",
+      "acceptanceCriteria": [
+        "创建 cmd/doubletake/player.go 文件，包含 RunPlayer 函数",
+        "提示输入房间密码并调用 game.DecodeRoomCode 解码",
+        "密码解码失败时显示错误提示并返回非零退出码",
+        "连接失败时显示错误提示（如'服务端未启动'）并返回非零退出码",
+        "连接成功后提示输入玩家名字并发送 JOIN 消息",
+        "收到 ERROR 消息时提示重新输入名字（循环直到成功）",
+        "加入成功后显示等待提示",
+        "函数签名接受 io.Writer 和 io.Reader 参数便于测试",
+        "测试覆盖：密码解码失败、连接失败、重名重试、正常加入流程"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "CLI 集成 player 模式并完成端到端验证",
+      "description": "修改 cmd/doubletake/main.go，在 role=player 时调用 RunPlayer(stdout, os.Stdin)，传递 stealth 参数创建 Display。确保编译通过（go build ./...）、lint 通过（go vet ./...）、所有测试通过（go test ./...）。验证裁判模式启动服务端 + 玩家模式输入密码连接的端到端流程。",
+      "acceptanceCriteria": [
+        "main.go 中 role=player 时调用 RunPlayer 函数",
+        "stealth 参数正确传递给 RunPlayer",
+        "go build ./... 编译通过无错误",
+        "go vet ./... 无新增警告",
+        "go test ./... 所有测试通过",
+        "玩家模式和裁判模式的现有功能不受影响"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
