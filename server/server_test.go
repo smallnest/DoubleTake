@@ -756,3 +756,53 @@ func TestDesc_NamedPlayerForwarded(t *testing.T) {
 		t.Fatal("timed out waiting for DescEvent")
 	}
 }
+
+func TestVote_UnnamedPlayer(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Send VOTE without joining — should get ERROR.
+	fmt.Fprintf(conn, "VOTE|Bob\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR for unnamed VOTE, got %s", msg.Type)
+	}
+	if msg.Payload != "请先加入游戏" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestVote_NamedPlayerForwarded(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	fmt.Fprintf(conn, "VOTE|Bob\n")
+
+	select {
+	case evt := <-srv.OnVoteMsg:
+		if evt.PlayerName != "Alice" {
+			t.Errorf("expected player Alice, got %s", evt.PlayerName)
+		}
+		if evt.Target != "Bob" {
+			t.Errorf("expected target Bob, got %s", evt.Target)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for VoteEvent")
+	}
+}

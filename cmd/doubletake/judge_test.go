@@ -1382,3 +1382,255 @@ func TestDescriptionPhase_NotYourTurn(t *testing.T) {
 		}
 	}
 }
+
+// --- Voting phase integration tests ---
+
+// setupVotePhaseTest is a test helper that sets up a game through the description phase
+// and returns the player connections, the voter order (same as speaker order in desc phase),
+// and a cleanup function. After this returns, all connections are ready for the voting phase.
+func setupVotePhaseTest(t *testing.T, numPlayers int) ([]net.Conn, []string, func()) {
+	t.Helper()
+
+	conns, cleanup := setupDescPhaseTest(t, numPlayers)
+
+	// Read ROUND + TURN from all connections to learn speaker order.
+	var speakers []string
+	for i, conn := range conns {
+		roundMsg := readMsgFromConn(t, conn)
+		if roundMsg.Type != game.MsgRound {
+			t.Fatalf("conn %d: expected ROUND, got %s", i, roundMsg.Type)
+		}
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		speakers = strings.Split(roundParts[1], ",")
+
+		turnMsg := readMsgFromConn(t, conn)
+		if turnMsg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, turnMsg.Type)
+		}
+	}
+
+	// Each speaker describes in order to complete the description phase.
+	for _, speaker := range speakers {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|hello from %s\n", speaker)
+
+		// All players receive DESC broadcast.
+		for _, conn := range conns {
+			readMsgFromConn(t, conn)
+		}
+
+		// After DESC, TURN for next speaker (except last).
+		if speaker != speakers[len(speakers)-1] {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn)
+			}
+		}
+	}
+
+	return conns, speakers, cleanup
+}
+
+func TestVotingPhase_NormalFlow(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// All players should receive VOTE|1|P0,P1,P2,P3.
+	voteMsg := readMsgFromConn(t, conns[0])
+	if voteMsg.Type != game.MsgVote {
+		t.Fatalf("expected VOTE, got %s: %s", voteMsg.Type, voteMsg.Payload)
+	}
+	voteParts := strings.SplitN(voteMsg.Payload, "|", 2)
+	if len(voteParts) < 2 {
+		t.Fatalf("malformed VOTE payload: %q", voteMsg.Payload)
+	}
+	if voteParts[0] != "1" {
+		t.Errorf("expected round 1, got %q", voteParts[0])
+	}
+
+	// All players should receive TURN for the first voter.
+	turnMsg := readMsgFromConn(t, conns[0])
+	if turnMsg.Type != game.MsgTurn {
+		t.Fatalf("expected TURN, got %s: %s", turnMsg.Type, turnMsg.Payload)
+	}
+
+	// Consume VOTE + TURN from remaining connections.
+	for i := 1; i < len(conns); i++ {
+		msg := readMsgFromConn(t, conns[i])
+		if msg.Type != game.MsgVote {
+			t.Errorf("conn %d: expected VOTE, got %s", i, msg.Type)
+		}
+		msg = readMsgFromConn(t, conns[i])
+		if msg.Type != game.MsgTurn {
+			t.Errorf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+	}
+
+	// Each voter votes in order. All vote for voters[0] to ensure a clear elimination
+	// (nobody votes for themselves since voters[0] votes for voters[1] and others vote for voters[0]).
+	for vi, voter := range voters {
+		var target string
+		if vi == 0 {
+			target = voters[1] // voters[0] votes for voters[1]
+		} else {
+			target = voters[0] // everyone else votes for voters[0]
+		}
+		voterConn := findConnByName(conns, voter)
+		fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+
+		// After voting, next voter gets TURN (unless this is the last voter).
+		if vi < len(voters)-1 {
+			for _, conn := range conns {
+				msg := readMsgFromConn(t, conn)
+				if msg.Type != game.MsgTurn {
+					t.Fatalf("expected TURN for next voter, got %s: %s", msg.Type, msg.Payload)
+				}
+			}
+		}
+	}
+
+	// All players should receive RESULT with vote tallies.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgResult {
+			t.Fatalf("conn %d: expected RESULT, got %s: %s", i, msg.Type, msg.Payload)
+		}
+		// voters[0] gets 3 votes (from voters[1], voters[2], voters[3]).
+		if !strings.Contains(msg.Payload, voters[0]+":3") {
+			t.Errorf("conn %d: RESULT payload should contain %s:3, got %q", i, voters[0], msg.Payload)
+		}
+	}
+}
+
+func TestVotingPhase_ValidationRejectsInvalidVote(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Consume VOTE + TURN from all connections.
+	var currentVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentVoter = msg.Payload
+		}
+	}
+
+	voterConn := findConnByName(conns, currentVoter)
+
+	// Send empty vote — should get ERROR.
+	fmt.Fprintf(voterConn, "VOTE|   \n")
+	msg := readMsgFromConn(t, voterConn)
+	if msg.Type != game.MsgError {
+		t.Fatalf("expected ERROR for empty vote, got %s: %s", msg.Type, msg.Payload)
+	}
+	if !strings.Contains(msg.Payload, "vote target must not be empty") {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+
+	// Send self-vote — should get ERROR.
+	fmt.Fprintf(voterConn, "VOTE|%s\n", currentVoter)
+	msg = readMsgFromConn(t, voterConn)
+	if msg.Type != game.MsgError {
+		t.Fatalf("expected ERROR for self-vote, got %s: %s", msg.Type, msg.Payload)
+	}
+	if !strings.Contains(msg.Payload, "cannot vote for yourself") {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+
+	// Send valid vote to proceed.
+	target := voters[0]
+	if target == currentVoter {
+		target = voters[1]
+	}
+	fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+
+	// Next voter gets TURN.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN for next voter, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+}
+
+func TestVotingPhase_NotYourTurn(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Consume VOTE + TURN from all connections.
+	var currentVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentVoter = msg.Payload
+		}
+	}
+
+	// Find a player who is NOT the current voter and send VOTE from them.
+	for i, conn := range conns {
+		name := fmt.Sprintf("P%d", i)
+		if name != currentVoter {
+			fmt.Fprintf(conn, "VOTE|%s\n", voters[0])
+
+			// Should get ERROR.
+			msg := readMsgFromConn(t, conn)
+			if msg.Type != game.MsgError {
+				t.Errorf("expected ERROR for not-your-turn, got %s: %s", msg.Type, msg.Payload)
+			}
+			if !strings.Contains(msg.Payload, "还没轮到你投票") {
+				t.Errorf("unexpected error payload: %q", msg.Payload)
+			}
+			return
+		}
+	}
+}
+
+func TestVotingPhase_ResultBroadcastAndElimination(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Consume VOTE + TURN from all connections.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	// All voters vote for voters[0] except voters[0] who votes for voters[1].
+	// This ensures voters[0] gets 3 votes and is eliminated.
+	target := voters[0]
+	for vi, voter := range voters {
+		var voteTarget string
+		if vi == 0 {
+			voteTarget = voters[1]
+		} else {
+			voteTarget = target
+		}
+		voterConn := findConnByName(conns, voter)
+		fmt.Fprintf(voterConn, "VOTE|%s\n", voteTarget)
+
+		if vi < len(voters)-1 {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn) // TURN for next voter
+			}
+		}
+	}
+
+	// Read RESULT from first connection and verify.
+	resultMsg := readMsgFromConn(t, conns[0])
+	if resultMsg.Type != game.MsgResult {
+		t.Fatalf("expected RESULT, got %s: %s", resultMsg.Type, resultMsg.Payload)
+	}
+	// Result should show target:3 (3 voters voted for voters[0]).
+	if !strings.Contains(resultMsg.Payload, target+":3") {
+		t.Errorf("RESULT should show %s:3, got %q", target, resultMsg.Payload)
+	}
+
+	// Read RESULT from remaining connections (it's a broadcast).
+	for i := 1; i < len(conns); i++ {
+		msg := readMsgFromConn(t, conns[i])
+		if msg.Type != game.MsgResult {
+			t.Errorf("conn %d: expected RESULT, got %s", i, msg.Type)
+		}
+	}
+}

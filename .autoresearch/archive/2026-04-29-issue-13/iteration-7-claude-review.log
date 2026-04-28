@@ -1,0 +1,115 @@
+我现在对代码库有了全面的了解。接下来，我将根据验收条件进行审核。
+
+## 审核报告
+
+### Issue
+- 编号: #13
+- 标题: 投票环节 — 收集与统计
+- 子任务: T-003 - 裁判端投票阶段编排 — votingPhase 函数与 RunJudge 集成
+- 迭代次数: 7 (当前审核)
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+**核心问题：T-003 的主体代码（`votingPhase` 函数）完全未实现。** 虽然 T-001（`vote.go`）和 T-002（server 端 VOTE 消息处理）已正确落地，但 T-003 要求在 `cmd/doubletake/judge.go` 中实现 `votingPhase` 函数并集成到 `RunJudge`，当前代码中 **不存在** `votingPhase` 函数，`RunJudge` 在 `descriptionPhase` 之后直接返回，没有任何投票阶段逻辑。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: votingPhase 函数完全缺失
+
+**位置**: `cmd/doubletake/judge.go` — 缺失
+
+**问题描述**:
+T-003 的验收条件要求实现 `votingPhase(disp, srv, roundNum, alivePlayers, players)` 函数，但 `judge.go` 中不存在此函数。`RunJudge` 在第 199-205 行调用 `descriptionPhase` 后直接返回：
+
+```go
+// Run description phase for round 1 with all players.
+descResult := descriptionPhase(disp, srv, 1, names)
+if descResult == nil {
+    return cfg
+}
+_ = descResult // descriptions recorded for later phases
+
+return cfg
+```
+
+**需要实现的完整功能**:
+1. 广播 `VOTE|roundNum|alivePlayerList` 通知所有玩家
+2. 轮流发送 `TURN|playerName` 给每个存活玩家
+3. 通过 `srv.OnVoteMsg` channel 接收投票
+4. 使用 `VoteRound.RecordVote` 校验，失败发送 ERROR 要求重新投票
+5. 投票完成后调用 `Tally` 统计票数
+6. 广播 `RESULT|voteResults` 消息（格式：`playerA:count,playerB:count,...`）
+7. 标记出局玩家 `Alive=false`
+8. 在 `RunJudge` 中 `descriptionPhase` 之后调用 `votingPhase`
+
+**原因**: 这是 T-003 的核心交付物，缺失意味着子任务完全未完成。
+
+#### 问题 2: 集成测试完全缺失
+
+**位置**: `cmd/doubletake/judge_test.go` — 缺失
+
+**问题描述**:
+验收条件要求编写集成测试覆盖完整投票流程（正常投票、校验拒绝、结果广播、出局标记），但 `judge_test.go` 中没有与投票相关的测试。所有现有测试仅覆盖到 `descriptionPhase`。
+
+**原因**: 没有测试无法验证投票逻辑的正确性。
+
+---
+
+### 验收条件逐项检查
+
+| 验收条件 | 状态 | 说明 |
+|---------|------|------|
+| votingPhase(disp, srv, roundNum, alivePlayers, players) 函数实现完整 | ❌ | 函数不存在 |
+| 广播 VOTE\|roundNum\|alivePlayerList 通知所有玩家 | ❌ | 未实现 |
+| 轮流发送 TURN\|playerName 给每个存活玩家 | ❌ | 未实现 |
+| 使用 VoteRound.RecordVote 校验投票，失败发送 ERROR | ❌ | 未实现 |
+| 所有投票完成后广播 RESULT 消息公布每人得票数 | ❌ | 未实现 |
+| 票数最高者标记 Alive=false | ❌ | 未实现 |
+| RunJudge 中 descriptionPhase 之后调用 votingPhase | ❌ | 未集成 |
+| 集成测试覆盖完整投票流程 | ❌ | 无测试 |
+| go vet 和 go test ./... 全部通过 | ✅ | 通过（但因为没有新代码） |
+
+---
+
+### 已正确实现的部分（T-001/T-002 依赖项）
+
+- `game/vote.go` — VoteRound 结构体、NewVoteRound、RecordVote、Tally、FindEliminated 均已实现且经过充分测试
+- `game/vote_test.go` — 覆盖了正常流程、所有校验错误路径、平票场景、边界情况
+- `server/server.go` — `OnVoteMsg` channel、`VoteEvent` 结构体、`handleVote` 方法已实现
+- `server/server_test.go` — `TestVote_UnnamedPlayer`、`TestVote_NamedPlayerForwarded` 已通过
+- 协议常量 `MsgVote`、`MsgResult` 已在 `protocol.go` 中定义
+
+---
+
+### 审核结论
+
+- [ ] 阻塞 - 核心功能完全未实现
+
+**下一步行动**:
+需要在 `cmd/doubletake/judge.go` 中实现 `votingPhase` 函数，参考 `descriptionPhase` 的模式：
+
+1. 创建 `game.NewVoteRound` 实例
+2. 广播 `VOTE|roundNum|alivePlayerList`
+3. 广播 `TURN|firstVoterName`
+4. 循环从 `srv.OnVoteMsg` 读取投票事件
+5. 调用 `VoteRound.RecordVote` 校验，失败发 ERROR
+6. 校验通过后广播 TURN 给下一位投票者
+7. 投票结束后调用 `Tally()` + `FindEliminated()`
+8. 广播 `RESULT|playerA:count,playerB:count,...`
+9. 标记出局玩家 `Alive=false`
+10. 在 `RunJudge` 中调用 `votingPhase`
+11. 编写集成测试验证完整流程
+
+---
+
+### Learnings
+
+- **模式**: `descriptionPhase` 已建立了完整的阶段编排模板（NewXxxRound → 广播通知 → TURN → 循环读 channel → 校验 → 错误处理 → 广播结果），`votingPhase` 应严格复制此模式，仅替换字段名和校验逻辑
+- **踩坑**: 跨迭代审核中可能出现"审核通过但代码未落地"的情况（Iteration 6 评分 100/100 但实际 votingPhase 未实现），审核时必须验证源代码中存在对应函数，不能仅依赖测试通过
+- **经验**: 审核 T-003 时应先 grep `votingPhase` 确认函数存在，再检查 RunJudge 中的调用点，最后运行测试验证

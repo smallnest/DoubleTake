@@ -202,6 +202,13 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	}
 	_ = descResult // descriptions recorded for later phases
 
+	// Run voting phase for round 1.
+	voteResult := votingPhase(disp, srv, 1, names, players)
+	if voteResult == nil {
+		return cfg
+	}
+	_ = voteResult
+
 	return cfg
 }
 
@@ -339,6 +346,106 @@ func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, al
 	}
 
 	return &descResult{Round: round}
+}
+
+// voteResult holds the outcome of the voting phase.
+type voteResult struct {
+	Round      *game.VoteRound
+	Eliminated string // name of the player with the most votes (empty if tie)
+}
+
+// votingPhase runs the voting phase for one round.
+// It broadcasts VOTE|roundNum|alivePlayerList, sends TURN|playerName to the
+// first voter, processes VOTE messages, and broadcasts RESULT when all votes are in.
+// It returns the eliminated player name (empty if tie) or nil on failure.
+func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string, players []*game.Player) *voteResult {
+	round, err := game.NewVoteRound(roundNum, alivePlayers)
+	if err != nil {
+		disp.Warn(fmt.Sprintf("创建投票轮次失败: %v", err))
+		return nil
+	}
+
+	// Broadcast VOTE|roundNum|alivePlayerList to all named players.
+	playerList := strings.Join(alivePlayers, ",")
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgVote,
+		Payload: fmt.Sprintf("%d|%s", roundNum, playerList),
+	})
+
+	// Send TURN|playerName to the first voter.
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgTurn,
+		Payload: round.CurrentVoter(),
+	})
+
+	for !round.AllDone() {
+		evt := <-srv.OnVoteMsg
+		current := round.CurrentVoter()
+
+		if current == "" {
+			break
+		}
+
+		// Check if it's this player's turn.
+		if evt.PlayerName != current {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: "还没轮到你投票",
+			})
+			continue
+		}
+
+		// Build alive player list for validation.
+		aliveNames := make([]string, 0, len(players))
+		for _, p := range players {
+			if p.Alive {
+				aliveNames = append(aliveNames, p.Name)
+			}
+		}
+
+		// Try to record the vote.
+		err := round.RecordVote(evt.PlayerName, evt.Target, aliveNames)
+		if err != nil {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: err.Error(),
+			})
+			continue
+		}
+
+		// Valid vote: send TURN to the next voter, if any.
+		if !round.AllDone() {
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgTurn,
+				Payload: round.CurrentVoter(),
+			})
+		}
+	}
+
+	// Tally votes and broadcast RESULT.
+	tally := round.Tally()
+	resultParts := make([]string, 0, len(tally))
+	for name, count := range tally {
+		resultParts = append(resultParts, fmt.Sprintf("%s:%d", name, count))
+	}
+	resultPayload := strings.Join(resultParts, ",")
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgResult,
+		Payload: resultPayload,
+	})
+
+	// Find and mark eliminated player.
+	eliminated, _ := round.FindEliminated()
+	if eliminated != "" {
+		for _, p := range players {
+			if p.Name == eliminated {
+				p.Alive = false
+				break
+			}
+		}
+	}
+
+	return &voteResult{Round: round, Eliminated: eliminated}
 }
 
 // broadcastReady sends the READY message to all named players.

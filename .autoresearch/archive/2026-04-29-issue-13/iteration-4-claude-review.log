@@ -1,0 +1,97 @@
+确认。T-002 的实现**完全缺失**。以下是审核报告：
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #13
+- 标题: 投票环节 — 收集与统计
+- 迭代次数: 4 (T-002 审核)
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+T-002 子任务的实现**完全缺失**。server 包中没有任何与 VOTE 相关的代码：没有 `VoteEvent` 结构体、没有 `OnVoteMsg` channel、没有 `handleVote` 方法、没有 `MsgVote` case 路由、也没有对应的测试。
+
+---
+
+### 验收条件逐项检查
+
+| 验收条件 | 状态 |
+|---|---|
+| VoteEvent 结构体定义（PlayerName、Target 字段） | ❌ 不存在 |
+| Server.OnVoteMsg channel (buffered 64) | ❌ 不存在 |
+| handleConn 中 MsgVote case 路由到 handleVote | ❌ 不存在 |
+| handleVote 对未命名玩家返回 ERROR('请先加入游戏') | ❌ 不存在 |
+| handleVote 对已命名玩家转发 VoteEvent 到 OnVoteMsg | ❌ 不存在 |
+| server 包测试覆盖 VOTE 转发和未命名玩家拒绝 | ❌ 不存在 |
+| go vet 和 go test ./server/ 全部通过 | ✅ 通过（但因为没有新代码） |
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: T-002 全部功能未实现
+
+**位置**: `server/server.go`
+
+**问题描述**:
+T-002 要求的所有组件均不存在。当前 `server.go` 的 `handleConn` switch 中只有 `MsgJoin` 和 `MsgDesc` 两个 case，缺少 `MsgVote` case。Server 结构体中缺少 `OnVoteMsg` channel。
+
+**参考**: `handleDesc` 和 `DescEvent` 的实现模式（`server.go:265-279`）可直接复用为 VOTE 的模板：
+
+```go
+// 需要添加的结构体
+type VoteEvent struct {
+    PlayerName string
+    Target     string
+}
+
+// Server 结构体中需要添加的字段
+OnVoteMsg chan VoteEvent
+
+// NewServer 中需要初始化
+OnVoteMsg: make(chan VoteEvent, 64),
+
+// handleConn switch 中需要添加
+case game.MsgVote:
+    s.handleVote(player, msg.Payload)
+
+// 需要添加的方法
+func (s *Server) handleVote(player *Player, payload string) {
+    if player.Name == "" {
+        s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
+        return
+    }
+    select {
+    case s.OnVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
+    default:
+        log.Printf("OnVoteMsg channel full, dropping VOTE from %s", player.Name)
+    }
+}
+```
+
+**对应测试** (参考 `TestDesc_UnnamedPlayer` 和 `TestDesc_NamedPlayerForwarded`):
+- `TestVote_UnnamedPlayer`: 未 JOIN 的玩家发 VOTE 收到 ERROR
+- `TestVote_NamedPlayerForwarded`: 已 JOIN 玩家发 VOTE，`OnVoteMsg` channel 收到正确的 VoteEvent
+
+---
+
+### 审核结论
+
+- [ ] 阻塞 - T-002 完全未实现，需要从零开始
+
+**下一步行动**:
+请实现 T-002 的全部验收条件。参考已有的 `handleDesc` / `DescEvent` / `OnDescMsg` 模式，VOTE 的实现是对称的，工作量很小。
+
+---
+
+## Learnings
+
+- **模式**: server 包的消息处理遵循统一模板：Event 结构体 → OnXxxMsg channel (buffered 64) → handleConn switch case → handleXxx 方法（先检查命名玩家，再转发到 channel）。DESC 已验证此模式，VOTE 应完全对称
+- **踩坑**: T-002 在 Iteration 3 已获 99/100 评分但实际代码未落地，可能是 agent 审核时误判或代码未持久化
+- **经验**: 实现 T-002 时应严格复制 `handleDesc` 模式，仅替换字段名（`Description` → `Target`），减少出错概率

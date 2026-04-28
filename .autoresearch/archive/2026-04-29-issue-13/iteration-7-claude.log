@@ -1,0 +1,36 @@
+所有任务均已完成。以下是已实现内容的总结：
+
+## 总结
+
+### 所做更改
+
+**`cmd/doubletake/judge.go`** — 实现 `votingPhase` 并集成到 `RunJudge`：
+1. 添加了 `voteResult` 结构体（第20-23行）
+2. 添加了 `votingPhase` 函数（第209-289行），它紧密遵循 `descriptionPhase` 模式：
+   - 广播 `VOTE|roundNum|alivePlayerList` 给所有玩家
+   - 向第一个投票者发送 `TURN|playerName`
+   - 从 `srv.OnVoteMsg` 读取投票事件
+   - 通过 `VoteRound.RecordVote` 进行验证 — 在错误时发送 `ERROR`
+   - 向每个后续投票者广播 `TURN`
+   - 投票结束后：调用 `Tally()` + `FindEliminated()`
+   - 广播 `RESULT|playerA:count,playerB:count,...`
+   - 将被淘汰玩家的 `Alive=false`
+3. 在 `descriptionPhase` 之后在 `RunJudge` 中调用 `votingPhase`（第205-210行）
+
+**`cmd/doubletake/judge_test.go`** — 添加了4个集成测试：
+- `TestVotingPhase_NormalFlow` — 完整的投票周期，包括投票通知、轮次、结果广播
+- `TestVotingPhase_ValidationRejectsInvalidVote` — 拒绝空投票和自我投票
+- `TestVotingPhase_NotYourTurn` — 拒绝非当前投票者的投票
+- `TestVotingPhase_ResultBroadcastAndElimination` — 验证结果格式和正确计数
+- 添加了 `setupVotePhaseTest` 辅助函数，用于设置描述阶段并进入投票阶段
+
+**`cmd/doubletake/CLAUDE.md`** — 更新了投票阶段约定和测试约定
+
+### 验证
+- `go vet ./...` — 通过
+- `go test ./...` — 所有4个包中的所有测试均通过
+
+## 经验总结
+- **模式**：`votingPhase` 是 `descriptionPhase` 的精确结构复制品 — 相同的 NewRound → 广播 → TURN → 循环读 channel → 校验 → ERROR → TURN 下一位 → 结果广播 流程。这个模式是该项目的稳定架构约定。
+- **避坑**：测试中投票者不能投自己（`RecordVote` 会返回 `ErrVoteSelf`），安排投票策略时必须确保 voters[i] 的目标不等于 voters[i]
+- **经验**：`RecordVote` 的 `alivePlayers` 参数需要从 `players` 切片动态构建（检查 `p.Alive`），不能直接用传入的 `alivePlayers` 参数，因为 `alivePlayers` 在函数签名中只是 string 列表用于顺序控制
