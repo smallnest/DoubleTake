@@ -27,3 +27,12 @@
 - Messages() 返回只读 channel，调用方通过 range 或 select 读取
 - 服务端关闭连接时，客户端通过 scanner 停止检测到 EOF 并自动 Disconnect
 - Send() 在未连接时返回错误，不 panic
+
+## 已知问题与修复指南
+- **并发 Disconnect 风险**: 当前 `Disconnect()` 在 `closeOnce.Do` 中 `close(c.messages)`，与 `receiveLoop` 的 `select { case c.messages <- msg }` 并发时可能 panic。修复方式：将 `close(c.messages)` 移到 `receiveLoop` 的 `defer` 中，`Disconnect()` 只负责 `close(c.done)` 和 `c.conn.Close()`。
+- **scanner.Err()**: `receiveLoop` 中 scanner 退出后应调用 `scanner.Err()` 检查错误（与服务端约定一致），当前被忽略。
+
+## 测试约定
+- 使用 `startTestServer` 辅助函数创建临时 TCP 服务器
+- 所有异步测试带 timeout 保护（1秒）
+- 覆盖场景：连接成功/失败、发送/接收、断连、多次消息、无效消息
