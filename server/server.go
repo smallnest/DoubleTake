@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -198,6 +199,23 @@ func (s *Server) Send(conn net.Conn, msg game.Message) {
 	if _, err := conn.Write(data); err != nil {
 		log.Printf("send write error to %s: %v", conn.RemoteAddr(), err)
 	}
+}
+
+// SendToPlayer sends a message to a player by name.
+// Returns an error if the player is not found.
+func (s *Server) SendToPlayer(name string, msg game.Message) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, player := range s.connections {
+		if player.Name == name {
+			data := []byte(game.Encode(msg))
+			if _, err := player.Conn.Write(data); err != nil {
+				return fmt.Errorf("send to player %s: %w", name, err)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("player %s not found", name)
 }
 
 // PlayerCount returns the number of named (registered) players.

@@ -1,0 +1,97 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead .
+[0m→ [0mRead server
+[0m→ [0mRead cmd/doubletake
+[0m→ [0mRead server/server.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead game/network.go
+[0m→ [0mRead game/role_test.go
+[0m→ [0mRead game/protocol.go
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 60s 2>&1
+ok  	github.com/smallnest/doubletake/client	0.585s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.759s
+ok  	github.com/smallnest/doubletake/game	1.142s
+ok  	github.com/smallnest/doubletake/server	2.998s
+[0m
+[0m✱ [0mGrep "SendToPlayer|SendByName"[90m in . · 6 matches[0m
+[0m✱ [0mGrep "MsgRole"[90m in . · 12 matches[0m
+[0m→ [0mRead .autoresearch/workflows/issue-11/tasks.json
+[0m→ [0mRead .autoresearch/workflows/issue-11/planning.log
+现在我需要查看上下文信息，了解 Iteration 2 中 Codex 的审核结果：
+---
+
+## 审核报告
+
+### Issue
+- 编号: #11
+- 子任务: T-002
+- 迭代次数: 3
+
+### 总体评价
+**评分: 46/100**
+
+### 严重问题 (必须修复)
+
+**1. Server 未实现 SendToPlayer 方法 (致命)**
+`server/server.go` 中没有 `SendToPlayer(name string, msg Message)` 或 `SendByName` 方法。现有 `Send` 方法接收 `net.Conn` 而非玩家名，`BroadcastToNamedPlayers` 发送给所有已命名玩家而非单个玩家。T-002 的核心交付物完全缺失。
+
+**2. judge.go 未发送 ROLE 消息 (致命)**
+`RunJudge` 函数 (`cmd/doubletake/judge.go:163-193`) 在 `AssignWords` 之后仅调用了 `broadcastReady`，没有任何遍历 `players` 列表并私密发送 `ROLE` 消息的逻辑。角色分配结果 (`players` 切片) 在函数末尾被直接丢弃。
+
+**3. 无 SendToPlayer 单元测试 (致命)**
+`server/server_test.go` 中没有对 `SendToPlayer` 的任何测试——因为该方法根本不存在。
+
+### 各验收条件逐项检查
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | Server 新增 `SendToPlayer(name string, msg Message)` | ❌ | 方法不存在 |
+| 2 | 玩家名不存在时返回明确错误 | ❌ | 无 `SendToPlayer` 实现 |
+| 3 | judge.go 遍历玩家私密发送 ROLE | ❌ | `RunJudge` 中无 ROLE 发送逻辑 |
+| 4 | 平民/卧底/白板收到对应 ROLE 消息 | ❌ | 未实现 |
+| 5 | 消息仅发送给目标玩家，不广播 | ❌ | 未实现 |
+| 6 | SendToPlayer 有单元测试 | ❌ | 无测试 |
+| 7 | `go build ./...` 和 `go vet ./...` 无错误 | ✅ | 通过（因代码未被引用） |
+
+### 评分明细
+
+| 维度 | 权重 | 得分 | 加权 | 说明 |
+|------|------|------|------|------|
+| 正确性 | 35% | 10 | 3.5 | 0/6 功能验收条件达成，核心功能完全缺失 |
+| 测试质量 | 25% | 10 | 2.5 | 无任何 T-002 相关测试 |
+| 代码质量 | 20% | 100 | 20.0 | 现有代码结构良好，但无 T-002 的新增代码 |
+| 安全性 | 10% | 100 | 10.0 | 无新增代码，无安全风险 |
+| 性能 | 10% | 100 | 10.0 | 无新增代码，无性能问题 |
+| **总分** | **100%** | | **46** | **较差（不达标）** |
+
+### 审核结论
+- ❌ **阻塞** — T-002 未实现任何功能。需要先实现 `SendToPlayer` 方法、`judge.go` 中的 ROLE 分发逻辑，以及对应单元测试，才能进入下一子任务。
+
+### 实现者自检确认
+- [ ] 实现者已执行编译/类型检查
+- [ ] 实现者已执行 Lint 检查
+- [ ] 实现者已运行相关测试
+- [ ] 实现者已确认测试覆盖
+
+> ⚠️ 自检无法确认——当前实现无 T-002 相关代码可检查。
+
+---
+
+## Learnings
+
+- **发现**: 经验日志中 Iteration 2 标注 "审核+修复 - T-002 / 评分: 100/100"，但实际代码中 T-002 完全未实现。经验日志可能存在记错或代码被回退的情况，后续迭代不应盲目信任历史评分。
+- **经验**: 审核时应始终基于实际代码检查，而非依赖历史评分记录。`tasks.json` 中 `passes: false` 是比经验日志更可靠的进度参考。

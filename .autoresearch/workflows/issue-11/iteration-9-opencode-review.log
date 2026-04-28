@@ -1,0 +1,285 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead .
+[0m• [0mExplore codebase structure[90m General Agent[0m
+Let me start by exploring the codebase to understand the current state of the implementation.
+[0m✓ [0mExplore codebase structure[90m General Agent[0m
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead cmd/doubletake/judge.go
+Let me read the key files in detail to review the implementation.
+[0m→ [0mRead server/server.go
+[0m→ [0mRead cmd/doubletake/main.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead cmd/doubletake/main_test.go
+Let me read the remaining key files for a thorough review.
+[0m✱ [0mGlob "**/word_test.go"[90m in . · 0 matches[0m
+[0m✱ [0mGlob "**/*_test.go"[90m in . · 10 matches[0m
+[0m✗ [0mread failed
+[91m[1mError: [0mFile not found: /Users/smallnest/ai/DoubleTake/progress.md
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 30s 2>&1 | tail -30
+ok  	github.com/smallnest/doubletake/client	0.557s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.439s
+ok  	github.com/smallnest/doubletake/game	1.408s
+ok  	github.com/smallnest/doubletake/server	3.320s
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test -race ./... -count=1 -timeout 60s 2>&1 | tail -30
+ok  	github.com/smallnest/doubletake/client	1.480s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	3.335s
+ok  	github.com/smallnest/doubletake/game	1.917s
+ok  	github.com/smallnest/doubletake/server	3.956s
+[0m
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead client/client_test.go
+Let me check the server test for completeness.
+Now let me run tests with race detection to verify:
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test -race -v ./cmd/doubletake/ -run TestWaitingPhase_StartConfirmed -count=1 -timeout 30s 2>&1
+=== RUN   TestWaitingPhase_StartConfirmed
+2026/04/29 05:20:16 server listening on :59741
+2026/04/29 05:20:16 player connected: 127.0.0.1:59746
+2026/04/29 05:20:16 player connected: 127.0.0.1:59745
+2026/04/29 05:20:16 received from 127.0.0.1:59746: JOIN A
+2026/04/29 05:20:16 player 127.0.0.1:59746 joined as A
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59745
+2026/04/29 05:20:16 player connected: 127.0.0.1:59747
+2026/04/29 05:20:16 player connected: 127.0.0.1:59748
+2026/04/29 05:20:16 received from 127.0.0.1:59747: JOIN B
+2026/04/29 05:20:16 player 127.0.0.1:59747 joined as B
+2026/04/29 05:20:16 player connected: 127.0.0.1:59749
+2026/04/29 05:20:16 received from 127.0.0.1:59748: JOIN C
+2026/04/29 05:20:16 player 127.0.0.1:59748 joined as C
+2026/04/29 05:20:16 received from 127.0.0.1:59749: JOIN D
+2026/04/29 05:20:16 player 127.0.0.1:59749 joined as D
+2026/04/29 05:20:16 connection error from 127.0.0.1:59747: read tcp 127.0.0.1:59741->127.0.0.1:59747: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59747
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59749
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59746
+2026/04/29 05:20:16 connection error from 127.0.0.1:59748: read tcp 127.0.0.1:59741->127.0.0.1:59748: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59748
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_StartConfirmed (0.05s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.440s
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test -race -v ./cmd/doubletake/ -run TestWaitingPhase -count=1 -timeout 30s 2>&1
+=== RUN   TestWaitingPhase_PlayerJoinNotification
+2026/04/29 05:20:16 server listening on :59750
+2026/04/29 05:20:16 player connected: 127.0.0.1:59754
+2026/04/29 05:20:16 player connected: 127.0.0.1:59755
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59754
+2026/04/29 05:20:16 received from 127.0.0.1:59755: JOIN Alice
+2026/04/29 05:20:16 player 127.0.0.1:59755 joined as Alice
+2026/04/29 05:20:16 connection error from 127.0.0.1:59755: read tcp 127.0.0.1:59750->127.0.0.1:59755: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59755
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_PlayerJoinNotification (0.05s)
+=== RUN   TestWaitingPhase_AllPlayersJoined
+2026/04/29 05:20:16 server listening on :59756
+2026/04/29 05:20:16 player connected: 127.0.0.1:59758
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59758
+2026/04/29 05:20:16 player connected: 127.0.0.1:59760
+2026/04/29 05:20:16 player connected: 127.0.0.1:59759
+2026/04/29 05:20:16 received from 127.0.0.1:59760: JOIN Bob
+2026/04/29 05:20:16 received from 127.0.0.1:59759: JOIN Alice
+2026/04/29 05:20:16 player 127.0.0.1:59760 joined as Bob
+2026/04/29 05:20:16 player 127.0.0.1:59759 joined as Alice
+2026/04/29 05:20:16 player connected: 127.0.0.1:59761
+2026/04/29 05:20:16 received from 127.0.0.1:59761: JOIN Charlie
+2026/04/29 05:20:16 player 127.0.0.1:59761 joined as Charlie
+2026/04/29 05:20:16 player connected: 127.0.0.1:59762
+2026/04/29 05:20:16 received from 127.0.0.1:59762: JOIN Dave
+2026/04/29 05:20:16 player 127.0.0.1:59762 joined as Dave
+2026/04/29 05:20:16 connection error from 127.0.0.1:59762: read tcp 127.0.0.1:59756->127.0.0.1:59762: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59761: read tcp 127.0.0.1:59756->127.0.0.1:59761: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59762
+2026/04/29 05:20:16 connection error from 127.0.0.1:59760: read tcp 127.0.0.1:59756->127.0.0.1:59760: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59759: read tcp 127.0.0.1:59756->127.0.0.1:59759: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59759
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59760
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59761
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_AllPlayersJoined (0.05s)
+=== RUN   TestWaitingPhase_StartWithFewerThan4
+2026/04/29 05:20:16 server listening on :59763
+2026/04/29 05:20:16 player connected: 127.0.0.1:59765
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59765
+2026/04/29 05:20:16 player connected: 127.0.0.1:59766
+2026/04/29 05:20:16 received from 127.0.0.1:59766: JOIN A
+2026/04/29 05:20:16 player 127.0.0.1:59766 joined as A
+2026/04/29 05:20:16 player connected: 127.0.0.1:59767
+2026/04/29 05:20:16 received from 127.0.0.1:59767: JOIN B
+2026/04/29 05:20:16 player 127.0.0.1:59767 joined as B
+2026/04/29 05:20:16 player connected: 127.0.0.1:59768
+2026/04/29 05:20:16 received from 127.0.0.1:59768: JOIN C
+2026/04/29 05:20:16 player 127.0.0.1:59768 joined as C
+2026/04/29 05:20:16 connection error from 127.0.0.1:59768: read tcp 127.0.0.1:59763->127.0.0.1:59768: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59766: read tcp 127.0.0.1:59763->127.0.0.1:59766: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59767: read tcp 127.0.0.1:59763->127.0.0.1:59767: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59767
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59766
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59768
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_StartWithFewerThan4 (0.07s)
+=== RUN   TestWaitingPhase_StartWithConfirmation
+2026/04/29 05:20:16 server listening on :59769
+2026/04/29 05:20:16 player connected: 127.0.0.1:59771
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59771
+2026/04/29 05:20:16 player connected: 127.0.0.1:59772
+2026/04/29 05:20:16 received from 127.0.0.1:59772: JOIN A
+2026/04/29 05:20:16 player 127.0.0.1:59772 joined as A
+2026/04/29 05:20:16 player connected: 127.0.0.1:59773
+2026/04/29 05:20:16 received from 127.0.0.1:59773: JOIN B
+2026/04/29 05:20:16 player 127.0.0.1:59773 joined as B
+2026/04/29 05:20:16 player connected: 127.0.0.1:59774
+2026/04/29 05:20:16 received from 127.0.0.1:59774: JOIN C
+2026/04/29 05:20:16 player 127.0.0.1:59774 joined as C
+2026/04/29 05:20:16 player connected: 127.0.0.1:59775
+2026/04/29 05:20:16 received from 127.0.0.1:59775: JOIN D
+2026/04/29 05:20:16 player 127.0.0.1:59775 joined as D
+2026/04/29 05:20:16 connection error from 127.0.0.1:59775: read tcp 127.0.0.1:59769->127.0.0.1:59775: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59775
+2026/04/29 05:20:16 connection error from 127.0.0.1:59772: read tcp 127.0.0.1:59769->127.0.0.1:59772: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59773: read tcp 127.0.0.1:59769->127.0.0.1:59773: read: connection reset by peer
+2026/04/29 05:20:16 connection error from 127.0.0.1:59774: read tcp 127.0.0.1:59769->127.0.0.1:59774: read: connection reset by peer
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59774
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59772
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59773
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_StartWithConfirmation (0.09s)
+=== RUN   TestWaitingPhase_StartConfirmed
+2026/04/29 05:20:16 server listening on :59776
+2026/04/29 05:20:16 player connected: 127.0.0.1:59778
+2026/04/29 05:20:16 player connected: 127.0.0.1:59779
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59778
+2026/04/29 05:20:16 received from 127.0.0.1:59779: JOIN A
+2026/04/29 05:20:16 player 127.0.0.1:59779 joined as A
+2026/04/29 05:20:16 player connected: 127.0.0.1:59780
+2026/04/29 05:20:16 received from 127.0.0.1:59780: JOIN B
+2026/04/29 05:20:16 player 127.0.0.1:59780 joined as B
+2026/04/29 05:20:16 player connected: 127.0.0.1:59781
+2026/04/29 05:20:16 received from 127.0.0.1:59781: JOIN C
+2026/04/29 05:20:16 player 127.0.0.1:59781 joined as C
+2026/04/29 05:20:16 player connected: 127.0.0.1:59782
+2026/04/29 05:20:16 received from 127.0.0.1:59782: JOIN D
+2026/04/29 05:20:16 player 127.0.0.1:59782 joined as D
+2026/04/29 05:20:16 connection error from 127.0.0.1:59780: read tcp 127.0.0.1:59776->127.0.0.1:59780: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59780
+2026/04/29 05:20:16 connection error from 127.0.0.1:59779: read tcp 127.0.0.1:59776->127.0.0.1:59779: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59779
+2026/04/29 05:20:16 connection error from 127.0.0.1:59781: read tcp 127.0.0.1:59776->127.0.0.1:59781: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59781
+2026/04/29 05:20:16 connection error from 127.0.0.1:59782: read tcp 127.0.0.1:59776->127.0.0.1:59782: use of closed network connection
+2026/04/29 05:20:16 player disconnected: 127.0.0.1:59782
+2026/04/29 05:20:16 server stopped
+--- PASS: TestWaitingPhase_StartConfirmed (0.05s)
+=== RUN   TestWaitingPhase_StartWithPartialConfirmation
+2026/04/29 05:20:16 server listening on :59783
+2026/04/29 05:20:17 player connected: 127.0.0.1:59785
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59785
+2026/04/29 05:20:17 player connected: 127.0.0.1:59786
+2026/04/29 05:20:17 player connected: 127.0.0.1:59787
+2026/04/29 05:20:17 received from 127.0.0.1:59786: JOIN A
+2026/04/29 05:20:17 received from 127.0.0.1:59787: JOIN B
+2026/04/29 05:20:17 player 127.0.0.1:59786 joined as A
+2026/04/29 05:20:17 player 127.0.0.1:59787 joined as B
+2026/04/29 05:20:17 player connected: 127.0.0.1:59788
+2026/04/29 05:20:17 received from 127.0.0.1:59788: JOIN C
+2026/04/29 05:20:17 player 127.0.0.1:59788 joined as C
+2026/04/29 05:20:17 player connected: 127.0.0.1:59789
+2026/04/29 05:20:17 received from 127.0.0.1:59789: JOIN D
+2026/04/29 05:20:17 player 127.0.0.1:59789 joined as D
+2026/04/29 05:20:17 player connected: 127.0.0.1:59790
+2026/04/29 05:20:17 received from 127.0.0.1:59790: JOIN E
+2026/04/29 05:20:17 player 127.0.0.1:59790 joined as E
+2026/04/29 05:20:17 connection error from 127.0.0.1:59786: read tcp 127.0.0.1:59783->127.0.0.1:59786: use of closed network connection
+2026/04/29 05:20:17 connection error from 127.0.0.1:59787: read tcp 127.0.0.1:59783->127.0.0.1:59787: use of closed network connection
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59786
+2026/04/29 05:20:17 connection error from 127.0.0.1:59788: read tcp 127.0.0.1:59783->127.0.0.1:59788: use of closed network connection
+2026/04/29 05:20:17 connection error from 127.0.0.1:59789: read tcp 127.0.0.1:59783->127.0.0.1:59789: use of closed network connection
+2026/04/29 05:20:17 connection error from 127.0.0.1:59790: read tcp 127.0.0.1:59783->127.0.0.1:59790: use of closed network connection
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59789
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59788
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59787
+2026/04/29 05:20:17 server stopped
+2026/04/29 05:20:17 player disconnected: 127.0.0.1:59790
+--- PASS: TestWaitingPhase_StartWithPartialConfirmation (0.09s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.661s
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test -race -count=1 -timeout 60s ./... 2>&1
+ok  	github.com/smallnest/doubletake/client	1.274s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	2.101s
+ok  	github.com/smallnest/doubletake/game	1.814s
+ok  	github.com/smallnest/doubletake/server	2.954s
+[0m
+## 审核报告
+
+### Issue
+- 编号: #11
+- 子任务: T-004
+
+### 总体评价
+**评分: 80/100**
+
+### 评分明细
+
+| 维度 | 权重 | 得分 | 加权 | 说明 |
+|------|------|------|------|------|
+| 正确性 | 35% | 70 | 24.5 | 生产代码正确，但集成测试未验证角色/词语内容 |
+| 测试质量 | 25% | 70 | 17.5 | 单元测试质量好，但集成测试深度不足 |
+| 代码质量 | 20% | 90 | 18.0 | 生产代码结构清晰，测试框架设计好 |
+| 安全性 | 10% | 100 | 10.0 | TCP 游戏协议无安全风险，输入验证完整 |
+| 性能 | 10% | 100 | 10.0 | 基于 channel 的设计高效，无性能问题 |
+
+### 严重问题 (必须修复)
+
+1. **`TestWaitingPhase_StartConfirmed` 未验证角色内容和词语匹配** (`judge_test.go:488-493`)
+   - 该测试仅检查 `msg.Type == MsgRole` 和 `msg.Payload` 包含 `"|"`，没有验证每个玩家实际分配到的角色类型（Civilian/Undercover）和对应词语（苹果/香蕉）
+   - 测试无法发现「所有玩家都收到同一种角色」或「词语分配错误」这类回归
+   - 由于 `AssignRoles` 使用 `rand.Shuffle`，角色分配是随机的，必须通过 `SendToPlayer` 按名字匹配，但测试目前按连接索引读消息，无法建立 player name ↔ 收到的 ROLE 之间的对应关系
+   - **建议**: 修改测试，在发送 JOIN 后记录每个连接的 player name，读取 ROLE 后解析 payload（`SplitN(payload, "|", 2)`），验证 Civilian 玩家收到 `Civilian|苹果`，Undercover 玩家收到 `Undercover|香蕉`
+
+2. **未覆盖白板玩家集成测试** 
+   - 验收条件要求"验证白板玩家收到'你是白板'提示而非词语"，但 `TestWaitingPhase_StartConfirmed` 配置为 `"4\n1\n0\n"`（0 白板）
+   - 仅 `TestRunPlayer_ReceivesRole_Blank` 在 player 单元测试中测试，没有端到端的集成验证
+   - **建议**: 新增集成测试 `TestWaitingPhase_WithBlankPlayer`，配置 `"5\n1\n1\n"`，连接 5 个玩家，验证 Blank 角色玩家收到 `Blank|你是白板` 而非具体词语
+
+3. **未覆盖词语相同重试的集成测试**
+   - 验收条件要求"验证词语相同场景下裁判端提示重新输入"，但仅在 `TestCollectWords_SameWordsRetry` 单元测试中覆盖
+   - 没有在完整流程中验证：裁判等待阶段输入 start → 输入相同词语 → 裁判端输出 "不能相同" 提示 → 重新输入不同词语 → 流程继续
+   - **建议**: 新增集成测试 `TestWaitingPhase_SameWordRetry`，完整验证重试流程
+
+### 一般问题 (建议修复)
+
+4. **测试日志中观察到连接顺序不稳定** 
+   - 运行日志显示多次出现 `player disconnected: 127.0.0.1:59745`（B 玩家的第一个连接）在 JOIN 处理前断连。`startTestServer` 中的连接建立和 `ln.Accept()` 之间存在竞态，部分连接未被 `handleConn` 处理就被关闭
+   - 这只影响测试日志的可读性，不影响测试正确性，因为 `totalPlayers=4` 只需要 4 个命名玩家，多余的未命名连接会被 `Stop()` 关闭。但建议在测试中控制连接数为精确匹配，避免多余的连接尝试
+
+5. **`TestRunPlayer_ReceivesRole_*` 中使用 `time.Sleep(10ms)`**
+   - 虽然在 player 单元测试而非集成测试中，但仍属于固定等待。更推荐使用 `SetReadDeadline` + 轮询或 channel 同步
+   - 当前测试可能偶尔在低负载环境下因时序问题读取到 JOIN+ROLE 的合并 TCP 包，但 `bufio.Scanner` 按行读取，只要换行符在中间就能正确分隔
+
+### 建议改进 (可选)
+
+6. **考虑添加 `TestWaitingPhase_EndToEnd` 作为单一权威集成测试**，用一个命名清晰的函数覆盖所有验收条件，替代分散在 `TestWaitingPhase_StartConfirmed` 和 `TestRunPlayer_*` 中的零散验证
+
+### 验收条件通过情况
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | 集成测试覆盖完整流程 | ✅ | `TestWaitingPhase_StartConfirmed` 覆盖 |
+| 2 | 验证每个玩家收到正确的角色类型和对应词语 | ❌ | 仅检查 MsgRole 类型和 `"|"` 分隔符，未验证角色/词语内容 |
+| 3 | 验证白板玩家收到'你是白板'提示 | ❌ | 无集成测试覆盖 |
+| 4 | 验证词语相同场景下裁判端提示重新输入 | ❌ | 仅单元测试覆盖，无集成测试 |
+| 5 | 使用合理的超时保护 | ✅ | `SetReadDeadline` 和 `waitForOutput` 轮询，无固定 Sleep |
+| 6 | go test 全部通过，-race 无竞态 | ✅ | 4 个包全部通过，-race 无报错 |
+
+### 审核结论
+- 需要修改（评分 80 < 85，不达标）
+
+**重要**: 生产代码质量良好，问题集中在**集成测试的验证深度**。验收条件中 3/6 项未满足（角色内容验证、白板验证、词语重试验证均为集成测试级缺失），需要补充集成测试用例。单元测试和竞态检查均通过。

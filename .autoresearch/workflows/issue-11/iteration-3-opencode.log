@@ -1,0 +1,1612 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead server/server.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead game/network.go
+[0m
+[0m# [0mTodos
+[ ] Add SendToPlayer method to server/server.go
+[ ] Add SendToPlayer tests to server/server_test.go
+[ ] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[ ] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+Now I have a clear picture of what's missing. Let me create a plan and implement it.
+[0m# [0mTodos
+[ ] Add SendToPlayer method to server/server.go
+[ ] Add SendToPlayer tests to server/server_test.go
+[ ] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[ ] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+[0m← [0mEdit server/server.go
+Index: /Users/smallnest/ai/DoubleTake/server/server.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server.go
++++ /Users/smallnest/ai/DoubleTake/server/server.go
+@@ -1,8 +1,9 @@
+ package server
+ 
+ import (
+ 	"bufio"
++	"fmt"
+ 	"log"
+ 	"net"
+ 	"sync"
+ 
+
+[0m
+**Step 1: Add `SendToPlayer` to `server/server.go`**
+[0m← [0mEdit server/server.go
+Index: /Users/smallnest/ai/DoubleTake/server/server.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server.go
++++ /Users/smallnest/ai/DoubleTake/server/server.go
+@@ -200,8 +200,25 @@
+ 		log.Printf("send write error to %s: %v", conn.RemoteAddr(), err)
+ 	}
+ }
+ 
++// SendToPlayer sends a message to a player by name.
++// Returns an error if the player is not found.
++func (s *Server) SendToPlayer(name string, msg game.Message) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for _, player := range s.connections {
++		if player.Name == name {
++			data := []byte(game.Encode(msg))
++			if _, err := player.Conn.Write(data); err != nil {
++				return fmt.Errorf("send to player %s: %w", name, err)
++			}
++			return nil
++		}
++	}
++	return fmt.Errorf("player %s not found", name)
++}
++
+ // PlayerCount returns the number of named (registered) players.
+ func (s *Server) PlayerCount() int {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+
+[0m
+[0m# [0mTodos
+[x] Add SendToPlayer method to server/server.go
+[ ] Add SendToPlayer tests to server/server_test.go
+[ ] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[ ] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+[0m← [0mEdit server/server_test.go
+Index: /Users/smallnest/ai/DoubleTake/server/server_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server_test.go
++++ /Users/smallnest/ai/DoubleTake/server/server_test.go
+@@ -243,8 +243,103 @@
+ 		t.Errorf("expected %q, got %q", expected, line)
+ 	}
+ }
+ 
++func TestSendToPlayer_Success(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn.Close()
++
++	// Join with a name
++	fmt.Fprintf(conn, "JOIN|Alice\n")
++	readMsg(t, conn)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}
++	err = srv.SendToPlayer("Alice", msg)
++	if err != nil {
++		t.Fatalf("SendToPlayer failed: %v", err)
++	}
++
++	received := readMsg(t, conn)
++	if received.Type != game.MsgRole {
++		t.Errorf("expected ROLE, got %s", received.Type)
++	}
++	if received.Payload != "Undercover|香蕉" {
++		t.Errorf("expected payload %q, got %q", "Undercover|香蕉", received.Payload)
++	}
++}
++
++func TestSendToPlayer_NotFound(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn.Close()
++
++	fmt.Fprintf(conn, "JOIN|Alice\n")
++	readMsg(t, conn)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "test"}
++	err = srv.SendToPlayer("Bob", msg)
++	if err == nil {
++		t.Fatal("expected error for non-existent player")
++	}
++	if !strings.Contains(err.Error(), "not found") {
++		t.Errorf("expected 'not found' error, got: %v", err)
++	}
++}
++
++func TestSendToPlayer_OnlyTargetReceives(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn1.Close()
++
++	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn2.Close()
++
++	fmt.Fprintf(conn1, "JOIN|Alice\n")
++	readMsg(t, conn1)
++
++	fmt.Fprintf(conn2, "JOIN|Bob\n")
++	readMsg(t, conn2)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}
++	err = srv.SendToPlayer("Alice", msg)
++	if err != nil {
++		t.Fatalf("SendToPlayer failed: %v", err)
++	}
++
++	// Alice should receive it
++	received := readMsg(t, conn1)
++	if received.Type != game.MsgRole {
++		t.Errorf("expected ROLE, got %s", received.Type)
++	}
++
++	// Bob should NOT receive anything
++	conn2.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
++	buf := make([]byte, 128)
++	n, err := conn2.Read(buf)
++	if err == nil && n > 0 {
++		t.Errorf("Bob should not receive the message, got: %q", buf[:n])
++	}
++}
++
+ func TestMultipleClients(t *testing.T) {
+ 	srv, port := startTestServer(t)
+ 	defer srv.Stop()
+ 
+
+[0m
+**Step 2: Add `SendToPlayer` tests to `server/server_test.go`**
+[0m# [0mTodos
+[x] Add SendToPlayer method to server/server.go
+[x] Add SendToPlayer tests to server/server_test.go
+[ ] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[ ] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+[0m← [0mEdit cmd/doubletake/judge.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
+@@ -185,8 +185,9 @@
+ 	disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
+ 	return cfg
+ }
+ game.AssignWords(players, civilianWord, undercoverWord)
++sendRoleToPlayers(disp, srv, players)
+ 
+ broadcastReady(disp, srv)
+ 
+ return cfg
+
+[0m
+**Step 3: Add `sendRoleToPlayers` to `judge.go` and wire it into `RunJudge`**
+[0m← [0mEdit cmd/doubletake/judge.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
+@@ -256,4 +256,30 @@
+ func broadcastReady(disp *client.Display, srv *server.Server) {
+ 	disp.Info("0000", "游戏开始！")
+ 	srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgReady, Payload: ""})
+ }
++
++// sendRoleToPlayers privately sends a ROLE message to each player.
++// The message format is ROLE|RoleName|word, e.g. ROLE|Civilian|苹果.
++// Blank players receive "你是白板" as the word.
++func sendRoleToPlayers(disp *client.Display, srv *server.Server, players []*game.Player) {
++	for _, p := range players {
++		var word string
++		var roleName string
++		switch p.Role {
++		case game.Civilian:
++			roleName = "Civilian"
++			word = p.Word
++		case game.Undercover:
++			roleName = "Undercover"
++			word = p.Word
++		case game.Blank:
++			roleName = "Blank"
++			word = "你是白板"
++		}
++		payload := roleName + "|" + word
++		msg := game.Message{Type: game.MsgRole, Payload: payload}
++		if err := srv.SendToPlayer(p.Name, msg); err != nil {
++			disp.Warn(fmt.Sprintf("发送 ROLE 给 %s 失败: %v", p.Name, err))
++		}
++	}
++}
+
+[0m
+[0m# [0mTodos
+[x] Add SendToPlayer method to server/server.go
+[x] Add SendToPlayer tests to server/server_test.go
+[x] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[ ] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -468,8 +468,30 @@
+ stdin <- "苹果"
+ stdin <- "香蕉"
+ waitForOutput(t, out, "游戏开始！", 2*time.Second)
+ 
++// Verify players receive ROLE message first
++for i, conn := range conns {
++	conn.SetReadDeadline(time.Now().Add(time.Second))
++	reader := bufio.NewReader(conn)
++	line, err := reader.ReadString('\n')
++	if err != nil {
++		t.Errorf("player %d did not receive ROLE: %v", i, err)
++		continue
++	}
++	msg, err := game.Decode(line)
++	if err != nil {
++		t.Errorf("player %d: decode error: %v", i, err)
++		continue
++	}
++	if msg.Type != game.MsgRole {
++		t.Errorf("player %d: expected ROLE, got %s", i, msg.Type)
++	}
++	if !strings.Contains(msg.Payload, "|") {
++		t.Errorf("player %d: ROLE payload should contain '|', got %q", i, msg.Payload)
++	}
++}
++
+ // Verify players receive READY message
+ for i, conn := range conns {
+ 	conn.SetReadDeadline(time.Now().Add(time.Second))
+ 	reader := bufio.NewReader(conn)
+
+[0m
+**Step 4: Update `TestWaitingPhase_StartConfirmed` to verify ROLE messages**
+[0m# [0mTodos
+[x] Add SendToPlayer method to server/server.go
+[x] Add SendToPlayer tests to server/server_test.go
+[x] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[x] Update judge_test.go to verify ROLE messages in integration test
+[ ] Run go build, go vet, go test to verify everything passes
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./... 2>&1
+(no output)
+[0m
+**Step 5: Verify everything builds and passes**
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 60s -v 2>&1
+=== RUN   TestNewClient
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestConnectSuccess
+--- PASS: TestConnectSuccess (0.00s)
+=== RUN   TestConnectFailure
+--- PASS: TestConnectFailure (0.00s)
+=== RUN   TestSendNotConnected
+--- PASS: TestSendNotConnected (0.00s)
+=== RUN   TestSendAndReceive
+--- PASS: TestSendAndReceive (0.00s)
+=== RUN   TestReceiveFromServer
+--- PASS: TestReceiveFromServer (0.00s)
+=== RUN   TestDisconnect
+--- PASS: TestDisconnect (0.00s)
+=== RUN   TestServerDisconnectDetectsEOF
+--- PASS: TestServerDisconnectDetectsEOF (0.00s)
+=== RUN   TestMultipleMessages
+--- PASS: TestMultipleMessages (0.00s)
+=== RUN   TestInvalidMessagesSkipped
+--- PASS: TestInvalidMessagesSkipped (0.00s)
+=== RUN   TestPrintStartup
+--- PASS: TestPrintStartup (0.00s)
+=== RUN   TestInfo
+--- PASS: TestInfo (0.00s)
+=== RUN   TestInfoStealth
+--- PASS: TestInfoStealth (0.00s)
+=== RUN   TestWarn
+--- PASS: TestWarn (0.00s)
+=== RUN   TestWarnStealth
+--- PASS: TestWarnStealth (0.00s)
+=== RUN   TestData
+--- PASS: TestData (0.00s)
+=== RUN   TestDataStealth
+--- PASS: TestDataStealth (0.00s)
+=== RUN   TestListPlayers
+--- PASS: TestListPlayers (0.00s)
+=== RUN   TestListPlayersEmpty
+--- PASS: TestListPlayersEmpty (0.00s)
+=== RUN   TestNewDisplayNilWriter
+--- PASS: TestNewDisplayNilWriter (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/client	1.188s
+=== RUN   TestValidateConfig_Valid
+=== RUN   TestValidateConfig_Valid/minimum_4_players_1_undercover
+=== RUN   TestValidateConfig_Valid/5_players_2_undercovers
+=== RUN   TestValidateConfig_Valid/6_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_Valid/8_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_Valid/10_players_3_undercovers
+=== RUN   TestValidateConfig_Valid/10_players_2_undercovers_2_blanks
+=== RUN   TestValidateConfig_Valid/7_players_1_undercover_2_blanks
+=== RUN   TestValidateConfig_Valid/9_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_Valid (0.00s)
+    --- PASS: TestValidateConfig_Valid/minimum_4_players_1_undercover (0.00s)
+    --- PASS: TestValidateConfig_Valid/5_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/6_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/8_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_2_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/7_players_1_undercover_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/9_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestValidateConfig_TotalOutOfRange
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_3
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_1
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_0
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_11
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_15
+--- PASS: TestValidateConfig_TotalOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_3 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_1 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_0 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_11 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_15 (0.00s)
+=== RUN   TestValidateConfig_UndercoverOutOfRange
+=== RUN   TestValidateConfig_UndercoverOutOfRange/zero_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/negative_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5
+--- PASS: TestValidateConfig_UndercoverOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/zero_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/negative_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4 (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5 (0.00s)
+=== RUN   TestValidateConfig_NegativeBlanks
+--- PASS: TestValidateConfig_NegativeBlanks (0.00s)
+=== RUN   TestValidateConfig_TooManySpecialRoles
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_TooManySpecialRoles (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestCollectConfig_ValidInput
+--- PASS: TestCollectConfig_ValidInput (0.00s)
+=== RUN   TestCollectConfig_InvalidTotalThenValid
+--- PASS: TestCollectConfig_InvalidTotalThenValid (0.00s)
+=== RUN   TestCollectConfig_InvalidUndercoverThenValid
+--- PASS: TestCollectConfig_InvalidUndercoverThenValid (0.00s)
+=== RUN   TestCollectConfig_NegativeBlanksThenValid
+--- PASS: TestCollectConfig_NegativeBlanksThenValid (0.00s)
+=== RUN   TestCollectConfig_TooManySpecialRolesThenValid
+--- PASS: TestCollectConfig_TooManySpecialRolesThenValid (0.00s)
+=== RUN   TestCollectConfig_MultipleRetries
+--- PASS: TestCollectConfig_MultipleRetries (0.00s)
+=== RUN   TestCollectConfig_BoundaryMaxPlayers
+--- PASS: TestCollectConfig_BoundaryMaxPlayers (0.00s)
+=== RUN   TestCollectConfig_BoundaryMinPlayers
+--- PASS: TestCollectConfig_BoundaryMinPlayers (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidTotal
+--- PASS: TestCollectConfig_WarnsOnInvalidTotal (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidUndercover
+--- PASS: TestCollectConfig_WarnsOnInvalidUndercover (0.00s)
+=== RUN   TestCollectConfig_WarnsOnNegativeBlanks
+--- PASS: TestCollectConfig_WarnsOnNegativeBlanks (0.00s)
+=== RUN   TestCollectConfig_WarnsOnTooManySpecialRoles
+--- PASS: TestCollectConfig_WarnsOnTooManySpecialRoles (0.00s)
+=== RUN   TestReadInt_ValidInput
+--- PASS: TestReadInt_ValidInput (0.00s)
+=== RUN   TestReadInt_TrimsWhitespace
+--- PASS: TestReadInt_TrimsWhitespace (0.00s)
+=== RUN   TestReadInt_InvalidInput
+--- PASS: TestReadInt_InvalidInput (0.00s)
+=== RUN   TestReadInt_EmptyInput
+--- PASS: TestReadInt_EmptyInput (0.00s)
+=== RUN   TestCollectConfig_NonNumericInput
+--- PASS: TestCollectConfig_NonNumericInput (0.00s)
+=== RUN   TestCollectConfig_ZeroBlanksAllowed
+--- PASS: TestCollectConfig_ZeroBlanksAllowed (0.00s)
+=== RUN   TestCollectConfig_LargeValidGame
+--- PASS: TestCollectConfig_LargeValidGame (0.00s)
+=== RUN   TestWaitingPhase_PlayerJoinNotification
+2026/04/29 05:00:32 server listening on :57248
+2026/04/29 05:00:32 player connected: 127.0.0.1:57252
+2026/04/29 05:00:32 player disconnected: 127.0.0.1:57252
+2026/04/29 05:00:32 player connected: 127.0.0.1:57253
+2026/04/29 05:00:32 received from 127.0.0.1:57253: JOIN Alice
+2026/04/29 05:00:32 player 127.0.0.1:57253 joined as Alice
+2026/04/29 05:00:32 connection error from 127.0.0.1:57253: read tcp 127.0.0.1:57248->127.0.0.1:57253: read: connection reset by peer
+2026/04/29 05:00:32 server stopped
+2026/04/29 05:00:32 player disconnected: 127.0.0.1:57253
+--- PASS: TestWaitingPhase_PlayerJoinNotification (0.04s)
+=== RUN   TestWaitingPhase_AllPlayersJoined
+2026/04/29 05:00:32 server listening on :57254
+2026/04/29 05:00:33 player connected: 127.0.0.1:57257
+2026/04/29 05:00:33 player connected: 127.0.0.1:57256
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57256
+2026/04/29 05:00:33 received from 127.0.0.1:57257: JOIN Alice
+2026/04/29 05:00:33 player 127.0.0.1:57257 joined as Alice
+2026/04/29 05:00:33 player connected: 127.0.0.1:57258
+2026/04/29 05:00:33 received from 127.0.0.1:57258: JOIN Bob
+2026/04/29 05:00:33 player 127.0.0.1:57258 joined as Bob
+2026/04/29 05:00:33 player connected: 127.0.0.1:57259
+2026/04/29 05:00:33 received from 127.0.0.1:57259: JOIN Charlie
+2026/04/29 05:00:33 player 127.0.0.1:57259 joined as Charlie
+2026/04/29 05:00:33 player connected: 127.0.0.1:57260
+2026/04/29 05:00:33 received from 127.0.0.1:57260: JOIN Dave
+2026/04/29 05:00:33 player 127.0.0.1:57260 joined as Dave
+2026/04/29 05:00:33 connection error from 127.0.0.1:57260: read tcp 127.0.0.1:57254->127.0.0.1:57260: read: connection reset by peer
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57260
+2026/04/29 05:00:33 connection error from 127.0.0.1:57258: read tcp 127.0.0.1:57254->127.0.0.1:57258: read: connection reset by peer
+2026/04/29 05:00:33 connection error from 127.0.0.1:57257: read tcp 127.0.0.1:57254->127.0.0.1:57257: read: connection reset by peer
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57257
+2026/04/29 05:00:33 connection error from 127.0.0.1:57259: read tcp 127.0.0.1:57254->127.0.0.1:57259: read: connection reset by peer
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57258: write tcp 127.0.0.1:57254->127.0.0.1:57258: write: broken pipe
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57259: write tcp 127.0.0.1:57254->127.0.0.1:57259: write: broken pipe
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57258
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57259
+--- PASS: TestWaitingPhase_AllPlayersJoined (0.05s)
+=== RUN   TestWaitingPhase_StartWithFewerThan4
+2026/04/29 05:00:33 server listening on :57261
+2026/04/29 05:00:33 player connected: 127.0.0.1:57263
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57263
+2026/04/29 05:00:33 player connected: 127.0.0.1:57264
+2026/04/29 05:00:33 received from 127.0.0.1:57264: JOIN A
+2026/04/29 05:00:33 player 127.0.0.1:57264 joined as A
+2026/04/29 05:00:33 player connected: 127.0.0.1:57265
+2026/04/29 05:00:33 received from 127.0.0.1:57265: JOIN B
+2026/04/29 05:00:33 player 127.0.0.1:57265 joined as B
+2026/04/29 05:00:33 player connected: 127.0.0.1:57266
+2026/04/29 05:00:33 received from 127.0.0.1:57266: JOIN C
+2026/04/29 05:00:33 player 127.0.0.1:57266 joined as C
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57264: write tcp 127.0.0.1:57261->127.0.0.1:57264: write: broken pipe
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57265: write tcp 127.0.0.1:57261->127.0.0.1:57265: write: broken pipe
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57266: write tcp 127.0.0.1:57261->127.0.0.1:57266: write: broken pipe
+2026/04/29 05:00:33 connection error from 127.0.0.1:57264: read tcp 127.0.0.1:57261->127.0.0.1:57264: read: connection reset by peer
+2026/04/29 05:00:33 connection error from 127.0.0.1:57265: read tcp 127.0.0.1:57261->127.0.0.1:57265: read: connection reset by peer
+2026/04/29 05:00:33 connection error from 127.0.0.1:57266: read tcp 127.0.0.1:57261->127.0.0.1:57266: read: connection reset by peer
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57264
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57265
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57266
+--- PASS: TestWaitingPhase_StartWithFewerThan4 (0.07s)
+=== RUN   TestWaitingPhase_StartWithConfirmation
+2026/04/29 05:00:33 server listening on :57267
+2026/04/29 05:00:33 player connected: 127.0.0.1:57269
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57269
+2026/04/29 05:00:33 player connected: 127.0.0.1:57270
+2026/04/29 05:00:33 received from 127.0.0.1:57270: JOIN A
+2026/04/29 05:00:33 player 127.0.0.1:57270 joined as A
+2026/04/29 05:00:33 player connected: 127.0.0.1:57271
+2026/04/29 05:00:33 received from 127.0.0.1:57271: JOIN B
+2026/04/29 05:00:33 player 127.0.0.1:57271 joined as B
+2026/04/29 05:00:33 player connected: 127.0.0.1:57272
+2026/04/29 05:00:33 received from 127.0.0.1:57272: JOIN C
+2026/04/29 05:00:33 player 127.0.0.1:57272 joined as C
+2026/04/29 05:00:33 player connected: 127.0.0.1:57273
+2026/04/29 05:00:33 received from 127.0.0.1:57273: JOIN D
+2026/04/29 05:00:33 player 127.0.0.1:57273 joined as D
+2026/04/29 05:00:33 connection error from 127.0.0.1:57273: read tcp 127.0.0.1:57267->127.0.0.1:57273: read: connection reset by peer
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57273
+2026/04/29 05:00:33 connection error from 127.0.0.1:57270: read tcp 127.0.0.1:57267->127.0.0.1:57270: read: connection reset by peer
+2026/04/29 05:00:33 connection error from 127.0.0.1:57271: read tcp 127.0.0.1:57267->127.0.0.1:57271: read: connection reset by peer
+2026/04/29 05:00:33 connection error from 127.0.0.1:57272: read tcp 127.0.0.1:57267->127.0.0.1:57272: read: connection reset by peer
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57272
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57270: write tcp 127.0.0.1:57267->127.0.0.1:57270: write: broken pipe
+2026/04/29 05:00:33 broadcast write error to 127.0.0.1:57271: write tcp 127.0.0.1:57267->127.0.0.1:57271: write: broken pipe
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57270
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57271
+--- PASS: TestWaitingPhase_StartWithConfirmation (0.09s)
+=== RUN   TestWaitingPhase_StartConfirmed
+2026/04/29 05:00:33 server listening on :57274
+2026/04/29 05:00:33 player connected: 127.0.0.1:57277
+2026/04/29 05:00:33 player connected: 127.0.0.1:57276
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57276
+2026/04/29 05:00:33 received from 127.0.0.1:57277: JOIN A
+2026/04/29 05:00:33 player 127.0.0.1:57277 joined as A
+2026/04/29 05:00:33 player connected: 127.0.0.1:57278
+2026/04/29 05:00:33 received from 127.0.0.1:57278: JOIN B
+2026/04/29 05:00:33 player 127.0.0.1:57278 joined as B
+2026/04/29 05:00:33 player connected: 127.0.0.1:57279
+2026/04/29 05:00:33 received from 127.0.0.1:57279: JOIN C
+2026/04/29 05:00:33 player 127.0.0.1:57279 joined as C
+2026/04/29 05:00:33 player connected: 127.0.0.1:57280
+2026/04/29 05:00:33 received from 127.0.0.1:57280: JOIN D
+2026/04/29 05:00:33 player 127.0.0.1:57280 joined as D
+2026/04/29 05:00:33 connection error from 127.0.0.1:57278: read tcp 127.0.0.1:57274->127.0.0.1:57278: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57278
+2026/04/29 05:00:33 connection error from 127.0.0.1:57277: read tcp 127.0.0.1:57274->127.0.0.1:57277: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57277
+2026/04/29 05:00:33 connection error from 127.0.0.1:57279: read tcp 127.0.0.1:57274->127.0.0.1:57279: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57279
+2026/04/29 05:00:33 connection error from 127.0.0.1:57280: read tcp 127.0.0.1:57274->127.0.0.1:57280: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57280
+2026/04/29 05:00:33 server stopped
+    judge_test.go:500: player 0 did not receive READY: EOF
+    judge_test.go:500: player 1 did not receive READY: EOF
+    judge_test.go:500: player 2 did not receive READY: EOF
+    judge_test.go:500: player 3 did not receive READY: EOF
+--- FAIL: TestWaitingPhase_StartConfirmed (0.07s)
+=== RUN   TestWaitingPhase_StartWithPartialConfirmation
+2026/04/29 05:00:33 server listening on :57281
+2026/04/29 05:00:33 player connected: 127.0.0.1:57283
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57283
+2026/04/29 05:00:33 player connected: 127.0.0.1:57284
+2026/04/29 05:00:33 received from 127.0.0.1:57284: JOIN A
+2026/04/29 05:00:33 player 127.0.0.1:57284 joined as A
+2026/04/29 05:00:33 player connected: 127.0.0.1:57285
+2026/04/29 05:00:33 received from 127.0.0.1:57285: JOIN B
+2026/04/29 05:00:33 player 127.0.0.1:57285 joined as B
+2026/04/29 05:00:33 player connected: 127.0.0.1:57286
+2026/04/29 05:00:33 received from 127.0.0.1:57286: JOIN C
+2026/04/29 05:00:33 player 127.0.0.1:57286 joined as C
+2026/04/29 05:00:33 player connected: 127.0.0.1:57287
+2026/04/29 05:00:33 received from 127.0.0.1:57287: JOIN D
+2026/04/29 05:00:33 player 127.0.0.1:57287 joined as D
+2026/04/29 05:00:33 player connected: 127.0.0.1:57288
+2026/04/29 05:00:33 received from 127.0.0.1:57288: JOIN E
+2026/04/29 05:00:33 player 127.0.0.1:57288 joined as E
+2026/04/29 05:00:33 connection error from 127.0.0.1:57286: read tcp 127.0.0.1:57281->127.0.0.1:57286: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57286
+2026/04/29 05:00:33 connection error from 127.0.0.1:57287: read tcp 127.0.0.1:57281->127.0.0.1:57287: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57287
+2026/04/29 05:00:33 connection error from 127.0.0.1:57288: read tcp 127.0.0.1:57281->127.0.0.1:57288: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57288
+2026/04/29 05:00:33 connection error from 127.0.0.1:57284: read tcp 127.0.0.1:57281->127.0.0.1:57284: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57284
+2026/04/29 05:00:33 connection error from 127.0.0.1:57285: read tcp 127.0.0.1:57281->127.0.0.1:57285: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57285
+2026/04/29 05:00:33 server stopped
+--- PASS: TestWaitingPhase_StartWithPartialConfirmation (0.09s)
+=== RUN   TestCollectWords_Valid
+--- PASS: TestCollectWords_Valid (0.00s)
+=== RUN   TestCollectWords_SameWordsRetry
+--- PASS: TestCollectWords_SameWordsRetry (0.00s)
+=== RUN   TestCollectWords_EmptyWordRetry
+--- PASS: TestCollectWords_EmptyWordRetry (0.00s)
+=== RUN   TestCollectWords_EOF
+--- PASS: TestCollectWords_EOF (0.00s)
+=== RUN   TestRun_ValidRoleJudge
+2026/04/29 05:00:33 server listening on :8127
+2026/04/29 05:00:33 server stopped
+--- PASS: TestRun_ValidRoleJudge (0.00s)
+=== RUN   TestRun_ValidRolePlayer
+--- PASS: TestRun_ValidRolePlayer (0.00s)
+=== RUN   TestRun_CustomPort
+2026/04/29 05:00:33 server listening on :9000
+2026/04/29 05:00:33 server stopped
+--- PASS: TestRun_CustomPort (0.00s)
+=== RUN   TestRun_DefaultPort
+--- PASS: TestRun_DefaultPort (0.00s)
+=== RUN   TestRun_InvalidRole
+--- PASS: TestRun_InvalidRole (0.00s)
+=== RUN   TestRun_NoArgs
+--- PASS: TestRun_NoArgs (0.00s)
+=== RUN   TestRun_HelpFlag
+--- PASS: TestRun_HelpFlag (0.00s)
+=== RUN   TestRun_ShortHelpFlag
+--- PASS: TestRun_ShortHelpFlag (0.00s)
+=== RUN   TestRun_MissingRoleValue
+--- PASS: TestRun_MissingRoleValue (0.00s)
+=== RUN   TestRun_MissingPortValue
+--- PASS: TestRun_MissingPortValue (0.00s)
+=== RUN   TestRun_InvalidPort
+--- PASS: TestRun_InvalidPort (0.00s)
+=== RUN   TestRun_UnknownOption
+--- PASS: TestRun_UnknownOption (0.00s)
+=== RUN   TestRun_StealthFlag
+--- PASS: TestRun_StealthFlag (0.00s)
+=== RUN   TestRun_NoStealthByDefault
+--- PASS: TestRun_NoStealthByDefault (0.00s)
+=== RUN   TestRun_StealthInHelp
+--- PASS: TestRun_StealthInHelp (0.00s)
+=== RUN   TestRun_StealthWithJudge
+2026/04/29 05:00:33 server listening on :8127
+2026/04/29 05:00:33 server stopped
+--- PASS: TestRun_StealthWithJudge (0.00s)
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyRoomCode
+--- PASS: TestRunPlayer_EmptyRoomCode (0.00s)
+=== RUN   TestRunPlayer_InvalidRoomCode
+--- PASS: TestRunPlayer_InvalidRoomCode (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:79: test server on 127.0.0.1:57290, room code: deP6OMQc
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:118: test server on 127.0.0.1:57292, room code: deP6OMQe
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:153: test server on 127.0.0.1:57294, room code: deP6OMQg
+--- PASS: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:181: test server on 127.0.0.1:57296, room code: deP6OMQi
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:214: test server on 127.0.0.1:57298, room code: deP6OMQk
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:246: test server on 127.0.0.1:57300, room code: deP6OMQm
+--- PASS: TestRunPlayer_ReceivesMultipleMessages (0.02s)
+FAIL
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	1.005s
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+=== RUN   TestEncodeRoomCode_InvalidInput/port_out_of_range
+=== RUN   TestEncodeRoomCode_InvalidInput/non-numeric_port
+--- PASS: TestEncodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/no_port (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/invalid_IP (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/port_out_of_range (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/non-numeric_port (0.00s)
+=== RUN   TestDecodeRoomCode_InvalidInput
+=== RUN   TestDecodeRoomCode_InvalidInput/empty
+=== RUN   TestDecodeRoomCode_InvalidInput/invalid_char
+=== RUN   TestDecodeRoomCode_InvalidInput/special_char
+=== RUN   TestDecodeRoomCode_InvalidInput/newline
+--- PASS: TestDecodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/invalid_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/special_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/newline (0.00s)
+=== RUN   TestEncodeRoomCode_ShortOutput
+--- PASS: TestEncodeRoomCode_ShortOutput (0.00s)
+=== RUN   TestGetLocalIP
+--- PASS: TestGetLocalIP (0.00s)
+=== RUN   TestEncode
+=== RUN   TestEncode/with_payload
+=== RUN   TestEncode/empty_payload
+--- PASS: TestEncode (0.00s)
+    --- PASS: TestEncode/with_payload (0.00s)
+    --- PASS: TestEncode/empty_payload (0.00s)
+=== RUN   TestDecode
+=== RUN   TestDecode/valid_message
+=== RUN   TestDecode/pipe_in_payload
+=== RUN   TestDecode/empty_payload
+=== RUN   TestDecode/empty_string
+=== RUN   TestDecode/newline_only
+=== RUN   TestDecode/no_separator
+--- PASS: TestDecode (0.00s)
+    --- PASS: TestDecode/valid_message (0.00s)
+    --- PASS: TestDecode/pipe_in_payload (0.00s)
+    --- PASS: TestDecode/empty_payload (0.00s)
+    --- PASS: TestDecode/empty_string (0.00s)
+    --- PASS: TestDecode/newline_only (0.00s)
+    --- PASS: TestDecode/no_separator (0.00s)
+=== RUN   TestRole_String
+=== RUN   TestRole_String/Civilian
+=== RUN   TestRole_String/Undercover
+=== RUN   TestRole_String/Blank
+=== RUN   TestRole_String/Unknown
+--- PASS: TestRole_String (0.00s)
+    --- PASS: TestRole_String/Civilian (0.00s)
+    --- PASS: TestRole_String/Undercover (0.00s)
+    --- PASS: TestRole_String/Blank (0.00s)
+    --- PASS: TestRole_String/Unknown (0.00s)
+=== RUN   TestAssignRoles_Success
+--- PASS: TestAssignRoles_Success (0.00s)
+=== RUN   TestAssignRoles_FourPlayers
+--- PASS: TestAssignRoles_FourPlayers (0.00s)
+=== RUN   TestAssignRoles_TenPlayers
+--- PASS: TestAssignRoles_TenPlayers (0.00s)
+=== RUN   TestAssignRoles_AllCivilianBoundary
+--- PASS: TestAssignRoles_AllCivilianBoundary (0.00s)
+=== RUN   TestAssignRoles_Shuffled
+--- PASS: TestAssignRoles_Shuffled (0.00s)
+=== RUN   TestAssignRoles_NoUndercover
+--- PASS: TestAssignRoles_NoUndercover (0.00s)
+=== RUN   TestAssignRoles_Errors
+=== RUN   TestAssignRoles_Errors/empty_names
+=== RUN   TestAssignRoles_Errors/nil_names
+=== RUN   TestAssignRoles_Errors/empty_name_in_list
+=== RUN   TestAssignRoles_Errors/negative_undercover
+=== RUN   TestAssignRoles_Errors/negative_blank
+=== RUN   TestAssignRoles_Errors/U+B_equals_C_exactly
+=== RUN   TestAssignRoles_Errors/undercover+blank_equals_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_exceeds_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_>=_civilian
+--- PASS: TestAssignRoles_Errors (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/nil_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_name_in_list (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_undercover (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_blank (0.00s)
+    --- PASS: TestAssignRoles_Errors/U+B_equals_C_exactly (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_equals_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_exceeds_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_>=_civilian (0.00s)
+=== RUN   TestAssignWords_AllRoles
+--- PASS: TestAssignWords_AllRoles (0.00s)
+=== RUN   TestAssignWords_OnlyCivilians
+--- PASS: TestAssignWords_OnlyCivilians (0.00s)
+=== RUN   TestAssignWords_EmptyPlayers
+--- PASS: TestAssignWords_EmptyPlayers (0.00s)
+=== RUN   TestAssignWords_BlankRole
+--- PASS: TestAssignWords_BlankRole (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	1.353s
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 05:00:33 server listening on :57302
+2026/04/29 05:00:33 player connected: 127.0.0.1:57306
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57306
+2026/04/29 05:00:33 player connected: 127.0.0.1:57307
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57307
+--- PASS: TestStartAndAccept (0.07s)
+=== RUN   TestStop
+2026/04/29 05:00:33 server listening on :57308
+2026/04/29 05:00:33 player connected: 127.0.0.1:57310
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57310
+2026/04/29 05:00:33 player connected: 127.0.0.1:57311
+2026/04/29 05:00:33 server stopped
+--- PASS: TestStop (0.07s)
+2026/04/29 05:00:33 connection error from 127.0.0.1:57311: read tcp 127.0.0.1:57308->127.0.0.1:57311: use of closed network connection
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57311
+=== RUN   TestStopIdempotent
+2026/04/29 05:00:33 server listening on :57312
+2026/04/29 05:00:33 player connected: 127.0.0.1:57314
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57314
+--- PASS: TestStopIdempotent (0.01s)
+=== RUN   TestHandleConnMessages
+2026/04/29 05:00:33 server listening on :57315
+2026/04/29 05:00:33 player connected: 127.0.0.1:57317
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57317
+2026/04/29 05:00:33 player connected: 127.0.0.1:57318
+2026/04/29 05:00:33 received from 127.0.0.1:57318: JOIN player1
+2026/04/29 05:00:33 player 127.0.0.1:57318 joined as player1
+2026/04/29 05:00:33 decode error from 127.0.0.1:57318: invalid message format
+2026/04/29 05:00:33 received from 127.0.0.1:57318: READY 
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 connection error from 127.0.0.1:57318: read tcp 127.0.0.1:57315->127.0.0.1:57318: read: connection reset by peer
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57318
+--- PASS: TestHandleConnMessages (0.07s)
+=== RUN   TestClientDisconnect
+2026/04/29 05:00:33 server listening on :57334
+2026/04/29 05:00:33 player connected: 127.0.0.1:57336
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57336
+2026/04/29 05:00:33 player connected: 127.0.0.1:57337
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57337
+2026/04/29 05:00:33 server stopped
+--- PASS: TestClientDisconnect (0.17s)
+=== RUN   TestBroadcast
+2026/04/29 05:00:33 server listening on :57338
+2026/04/29 05:00:33 player connected: 127.0.0.1:57339
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57339
+2026/04/29 05:00:33 player connected: 127.0.0.1:57340
+2026/04/29 05:00:33 player connected: 127.0.0.1:57341
+2026/04/29 05:00:33 player connected: 127.0.0.1:57342
+2026/04/29 05:00:33 server stopped
+--- PASS: TestBroadcast (0.05s)
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57340
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57342
+=== RUN   TestSend
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57341
+2026/04/29 05:00:33 server listening on :57343
+2026/04/29 05:00:33 player connected: 127.0.0.1:57345
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57345
+2026/04/29 05:00:33 player connected: 127.0.0.1:57346
+2026/04/29 05:00:33 server stopped
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57346
+--- PASS: TestSend (0.06s)
+=== RUN   TestSendToPlayer_Success
+2026/04/29 05:00:33 server listening on :57347
+2026/04/29 05:00:33 player connected: 127.0.0.1:57349
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57349
+2026/04/29 05:00:33 player connected: 127.0.0.1:57350
+2026/04/29 05:00:33 received from 127.0.0.1:57350: JOIN Alice
+2026/04/29 05:00:33 player 127.0.0.1:57350 joined as Alice
+2026/04/29 05:00:33 server stopped
+--- PASS: TestSendToPlayer_Success (0.01s)
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57350
+=== RUN   TestSendToPlayer_NotFound
+2026/04/29 05:00:33 server listening on :57351
+2026/04/29 05:00:33 player connected: 127.0.0.1:57353
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57353
+2026/04/29 05:00:33 player connected: 127.0.0.1:57354
+2026/04/29 05:00:33 received from 127.0.0.1:57354: JOIN Alice
+2026/04/29 05:00:33 player 127.0.0.1:57354 joined as Alice
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57354
+2026/04/29 05:00:33 server stopped
+--- PASS: TestSendToPlayer_NotFound (0.01s)
+=== RUN   TestSendToPlayer_OnlyTargetReceives
+2026/04/29 05:00:33 server listening on :57355
+2026/04/29 05:00:33 player connected: 127.0.0.1:57357
+2026/04/29 05:00:33 player disconnected: 127.0.0.1:57357
+2026/04/29 05:00:33 player connected: 127.0.0.1:57358
+2026/04/29 05:00:33 player connected: 127.0.0.1:57359
+2026/04/29 05:00:33 received from 127.0.0.1:57358: JOIN Alice
+2026/04/29 05:00:33 player 127.0.0.1:57358 joined as Alice
+2026/04/29 05:00:33 received from 127.0.0.1:57359: JOIN Bob
+2026/04/29 05:00:33 player 127.0.0.1:57359 joined as Bob
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57359
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57358
+2026/04/29 05:00:34 server stopped
+--- PASS: TestSendToPlayer_OnlyTargetReceives (0.22s)
+=== RUN   TestMultipleClients
+2026/04/29 05:00:34 server listening on :57360
+2026/04/29 05:00:34 player connected: 127.0.0.1:57362
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57362
+2026/04/29 05:00:34 player connected: 127.0.0.1:57363
+2026/04/29 05:00:34 player connected: 127.0.0.1:57364
+2026/04/29 05:00:34 player connected: 127.0.0.1:57365
+2026/04/29 05:00:34 player connected: 127.0.0.1:57366
+2026/04/29 05:00:34 player connected: 127.0.0.1:57367
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57363
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57365
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57364
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57366
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57367
+--- PASS: TestMultipleClients (0.22s)
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 05:00:34 server listening on :57368
+2026/04/29 05:00:34 player connected: 127.0.0.1:57371
+2026/04/29 05:00:34 player connected: 127.0.0.1:57370
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57370
+2026/04/29 05:00:34 decode error from 127.0.0.1:57371: invalid message format
+2026/04/29 05:00:34 decode error from 127.0.0.1:57371: invalid message format
+2026/04/29 05:00:34 received from 127.0.0.1:57371:  |
+2026/04/29 05:00:34 decode error from 127.0.0.1:57371: invalid message format
+2026/04/29 05:00:34 decode error from 127.0.0.1:57371: invalid message format
+2026/04/29 05:00:34 received from 127.0.0.1:57371: JOIN test
+2026/04/29 05:00:34 player 127.0.0.1:57371 joined as test
+2026/04/29 05:00:34 connection error from 127.0.0.1:57371: read tcp 127.0.0.1:57368->127.0.0.1:57371: read: connection reset by peer
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57371
+2026/04/29 05:00:34 server stopped
+--- PASS: TestInvalidMessageNoPanic (0.07s)
+=== RUN   TestJoinSuccess
+2026/04/29 05:00:34 server listening on :57372
+2026/04/29 05:00:34 player connected: 127.0.0.1:57374
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57374
+2026/04/29 05:00:34 player connected: 127.0.0.1:57375
+2026/04/29 05:00:34 received from 127.0.0.1:57375: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57375 joined as Alice
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57375
+--- PASS: TestJoinSuccess (0.01s)
+=== RUN   TestJoinDuplicateName
+2026/04/29 05:00:34 server listening on :57376
+2026/04/29 05:00:34 player connected: 127.0.0.1:57378
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57378
+2026/04/29 05:00:34 player connected: 127.0.0.1:57379
+2026/04/29 05:00:34 received from 127.0.0.1:57379: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57379 joined as Alice
+2026/04/29 05:00:34 player connected: 127.0.0.1:57380
+2026/04/29 05:00:34 received from 127.0.0.1:57380: JOIN Alice
+2026/04/29 05:00:34 received from 127.0.0.1:57380: JOIN Bob
+2026/04/29 05:00:34 player 127.0.0.1:57380 joined as Bob
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57380
+--- PASS: TestJoinDuplicateName (0.01s)
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57379
+=== RUN   TestJoinEmptyName
+2026/04/29 05:00:34 server listening on :57381
+2026/04/29 05:00:34 player connected: 127.0.0.1:57383
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57383
+2026/04/29 05:00:34 player connected: 127.0.0.1:57384
+2026/04/29 05:00:34 received from 127.0.0.1:57384: JOIN 
+2026/04/29 05:00:34 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57384
+=== RUN   TestJoinDisconnectCleanup
+2026/04/29 05:00:34 server listening on :57385
+2026/04/29 05:00:34 player connected: 127.0.0.1:57387
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57387
+2026/04/29 05:00:34 player connected: 127.0.0.1:57388
+2026/04/29 05:00:34 received from 127.0.0.1:57388: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57388 joined as Alice
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57388
+2026/04/29 05:00:34 player connected: 127.0.0.1:57389
+2026/04/29 05:00:34 received from 127.0.0.1:57389: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57389 joined as Alice
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57389
+--- PASS: TestJoinDisconnectCleanup (0.12s)
+=== RUN   TestPlayerCount
+2026/04/29 05:00:34 server listening on :57390
+2026/04/29 05:00:34 player connected: 127.0.0.1:57392
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57392
+2026/04/29 05:00:34 player connected: 127.0.0.1:57393
+2026/04/29 05:00:34 received from 127.0.0.1:57393: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57393 joined as Alice
+2026/04/29 05:00:34 player connected: 127.0.0.1:57394
+2026/04/29 05:00:34 received from 127.0.0.1:57394: JOIN Bob
+2026/04/29 05:00:34 player 127.0.0.1:57394 joined as Bob
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57393
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57394
+--- PASS: TestPlayerCount (0.01s)
+=== RUN   TestPlayerNames
+2026/04/29 05:00:34 server listening on :57395
+2026/04/29 05:00:34 player connected: 127.0.0.1:57397
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57397
+2026/04/29 05:00:34 player connected: 127.0.0.1:57398
+2026/04/29 05:00:34 received from 127.0.0.1:57398: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57398 joined as Alice
+2026/04/29 05:00:34 player connected: 127.0.0.1:57399
+2026/04/29 05:00:34 received from 127.0.0.1:57399: JOIN Bob
+2026/04/29 05:00:34 player 127.0.0.1:57399 joined as Bob
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57399
+--- PASS: TestPlayerNames (0.01s)
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57398
+=== RUN   TestOnPlayerJoinEvent
+2026/04/29 05:00:34 server listening on :57400
+2026/04/29 05:00:34 player connected: 127.0.0.1:57402
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57402
+2026/04/29 05:00:34 player connected: 127.0.0.1:57403
+2026/04/29 05:00:34 received from 127.0.0.1:57403: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57403 joined as Alice
+2026/04/29 05:00:34 server stopped
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57403
+--- PASS: TestOnPlayerJoinEvent (0.01s)
+=== RUN   TestBroadcastToNamedPlayers
+2026/04/29 05:00:34 server listening on :57404
+2026/04/29 05:00:34 player connected: 127.0.0.1:57406
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57406
+2026/04/29 05:00:34 player connected: 127.0.0.1:57407
+2026/04/29 05:00:34 player connected: 127.0.0.1:57408
+2026/04/29 05:00:34 player connected: 127.0.0.1:57409
+2026/04/29 05:00:34 received from 127.0.0.1:57407: JOIN Alice
+2026/04/29 05:00:34 player 127.0.0.1:57407 joined as Alice
+2026/04/29 05:00:34 received from 127.0.0.1:57408: JOIN Bob
+2026/04/29 05:00:34 player 127.0.0.1:57408 joined as Bob
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57409
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57407
+2026/04/29 05:00:34 player disconnected: 127.0.0.1:57408
+2026/04/29 05:00:34 server stopped
+--- PASS: TestBroadcastToNamedPlayers (0.27s)
+PASS
+ok  	github.com/smallnest/doubletake/server	2.494s
+FAIL
+[0m
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -466,10 +466,11 @@
+ 	stdin <- "start"
+ 	// Provide words for collectWords phase
+ 	stdin <- "苹果"
+ 	stdin <- "香蕉"
+-	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+ 
++	// Read messages before checking output — RunJudge returns right after
++	// broadcastReady, and defer srv.Stop() may close player connections.
+ 	// Verify players receive ROLE message first
+ 	for i, conn := range conns {
+ 		conn.SetReadDeadline(time.Now().Add(time.Second))
+ 		reader := bufio.NewReader(conn)
+@@ -508,8 +509,10 @@
+ 		if msg.Type != game.MsgReady {
+ 			t.Errorf("player %d: expected READY, got %s", i, msg.Type)
+ 		}
+ 	}
++
++	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+ }
+ 
+ func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
+ 	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
+
+[0m
+The test fails because of a race — player connections get closed by `srv.Stop()` before the second batch of reads completes. I need to read both ROLE and READY before checking for "游戏开始！" output.
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 60s 2>&1
+ok  	github.com/smallnest/doubletake/client	0.561s
+2026/04/29 05:01:28 server listening on :57441
+2026/04/29 05:01:29 player connected: 127.0.0.1:57445
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57445
+2026/04/29 05:01:29 player connected: 127.0.0.1:57446
+2026/04/29 05:01:29 received from 127.0.0.1:57446: JOIN Alice
+2026/04/29 05:01:29 player 127.0.0.1:57446 joined as Alice
+2026/04/29 05:01:29 connection error from 127.0.0.1:57446: read tcp 127.0.0.1:57441->127.0.0.1:57446: read: connection reset by peer
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57446
+2026/04/29 05:01:29 server listening on :57447
+2026/04/29 05:01:29 player connected: 127.0.0.1:57449
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57449
+2026/04/29 05:01:29 player connected: 127.0.0.1:57450
+2026/04/29 05:01:29 received from 127.0.0.1:57450: JOIN Alice
+2026/04/29 05:01:29 player 127.0.0.1:57450 joined as Alice
+2026/04/29 05:01:29 player connected: 127.0.0.1:57451
+2026/04/29 05:01:29 received from 127.0.0.1:57451: JOIN Bob
+2026/04/29 05:01:29 player 127.0.0.1:57451 joined as Bob
+2026/04/29 05:01:29 player connected: 127.0.0.1:57452
+2026/04/29 05:01:29 received from 127.0.0.1:57452: JOIN Charlie
+2026/04/29 05:01:29 player 127.0.0.1:57452 joined as Charlie
+2026/04/29 05:01:29 player connected: 127.0.0.1:57453
+2026/04/29 05:01:29 received from 127.0.0.1:57453: JOIN Dave
+2026/04/29 05:01:29 player 127.0.0.1:57453 joined as Dave
+2026/04/29 05:01:29 connection error from 127.0.0.1:57451: read tcp 127.0.0.1:57447->127.0.0.1:57451: read: connection reset by peer
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57451
+2026/04/29 05:01:29 connection error from 127.0.0.1:57453: read tcp 127.0.0.1:57447->127.0.0.1:57453: read: connection reset by peer
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57453
+2026/04/29 05:01:29 connection error from 127.0.0.1:57452: read tcp 127.0.0.1:57447->127.0.0.1:57452: read: connection reset by peer
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57452
+2026/04/29 05:01:29 connection error from 127.0.0.1:57450: read tcp 127.0.0.1:57447->127.0.0.1:57450: read: connection reset by peer
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57450
+2026/04/29 05:01:29 server listening on :57454
+2026/04/29 05:01:29 player connected: 127.0.0.1:57457
+2026/04/29 05:01:29 received from 127.0.0.1:57457: JOIN A
+2026/04/29 05:01:29 player 127.0.0.1:57457 joined as A
+2026/04/29 05:01:29 player connected: 127.0.0.1:57456
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57456
+2026/04/29 05:01:29 player connected: 127.0.0.1:57458
+2026/04/29 05:01:29 received from 127.0.0.1:57458: JOIN B
+2026/04/29 05:01:29 player 127.0.0.1:57458 joined as B
+2026/04/29 05:01:29 player connected: 127.0.0.1:57459
+2026/04/29 05:01:29 received from 127.0.0.1:57459: JOIN C
+2026/04/29 05:01:29 player 127.0.0.1:57459 joined as C
+2026/04/29 05:01:29 connection error from 127.0.0.1:57459: read tcp 127.0.0.1:57454->127.0.0.1:57459: read: connection reset by peer
+2026/04/29 05:01:29 connection error from 127.0.0.1:57458: read tcp 127.0.0.1:57454->127.0.0.1:57458: read: connection reset by peer
+2026/04/29 05:01:29 connection error from 127.0.0.1:57457: read tcp 127.0.0.1:57454->127.0.0.1:57457: read: connection reset by peer
+2026/04/29 05:01:29 broadcast write error to 127.0.0.1:57457: write tcp 127.0.0.1:57454->127.0.0.1:57457: write: broken pipe
+2026/04/29 05:01:29 broadcast write error to 127.0.0.1:57458: write tcp 127.0.0.1:57454->127.0.0.1:57458: write: broken pipe
+2026/04/29 05:01:29 broadcast write error to 127.0.0.1:57459: write tcp 127.0.0.1:57454->127.0.0.1:57459: write: broken pipe
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57458
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57457
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57459
+2026/04/29 05:01:29 server listening on :57460
+2026/04/29 05:01:29 player connected: 127.0.0.1:57462
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57462
+2026/04/29 05:01:29 player connected: 127.0.0.1:57463
+2026/04/29 05:01:29 received from 127.0.0.1:57463: JOIN A
+2026/04/29 05:01:29 player 127.0.0.1:57463 joined as A
+2026/04/29 05:01:29 player connected: 127.0.0.1:57464
+2026/04/29 05:01:29 received from 127.0.0.1:57464: JOIN B
+2026/04/29 05:01:29 player 127.0.0.1:57464 joined as B
+2026/04/29 05:01:29 player connected: 127.0.0.1:57465
+2026/04/29 05:01:29 received from 127.0.0.1:57465: JOIN C
+2026/04/29 05:01:29 player 127.0.0.1:57465 joined as C
+2026/04/29 05:01:29 player connected: 127.0.0.1:57466
+2026/04/29 05:01:29 received from 127.0.0.1:57466: JOIN D
+2026/04/29 05:01:29 player 127.0.0.1:57466 joined as D
+2026/04/29 05:01:29 connection error from 127.0.0.1:57466: read tcp 127.0.0.1:57460->127.0.0.1:57466: read: connection reset by peer
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57466
+2026/04/29 05:01:29 connection error from 127.0.0.1:57464: read tcp 127.0.0.1:57460->127.0.0.1:57464: read: connection reset by peer
+2026/04/29 05:01:29 connection error from 127.0.0.1:57463: read tcp 127.0.0.1:57460->127.0.0.1:57463: read: connection reset by peer
+2026/04/29 05:01:29 connection error from 127.0.0.1:57465: read tcp 127.0.0.1:57460->127.0.0.1:57465: read: connection reset by peer
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57465
+2026/04/29 05:01:29 broadcast write error to 127.0.0.1:57463: write tcp 127.0.0.1:57460->127.0.0.1:57463: write: broken pipe
+2026/04/29 05:01:29 broadcast write error to 127.0.0.1:57464: write tcp 127.0.0.1:57460->127.0.0.1:57464: write: broken pipe
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57464
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57463
+2026/04/29 05:01:29 server listening on :57474
+2026/04/29 05:01:29 player connected: 127.0.0.1:57479
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57479
+2026/04/29 05:01:29 player connected: 127.0.0.1:57480
+2026/04/29 05:01:29 received from 127.0.0.1:57480: JOIN A
+2026/04/29 05:01:29 player 127.0.0.1:57480 joined as A
+2026/04/29 05:01:29 player connected: 127.0.0.1:57481
+2026/04/29 05:01:29 received from 127.0.0.1:57481: JOIN B
+2026/04/29 05:01:29 player 127.0.0.1:57481 joined as B
+2026/04/29 05:01:29 player connected: 127.0.0.1:57482
+2026/04/29 05:01:29 received from 127.0.0.1:57482: JOIN C
+2026/04/29 05:01:29 player 127.0.0.1:57482 joined as C
+2026/04/29 05:01:29 player connected: 127.0.0.1:57483
+2026/04/29 05:01:29 received from 127.0.0.1:57483: JOIN D
+2026/04/29 05:01:29 player 127.0.0.1:57483 joined as D
+2026/04/29 05:01:29 connection error from 127.0.0.1:57482: read tcp 127.0.0.1:57474->127.0.0.1:57482: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57482
+2026/04/29 05:01:29 connection error from 127.0.0.1:57483: read tcp 127.0.0.1:57474->127.0.0.1:57483: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57483
+2026/04/29 05:01:29 connection error from 127.0.0.1:57480: read tcp 127.0.0.1:57474->127.0.0.1:57480: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57480
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 connection error from 127.0.0.1:57481: read tcp 127.0.0.1:57474->127.0.0.1:57481: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57481
+--- FAIL: TestWaitingPhase_StartConfirmed (0.05s)
+    judge_test.go:501: player 3 did not receive READY: EOF
+2026/04/29 05:01:29 server listening on :57484
+2026/04/29 05:01:29 player connected: 127.0.0.1:57488
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57488
+2026/04/29 05:01:29 player connected: 127.0.0.1:57489
+2026/04/29 05:01:29 received from 127.0.0.1:57489: JOIN A
+2026/04/29 05:01:29 player 127.0.0.1:57489 joined as A
+2026/04/29 05:01:29 player connected: 127.0.0.1:57490
+2026/04/29 05:01:29 received from 127.0.0.1:57490: JOIN B
+2026/04/29 05:01:29 player 127.0.0.1:57490 joined as B
+2026/04/29 05:01:29 player connected: 127.0.0.1:57491
+2026/04/29 05:01:29 received from 127.0.0.1:57491: JOIN C
+2026/04/29 05:01:29 player 127.0.0.1:57491 joined as C
+2026/04/29 05:01:29 player connected: 127.0.0.1:57492
+2026/04/29 05:01:29 received from 127.0.0.1:57492: JOIN D
+2026/04/29 05:01:29 player 127.0.0.1:57492 joined as D
+2026/04/29 05:01:29 player connected: 127.0.0.1:57493
+2026/04/29 05:01:29 received from 127.0.0.1:57493: JOIN E
+2026/04/29 05:01:29 player 127.0.0.1:57493 joined as E
+2026/04/29 05:01:29 connection error from 127.0.0.1:57491: read tcp 127.0.0.1:57484->127.0.0.1:57491: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57491
+2026/04/29 05:01:29 connection error from 127.0.0.1:57492: read tcp 127.0.0.1:57484->127.0.0.1:57492: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57492
+2026/04/29 05:01:29 connection error from 127.0.0.1:57493: read tcp 127.0.0.1:57484->127.0.0.1:57493: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57493
+2026/04/29 05:01:29 connection error from 127.0.0.1:57489: read tcp 127.0.0.1:57484->127.0.0.1:57489: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57489
+2026/04/29 05:01:29 connection error from 127.0.0.1:57490: read tcp 127.0.0.1:57484->127.0.0.1:57490: use of closed network connection
+2026/04/29 05:01:29 player disconnected: 127.0.0.1:57490
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 server listening on :8127
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 server listening on :9000
+2026/04/29 05:01:29 server stopped
+2026/04/29 05:01:29 server listening on :8127
+2026/04/29 05:01:29 server stopped
+FAIL
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	1.389s
+ok  	github.com/smallnest/doubletake/game	0.365s
+ok  	github.com/smallnest/doubletake/server	2.638s
+FAIL
+[0m
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -467,44 +467,42 @@
+ // Provide words for collectWords phase
+ stdin <- "苹果"
+ stdin <- "香蕉"
+ 
+-// Read messages before checking output — RunJudge returns right after
++// Read messages per-player before checking output — RunJudge returns right after
+ // broadcastReady, and defer srv.Stop() may close player connections.
+-// Verify players receive ROLE message first
+ for i, conn := range conns {
+-	conn.SetReadDeadline(time.Now().Add(time.Second))
+ 	reader := bufio.NewReader(conn)
++
++	// First message should be ROLE
++	conn.SetReadDeadline(time.Now().Add(time.Second))
+ 	line, err := reader.ReadString('\n')
+ 	if err != nil {
+ 		t.Errorf("player %d did not receive ROLE: %v", i, err)
+ 		continue
+ 	}
+ 	msg, err := game.Decode(line)
+ 	if err != nil {
+-		t.Errorf("player %d: decode error: %v", i, err)
++		t.Errorf("player %d: decode error for ROLE: %v", i, err)
+ 		continue
+ 	}
+ 	if msg.Type != game.MsgRole {
+ 		t.Errorf("player %d: expected ROLE, got %s", i, msg.Type)
+ 	}
+ 	if !strings.Contains(msg.Payload, "|") {
+ 		t.Errorf("player %d: ROLE payload should contain '|', got %q", i, msg.Payload)
+ 	}
+-}
+ 
+-// Verify players receive READY message
+-for i, conn := range conns {
++	// Second message should be READY
+ 	conn.SetReadDeadline(time.Now().Add(time.Second))
+-	reader := bufio.NewReader(conn)
+-	line, err := reader.ReadString('\n')
++	line, err = reader.ReadString('\n')
+ 	if err != nil {
+ 		t.Errorf("player %d did not receive READY: %v", i, err)
+ 		continue
+ 	}
+-	msg, err := game.Decode(line)
++	msg, err = game.Decode(line)
+ 	if err != nil {
+-		t.Errorf("player %d: decode error: %v", i, err)
++		t.Errorf("player %d: decode error for READY: %v", i, err)
+ 		continue
+ 	}
+ 	if msg.Type != game.MsgReady {
+ 		t.Errorf("player %d: expected READY, got %s", i, msg.Type)
+
+[0m
+Still a race. The sequential two-loop approach gives `srv.Stop()` time to close connections in between. I'll read both ROLE and READY per player in a single loop.
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 60s 2>&1
+ok  	github.com/smallnest/doubletake/client	1.454s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	2.297s
+ok  	github.com/smallnest/doubletake/game	0.845s
+ok  	github.com/smallnest/doubletake/server	2.540s
+[0m
+[0m# [0mTodos
+[x] Add SendToPlayer method to server/server.go
+[x] Add SendToPlayer tests to server/server_test.go
+[x] Add sendRoleToPlayers function to judge.go and wire it into RunJudge
+[x] Update judge_test.go to verify ROLE messages in integration test
+[x] Run go build, go vet, go test to verify everything passes
+[0m
+All tests pass. Let me mark everything complete and verify the final state.
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && git diff --stat
+.autoresearch/workflows/issue-10/.last_score       |    1 -
+ .autoresearch/workflows/issue-10/.phase            |    1 -
+ .autoresearch/workflows/issue-10/hard-gate-1.log   |  631 -------
+ .autoresearch/workflows/issue-10/hard-gate-2.log   |  631 -------
+ .autoresearch/workflows/issue-10/hard-gate-4.log   |  660 -------
+ .autoresearch/workflows/issue-10/hard-gate-5.log   |  660 -------
+ .autoresearch/workflows/issue-10/hard-gate-6.log   |  662 -------
+ .autoresearch/workflows/issue-10/hard-gate-8.log   |  670 -------
+ .../workflows/issue-10/iteration-1-claude.log      |   28 -
+ .../issue-10/iteration-2-codex-review.log          |  487 -----
+ .../workflows/issue-10/iteration-2-codex.log       |  975 ----------
+ .../issue-10/iteration-3-opencode-review.log       |  104 --
+ .../issue-10/iteration-4-claude-review.log         |   86 -
+ .../workflows/issue-10/iteration-4-claude.log      |   27 -
+ .../issue-10/iteration-5-codex-review.log          |  578 ------
+ .../workflows/issue-10/iteration-5-codex.log       | 1162 ------------
+ .../issue-10/iteration-6-opencode-review.log       |  112 --
+ .../workflows/issue-10/iteration-6-opencode.log    |  340 ----
+ .../issue-10/iteration-7-claude-review.log         |   88 -
+ .../issue-10/iteration-8-codex-review.log          |  544 ------
+ .../workflows/issue-10/iteration-8-codex.log       | 1882 --------------------
+ .../issue-10/iteration-9-opencode-review.log       |  112 --
+ .autoresearch/workflows/issue-10/log.md            |   43 -
+ .autoresearch/workflows/issue-10/planning.log      |   88 -
+ .autoresearch/workflows/issue-10/progress.md       |  474 -----
+ .autoresearch/workflows/issue-10/summary.html      |  156 --
+ .autoresearch/workflows/issue-10/tasks.json        |   57 -
+ .autoresearch/workflows/issue-10/terminal.log      |  509 ------
+ cmd/doubletake/judge.go                            |   27 +
+ cmd/doubletake/judge_test.go                       |   33 +-
+ server/server.go                                   |   18 +
+ server/server_test.go                              |   95 +
+ 32 files changed, 168 insertions(+), 11773 deletions(-)
+[0m
+Let me verify the final state of the changes:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && git diff -- cmd/doubletake/judge.go cmd/doubletake/judge_test.go server/server.go server/server_test.go
+diff --git a/cmd/doubletake/judge.go b/cmd/doubletake/judge.go
+index ede6cc8..c63538f 100644
+--- a/cmd/doubletake/judge.go
++++ b/cmd/doubletake/judge.go
+@@ -186,6 +186,7 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
+ 		return cfg
+ 	}
+ 	game.AssignWords(players, civilianWord, undercoverWord)
++	sendRoleToPlayers(disp, srv, players)
+ 
+ 	broadcastReady(disp, srv)
+ 
+@@ -256,3 +257,29 @@ func broadcastReady(disp *client.Display, srv *server.Server) {
+ 	disp.Info("0000", "游戏开始！")
+ 	srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgReady, Payload: ""})
+ }
++
++// sendRoleToPlayers privately sends a ROLE message to each player.
++// The message format is ROLE|RoleName|word, e.g. ROLE|Civilian|苹果.
++// Blank players receive "你是白板" as the word.
++func sendRoleToPlayers(disp *client.Display, srv *server.Server, players []*game.Player) {
++	for _, p := range players {
++		var word string
++		var roleName string
++		switch p.Role {
++		case game.Civilian:
++			roleName = "Civilian"
++			word = p.Word
++		case game.Undercover:
++			roleName = "Undercover"
++			word = p.Word
++		case game.Blank:
++			roleName = "Blank"
++			word = "你是白板"
++		}
++		payload := roleName + "|" + word
++		msg := game.Message{Type: game.MsgRole, Payload: payload}
++		if err := srv.SendToPlayer(p.Name, msg); err != nil {
++			disp.Warn(fmt.Sprintf("发送 ROLE 给 %s 失败: %v", p.Name, err))
++		}
++	}
++}
+diff --git a/cmd/doubletake/judge_test.go b/cmd/doubletake/judge_test.go
+index a3ac315..55f323b 100644
+--- a/cmd/doubletake/judge_test.go
++++ b/cmd/doubletake/judge_test.go
+@@ -467,26 +467,49 @@ func TestWaitingPhase_StartConfirmed(t *testing.T) {
+ 	// Provide words for collectWords phase
+ 	stdin <- "苹果"
+ 	stdin <- "香蕉"
+-	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+ 
+-	// Verify players receive READY message
++	// Read messages per-player before checking output — RunJudge returns right after
++	// broadcastReady, and defer srv.Stop() may close player connections.
+ 	for i, conn := range conns {
+-		conn.SetReadDeadline(time.Now().Add(time.Second))
+ 		reader := bufio.NewReader(conn)
++
++		// First message should be ROLE
++		conn.SetReadDeadline(time.Now().Add(time.Second))
+ 		line, err := reader.ReadString('\n')
+ 		if err != nil {
+-			t.Errorf("player %d did not receive READY: %v", i, err)
++			t.Errorf("player %d did not receive ROLE: %v", i, err)
+ 			continue
+ 		}
+ 		msg, err := game.Decode(line)
+ 		if err != nil {
+-			t.Errorf("player %d: decode error: %v", i, err)
++			t.Errorf("player %d: decode error for ROLE: %v", i, err)
++			continue
++		}
++		if msg.Type != game.MsgRole {
++			t.Errorf("player %d: expected ROLE, got %s", i, msg.Type)
++		}
++		if !strings.Contains(msg.Payload, "|") {
++			t.Errorf("player %d: ROLE payload should contain '|', got %q", i, msg.Payload)
++		}
++
++		// Second message should be READY
++		conn.SetReadDeadline(time.Now().Add(time.Second))
++		line, err = reader.ReadString('\n')
++		if err != nil {
++			t.Errorf("player %d did not receive READY: %v", i, err)
++			continue
++		}
++		msg, err = game.Decode(line)
++		if err != nil {
++			t.Errorf("player %d: decode error for READY: %v", i, err)
+ 			continue
+ 		}
+ 		if msg.Type != game.MsgReady {
+ 			t.Errorf("player %d: expected READY, got %s", i, msg.Type)
+ 		}
+ 	}
++
++	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+ }
+ 
+ func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
+diff --git a/server/server.go b/server/server.go
+index 5ab9d64..66ff8c1 100644
+--- a/server/server.go
++++ b/server/server.go
+@@ -2,6 +2,7 @@ package server
+ 
+ import (
+ 	"bufio"
++	"fmt"
+ 	"log"
+ 	"net"
+ 	"sync"
+@@ -200,6 +201,23 @@ func (s *Server) Send(conn net.Conn, msg game.Message) {
+ 	}
+ }
+ 
++// SendToPlayer sends a message to a player by name.
++// Returns an error if the player is not found.
++func (s *Server) SendToPlayer(name string, msg game.Message) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for _, player := range s.connections {
++		if player.Name == name {
++			data := []byte(game.Encode(msg))
++			if _, err := player.Conn.Write(data); err != nil {
++				return fmt.Errorf("send to player %s: %w", name, err)
++			}
++			return nil
++		}
++	}
++	return fmt.Errorf("player %s not found", name)
++}
++
+ // PlayerCount returns the number of named (registered) players.
+ func (s *Server) PlayerCount() int {
+ 	s.mu.Lock()
+diff --git a/server/server_test.go b/server/server_test.go
+index 7f0aa7e..206bb13 100644
+--- a/server/server_test.go
++++ b/server/server_test.go
+@@ -244,6 +244,101 @@ func TestSend(t *testing.T) {
+ 	}
+ }
+ 
++func TestSendToPlayer_Success(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn.Close()
++
++	// Join with a name
++	fmt.Fprintf(conn, "JOIN|Alice\n")
++	readMsg(t, conn)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}
++	err = srv.SendToPlayer("Alice", msg)
++	if err != nil {
++		t.Fatalf("SendToPlayer failed: %v", err)
++	}
++
++	received := readMsg(t, conn)
++	if received.Type != game.MsgRole {
++		t.Errorf("expected ROLE, got %s", received.Type)
++	}
++	if received.Payload != "Undercover|香蕉" {
++		t.Errorf("expected payload %q, got %q", "Undercover|香蕉", received.Payload)
++	}
++}
++
++func TestSendToPlayer_NotFound(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn.Close()
++
++	fmt.Fprintf(conn, "JOIN|Alice\n")
++	readMsg(t, conn)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "test"}
++	err = srv.SendToPlayer("Bob", msg)
++	if err == nil {
++		t.Fatal("expected error for non-existent player")
++	}
++	if !strings.Contains(err.Error(), "not found") {
++		t.Errorf("expected 'not found' error, got: %v", err)
++	}
++}
++
++func TestSendToPlayer_OnlyTargetReceives(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn1.Close()
++
++	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect: %v", err)
++	}
++	defer conn2.Close()
++
++	fmt.Fprintf(conn1, "JOIN|Alice\n")
++	readMsg(t, conn1)
++
++	fmt.Fprintf(conn2, "JOIN|Bob\n")
++	readMsg(t, conn2)
++
++	msg := game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}
++	err = srv.SendToPlayer("Alice", msg)
++	if err != nil {
++		t.Fatalf("SendToPlayer failed: %v", err)
++	}
++
++	// Alice should receive it
++	received := readMsg(t, conn1)
++	if received.Type != game.MsgRole {
++		t.Errorf("expected ROLE, got %s", received.Type)
++	}
++
++	// Bob should NOT receive anything
++	conn2.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
++	buf := make([]byte, 128)
++	n, err := conn2.Read(buf)
++	if err == nil && n > 0 {
++		t.Errorf("Bob should not receive the message, got: %q", buf[:n])
++	}
++}
++
+ func TestMultipleClients(t *testing.T) {
+ 	srv, port := startTestServer(t)
+ 	defer srv.Stop()
+[0m
+[0m→ [0mRead server/CLAUDE.md
+[0m
+[0m← [0mEdit server/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+@@ -9,9 +9,9 @@
+ - 使用 `done` channel 实现 Stop() 的优雅关闭，Accept 循环通过 select 检查 done
+ 
+ ## 依赖关系
+ - 依赖 `game` 包的 `Message` 类型、`Encode`/`Decode` 函数
+-- 依赖标准库: `net`, `bufio`, `log`, `sync`
++- 依赖标准库: `net`, `bufio`, `log`, `sync`, `fmt`
+ 
+ ## 消息处理流程
+ 1. Start() 监听 TCP 端口，循环 Accept 连接
+ 2. 每个连接启动独立 goroutine 运行 handleConn
+
+[0m
+[0m← [0mEdit server/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+@@ -35,4 +35,7 @@
+ - Broadcast 和 Send 使用 game.Encode 编码消息，格式为 `TYPE|payload\n`
+ - unregister 中会关闭连接的 Conn，不要重复 Close
+ - handleJoin 等消息处理函数中，先解锁再调用 Send()，避免在持锁期间执行网络 I/O（防止死锁）
+ - Player.Name 在连接期间有效，断开后 unregister 会从 names map 中移除
++- SendToPlayer(name, msg) 按玩家名查找连接并私密发送消息，查不到时返回 error
++- SendToPlayer 持锁期间执行 conn.Write（与 Broadcast 模式一致），因最大连接数 <= 10，阻塞风险可忽略
++- 目前没有 name→conn 反向映射，SendToPlayer 使用 O(n) 遍历 connections map
+
+[0m
+[91m[1mError: [0mError from provider (DeepSeek): The `reasoning_content` in the thinking mode must be passed back to the API.

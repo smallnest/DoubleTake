@@ -1,0 +1,31 @@
+## 实现总结
+
+### T-001 完成
+
+**修改的文件:**
+
+1. **`game/role.go`** — 新增 `AssignWords(players, civilianWord, undercoverWord)` 函数，根据角色设置每个 Player 的 Word 字段
+   - Civilian → civilianWord
+   - Undercover → undercoverWord
+   - Blank → ""
+
+2. **`cmd/doubletake/judge.go`** — 三处关键修改:
+   - 新增 `collectWords` / `collectWordsFromCh` 函数，交互式输入两个词语并验证不相同
+   - 重构 stdin 管理：引入 `stdinSource` 结构体（ch + done channel），`waitingPhase` 和 `collectWordsFromCh` 共享同一个 channel，避免 goroutine 竞争消费
+   - `RunJudge` 流程变为：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady
+
+3. **`game/role_test.go`** — 新增 4 个 AssignWords 测试（AllRoles, OnlyCivilians, EmptyPlayers, BlankRole）
+
+4. **`cmd/doubletake/judge_test.go`** — 新增 4 个 collectWords 测试 + 更新 2 个集成测试以提供词语输入
+
+### 自检结果
+- `go build ./...` — 通过
+- `go vet ./...` — 通过
+- `go test ./...` — 全部通过
+- 覆盖率: game 94.4%, cmd/doubletake 93.0%
+
+## Learnings
+
+- **模式**: `waitingPhase` 使用 goroutine 从 scanner 读取 stdin，后续阶段（如 collectWords）不能直接使用同一个 scanner，必须共享 channel 以避免 goroutine 抢先消费
+- **踩坑**: 初版在 `waitingPhase` 内部调用 `broadcastReady`，但 RunJudge 流程改为在 collectWords 之后才广播，需要从 waitingPhase 中移除 broadcastReady 调用
+- **经验**: 当 stdin 被多个阶段共享时，应使用 channel-based stdin 管理而非直接 scanner，`stdinSource` 模式（ch + done）可安全跨阶段共享

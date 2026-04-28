@@ -432,8 +432,9 @@ func TestWaitingPhase_StartConfirmed(t *testing.T) {
 	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
 	defer cleanup()
 
-	conns := make([]net.Conn, 4)
-	for i, name := range []string{"A", "B", "C", "D"} {
+	names := []string{"A", "B", "C", "D"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
 		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
 		if err != nil {
 			t.Fatalf("failed to connect %s: %v", name, err)
@@ -445,7 +446,7 @@ func TestWaitingPhase_StartConfirmed(t *testing.T) {
 
 	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
 
-	// Consume the JOIN confirmation from each player connection first
+	// Consume JOIN confirmation from each connection
 	for _, conn := range conns {
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		reader := bufio.NewReader(conn)
@@ -464,26 +465,441 @@ func TestWaitingPhase_StartConfirmed(t *testing.T) {
 
 	// Start with full capacity — no confirmation needed
 	stdin <- "start"
-	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+	stdin <- "苹果"
+	stdin <- "香蕉"
 
-	// Verify players receive READY message
-	for i, conn := range conns {
-		conn.SetReadDeadline(time.Now().Add(time.Second))
+	// Read ROLE and READY from each connection, verify role/word content
+	type roleInfo struct {
+		roleName string
+		word     string
+	}
+	var roles []roleInfo
+	for _, conn := range conns {
 		reader := bufio.NewReader(conn)
+
+		conn.SetReadDeadline(time.Now().Add(time.Second))
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			t.Errorf("player %d did not receive READY: %v", i, err)
+			t.Errorf("did not receive ROLE: %v", err)
 			continue
 		}
 		msg, err := game.Decode(line)
 		if err != nil {
-			t.Errorf("player %d: decode error: %v", i, err)
+			t.Errorf("decode error for ROLE: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgRole {
+			t.Errorf("expected ROLE, got %s", msg.Type)
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) < 2 {
+			t.Errorf("ROLE payload malformed: %q", msg.Payload)
+			continue
+		}
+		roleName, word := parts[0], parts[1]
+		roles = append(roles, roleInfo{roleName, word})
+
+		switch roleName {
+		case "Civilian":
+			if word != "苹果" {
+				t.Errorf("Civilian got word %q, want %q", word, "苹果")
+			}
+		case "Undercover":
+			if word != "香蕉" {
+				t.Errorf("Undercover got word %q, want %q", word, "香蕉")
+			}
+		default:
+			t.Errorf("unexpected role %q", roleName)
+		}
+
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive READY: %v", err)
+			continue
+		}
+		msg, err = game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error for READY: %v", err)
 			continue
 		}
 		if msg.Type != game.MsgReady {
-			t.Errorf("player %d: expected READY, got %s", i, msg.Type)
+			t.Errorf("expected READY, got %s", msg.Type)
 		}
 	}
+
+	// Verify role distribution: 4 players, 1U, 0B → 3 civilians, 1 undercover
+	civilianCount := 0
+	undercoverCount := 0
+	for _, r := range roles {
+		switch r.roleName {
+		case "Civilian":
+			civilianCount++
+		case "Undercover":
+			undercoverCount++
+		}
+	}
+	if civilianCount != 3 {
+		t.Errorf("expected 3 civilians, got %d", civilianCount)
+	}
+	if undercoverCount != 1 {
+		t.Errorf("expected 1 undercover, got %d", undercoverCount)
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+func TestWaitingPhase_WithBlankPlayer(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "5\n1\n1\n")
+	defer cleanup()
+
+	names := []string{"A", "B", "C", "D", "E"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume JOIN confirmation from each connection
+	for _, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("failed to consume JOIN: %v", err)
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Fatalf("decode error: %v", err)
+		}
+		if msg.Type != game.MsgJoin {
+			t.Fatalf("expected JOIN, got %s", msg.Type)
+		}
+	}
+
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Read ROLE from each connection, verify role/word content including blank
+	type roleInfo struct {
+		roleName string
+		word     string
+	}
+	var roles []roleInfo
+	for _, conn := range conns {
+		reader := bufio.NewReader(conn)
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive ROLE: %v", err)
+			continue
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgRole {
+			t.Errorf("expected ROLE, got %s", msg.Type)
+			continue
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) < 2 {
+			t.Errorf("malformed ROLE payload: %q", msg.Payload)
+			continue
+		}
+		roles = append(roles, roleInfo{parts[0], parts[1]})
+	}
+
+	// Count and verify each role's word
+	counts := map[string]int{"Civilian": 0, "Undercover": 0, "Blank": 0}
+	for _, r := range roles {
+		counts[r.roleName]++
+		switch r.roleName {
+		case "Civilian":
+			if r.word != "苹果" {
+				t.Errorf("Civilian got word %q, want %q", r.word, "苹果")
+			}
+		case "Undercover":
+			if r.word != "香蕉" {
+				t.Errorf("Undercover got word %q, want %q", r.word, "香蕉")
+			}
+		case "Blank":
+			if r.word != "你是白板" {
+				t.Errorf("Blank got word %q, want %q", r.word, "你是白板")
+			}
+		default:
+			t.Errorf("unexpected role %q", r.roleName)
+		}
+	}
+	if counts["Civilian"] != 3 {
+		t.Errorf("expected 3 civilians, got %d", counts["Civilian"])
+	}
+	if counts["Undercover"] != 1 {
+		t.Errorf("expected 1 undercover, got %d", counts["Undercover"])
+	}
+	if counts["Blank"] != 1 {
+		t.Errorf("expected 1 blank, got %d", counts["Blank"])
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+func TestWaitingPhase_SameWordRetry(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"A", "B", "C", "D"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume JOIN confirmation from each connection
+	for _, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("failed to consume JOIN: %v", err)
+		}
+		if _, err := game.Decode(line); err != nil {
+			t.Fatalf("failed to decode JOIN: %v", err)
+		}
+	}
+
+	// Send start and words — first pair same to trigger retry
+	stdin <- "start"
+	stdin <- "苹果" // first civilian attempt
+	stdin <- "苹果" // first undercover attempt (same!)
+
+	waitForOutput(t, out, "不能相同", 2*time.Second)
+
+	// Send different words
+	stdin <- "苹果" // second civilian attempt
+	stdin <- "香蕉" // second undercover attempt (different)
+
+	// Read ROLE and READY from each connection
+	type roleInfo struct {
+		roleName string
+		word     string
+	}
+	var roles []roleInfo
+	for _, conn := range conns {
+		reader := bufio.NewReader(conn)
+
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive ROLE: %v", err)
+			continue
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error for ROLE: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgRole {
+			t.Errorf("expected ROLE, got %s", msg.Type)
+			continue
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) < 2 {
+			t.Errorf("malformed ROLE payload: %q", msg.Payload)
+			continue
+		}
+		roles = append(roles, roleInfo{parts[0], parts[1]})
+
+		switch parts[0] {
+		case "Civilian":
+			if parts[1] != "苹果" {
+				t.Errorf("Civilian got word %q, want %q", parts[1], "苹果")
+			}
+		case "Undercover":
+			if parts[1] != "香蕉" {
+				t.Errorf("Undercover got word %q, want %q", parts[1], "香蕉")
+			}
+		default:
+			t.Errorf("unexpected role %q", parts[0])
+		}
+
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive READY: %v", err)
+			continue
+		}
+		msg, err = game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error for READY: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgReady {
+			t.Errorf("expected READY, got %s", msg.Type)
+		}
+	}
+
+	// Verify role distribution
+	civilianCount := 0
+	undercoverCount := 0
+	for _, r := range roles {
+		switch r.roleName {
+		case "Civilian":
+			civilianCount++
+		case "Undercover":
+			undercoverCount++
+		}
+	}
+	if civilianCount != 3 {
+		t.Errorf("expected 3 civilians, got %d", civilianCount)
+	}
+	if undercoverCount != 1 {
+		t.Errorf("expected 1 undercover, got %d", undercoverCount)
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+func TestWaitingPhase_EndToEnd(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n1\n")
+	defer cleanup()
+
+	names := []string{"Alice", "Bob", "Carol", "Dave", "Eve", "Frank"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume JOIN confirmation from each connection
+	for _, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("failed to consume JOIN: %v", err)
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Fatalf("decode error: %v", err)
+		}
+		if msg.Type != game.MsgJoin {
+			t.Fatalf("expected JOIN, got %s", msg.Type)
+		}
+	}
+
+	stdin <- "start"
+	stdin <- "电脑"
+	stdin <- "计算器"
+
+	// Read ROLE and READY per connection (sequentially to avoid server closing before all reads)
+	type roleInfo struct {
+		roleName string
+		word     string
+	}
+	var roles []roleInfo
+	for _, conn := range conns {
+		reader := bufio.NewReader(conn)
+
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive ROLE: %v", err)
+			continue
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgRole {
+			t.Errorf("expected ROLE, got %s", msg.Type)
+			continue
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) < 2 {
+			t.Errorf("malformed ROLE payload: %q", msg.Payload)
+			continue
+		}
+		roles = append(roles, roleInfo{parts[0], parts[1]})
+
+		switch parts[0] {
+		case "Civilian":
+			if parts[1] != "电脑" {
+				t.Errorf("Civilian got word %q, want %q", parts[1], "电脑")
+			}
+		case "Undercover":
+			if parts[1] != "计算器" {
+				t.Errorf("Undercover got word %q, want %q", parts[1], "计算器")
+			}
+		case "Blank":
+			if parts[1] != "你是白板" {
+				t.Errorf("Blank got word %q, want %q", parts[1], "你是白板")
+			}
+		default:
+			t.Errorf("unexpected role %q", parts[0])
+		}
+
+		// Read READY before moving to next connection
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("did not receive READY: %v", err)
+			continue
+		}
+		msg, err = game.Decode(line)
+		if err != nil {
+			t.Errorf("decode error for READY: %v", err)
+			continue
+		}
+		if msg.Type != game.MsgReady {
+			t.Errorf("expected READY, got %s", msg.Type)
+		}
+	}
+
+	// Verify role distribution: 6 players, 1U, 1B → 4 civilians, 1 undercover, 1 blank
+	counts := map[string]int{"Civilian": 0, "Undercover": 0, "Blank": 0}
+	for _, r := range roles {
+		counts[r.roleName]++
+	}
+	if counts["Civilian"] != 4 {
+		t.Errorf("expected 4 civilians, got %d", counts["Civilian"])
+	}
+	if counts["Undercover"] != 1 {
+		t.Errorf("expected 1 undercover, got %d", counts["Undercover"])
+	}
+	if counts["Blank"] != 1 {
+		t.Errorf("expected 1 blank, got %d", counts["Blank"])
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
 }
 
 func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
@@ -506,7 +922,77 @@ func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
 	stdin <- "start"
 	waitForOutput(t, out, "当前 5/6 人，确认开始？(Y/N)", 2*time.Second)
 	stdin <- "Y"
+	// Provide words for collectWords phase
+	stdin <- "苹果"
+	stdin <- "香蕉"
 	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+// --- collectWords tests ---
+
+func TestCollectWords_Valid(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	scanner := newTestScanner("苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+}
+
+func TestCollectWords_SameWordsRetry(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	// First attempt: same words, second attempt: different words
+	scanner := newTestScanner("苹果\n苹果\n苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "不能相同") {
+		t.Errorf("expected warning about same words, got: %s", output)
+	}
+}
+
+func TestCollectWords_EmptyWordRetry(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	// First attempt: empty civilian word, second: valid
+	scanner := newTestScanner("\n香蕉\n苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "不能为空") {
+		t.Errorf("expected warning about empty words, got: %s", output)
+	}
+}
+
+func TestCollectWords_EOF(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	scanner := newTestScanner("")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "" || undercover != "" {
+		t.Errorf("expected empty words on EOF, got %q/%q", civilian, undercover)
+	}
 }
 
 // --- Test helpers ---

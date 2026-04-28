@@ -94,3 +94,20 @@ func AssignRoles(names []string, numUndercover, numBlank int) ([]*Player, error)
 	}
 	return players, nil
 }
+
+// AssignWords sets the Word field for each player based on their role:
+//   - Civilian → civilianWord
+//   - Undercover → undercoverWord
+//   - Blank → "" (empty string)
+func AssignWords(players []*Player, civilianWord, undercoverWord string) {
+	for _, p := range players {
+		switch p.Role {
+		case Civilian:
+			p.Word = civilianWord
+		case Undercover:
+			p.Word = undercoverWord
+		case Blank:
+			p.Word = ""
+		}
+	}
+}

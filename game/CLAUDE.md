@@ -41,6 +41,7 @@
 - `Player` 初始状态：`Alive=true`，`Connected=false`
 - 校验条件：`numUndercover+numBlank >= numCivilian`（即 U+B >= C），而非 `numCivilian <= 0`（后者只拦截了 U+B >= total 的极端情况）
 - `AssignRoles` 不设置 `Word` 字段（留空），该字段在后续阶段设置
+- `AssignWords` 在 `AssignRoles` 之后调用，根据角色设置每个 `Player` 的 `Word` 字段：Civilian→平民词语，Undercover→卧底词语，Blank→空字符串
 
 ## 测试约定
 - `role_test.go` 使用表格驱动测试（`TestAssignRoles_Errors`）覆盖所有错误路径

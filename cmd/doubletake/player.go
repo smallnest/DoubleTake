@@ -10,6 +10,13 @@ import (
 	"github.com/smallnest/doubletake/game"
 )
 
+// roleDisplayNames maps internal role names to user-facing display labels.
+var roleDisplayNames = map[string]string{
+	"Civilian":   "平民",
+	"Undercover": "卧底",
+	"Blank":      "白板",
+}
+
 func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 	disp := client.NewDisplay(out, stealth)
 	disp.PrintStartup()
@@ -60,6 +67,22 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 		switch msg.Type {
 		case game.MsgJoin:
 			disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
+		case game.MsgRole:
+			parts := strings.SplitN(msg.Payload, "|", 2)
+			if len(parts) < 2 {
+				disp.Data("00", "received malformed role message")
+				continue
+			}
+			roleName, word := parts[0], parts[1]
+			dispLabel := roleName
+			if label, ok := roleDisplayNames[roleName]; ok {
+				dispLabel = label
+			}
+			if roleName == "Blank" {
+				disp.Data("00", fmt.Sprintf("assigned token: [%s] — 你是白板", dispLabel))
+			} else {
+				disp.Data("00", fmt.Sprintf("assigned token: %s [%s]", word, dispLabel))
+			}
 		case game.MsgError:
 			disp.Warn(msg.Payload)
 			return 1

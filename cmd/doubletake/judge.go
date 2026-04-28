@@ -84,6 +84,79 @@ func validateConfig(total, undercovers, blanks int) error {
 	return nil
 }
 
+// collectWords interactively prompts the referee for two words and validates they differ.
+// It loops until two different words are entered.
+func collectWords(out io.Writer, disp *client.Display, scanner *bufio.Scanner) (civilianWord, undercoverWord string) {
+	for {
+		fmt.Fprint(out, "  平民词语: ")
+		if !scanner.Scan() {
+			return "", ""
+		}
+		civilianWord = strings.TrimSpace(scanner.Text())
+
+		fmt.Fprint(out, "  卧底词语: ")
+		if !scanner.Scan() {
+			return "", ""
+		}
+		undercoverWord = strings.TrimSpace(scanner.Text())
+
+		if civilianWord == "" || undercoverWord == "" {
+			disp.Warn("词语不能为空，请重新输入")
+			continue
+		}
+		if civilianWord == undercoverWord {
+			disp.Warn("平民词语和卧底词语不能相同，请重新输入")
+			continue
+		}
+		return civilianWord, undercoverWord
+	}
+}
+
+// collectWordsFromCh reads two words from a channel (same as collectWords but uses channel input).
+// It loops until two different words are entered.
+func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan string, stdinDone <-chan struct{}) (civilianWord, undercoverWord string) {
+	for {
+		fmt.Fprint(out, "  平民词语: ")
+		var ok bool
+		select {
+		case civilianWord, ok = <-stdinCh:
+			if !ok {
+				return "", ""
+			}
+			civilianWord = strings.TrimSpace(civilianWord)
+		case <-stdinDone:
+			return "", ""
+		}
+
+		fmt.Fprint(out, "  卧底词语: ")
+		select {
+		case undercoverWord, ok = <-stdinCh:
+			if !ok {
+				return "", ""
+			}
+			undercoverWord = strings.TrimSpace(undercoverWord)
+		case <-stdinDone:
+			return "", ""
+		}
+
+		if civilianWord == "" || undercoverWord == "" {
+			disp.Warn("词语不能为空，请重新输入")
+			continue
+		}
+		if civilianWord == undercoverWord {
+			disp.Warn("平民词语和卧底词语不能相同，请重新输入")
+			continue
+		}
+		return civilianWord, undercoverWord
+	}
+}
+
+// stdinSource holds the shared stdin reading channels used by waitingPhase and collectWords.
+type stdinSource struct {
+	ch   <-chan string
+	done <-chan struct{}
+}
+
 // RunJudge runs the referee interactive configuration flow and the waiting phase.
 // out is used for display output; in provides the interactive input source.
 // It returns the GameConfig that was selected.
@@ -101,26 +174,42 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
 
 	// waitingPhase blocks until the referee confirms game start.
-	waitingPhase(out, in, disp, scanner, srv, cfg)
+	stdinSrc := newStdinSource(scanner)
+	waitingPhase(out, in, disp, srv, cfg, stdinSrc)
+
+	// Collect words and assign roles.
+	civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done)
+	names := srv.PlayerNames()
+	players, err := game.AssignRoles(names, cfg.Undercovers, cfg.Blanks)
+	if err != nil {
+		disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
+		return cfg
+	}
+	game.AssignWords(players, civilianWord, undercoverWord)
+	sendRoleToPlayers(disp, srv, players)
+
+	broadcastReady(disp, srv)
 
 	return cfg
 }
 
-// waitingPhase displays player join events and reads stdin for "start" commands.
-// It blocks until the referee confirms game start or stdin is closed.
-func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, scanner *bufio.Scanner, srv *server.Server, cfg GameConfig) {
-	// stdinCh delivers lines read from stdin.
-	// stdinDone is closed when the stdin goroutine finishes (input exhausted).
-	stdinCh := make(chan string, 1)
-	stdinDone := make(chan struct{})
+// newStdinSource starts a goroutine that reads from scanner and returns a stdinSource.
+func newStdinSource(scanner *bufio.Scanner) *stdinSource {
+	ch := make(chan string, 1)
+	done := make(chan struct{})
 	go func() {
-		defer close(stdinDone)
+		defer close(done)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-			stdinCh <- line
+			ch <- line
 		}
 	}()
+	return &stdinSource{ch: ch, done: done}
+}
 
+// waitingPhase displays player join events and reads stdin for "start" commands.
+// It blocks until the referee confirms game start or stdin is closed.
+func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server.Server, cfg GameConfig, stdinSrc *stdinSource) {
 	for {
 		select {
 		case evt := <-srv.OnPlayerJoin:
@@ -129,7 +218,7 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, scanner *bu
 				disp.Info("0000", "人已齐，输入 start 开始游戏")
 			}
 
-		case line := <-stdinCh:
+		case line := <-stdinSrc.ch:
 			if strings.EqualFold(line, "start") {
 				count := srv.PlayerCount()
 				if count < 4 {
@@ -140,26 +229,24 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, scanner *bu
 					fmt.Fprintf(out, "  当前 %d/%d 人，确认开始？(Y/N): ", count, cfg.TotalPlayers)
 					// Wait for confirmation
 					select {
-					case confirm := <-stdinCh:
+					case confirm := <-stdinSrc.ch:
 						if strings.EqualFold(confirm, "Y") || confirm == "y" {
-							broadcastReady(disp, srv)
 							return
 						}
 						disp.Info("0000", "已取消，继续等待玩家...")
 					case <-srv.OnPlayerJoin:
 						// A player joined while waiting for confirmation; go back to main loop.
 						continue
-					case <-stdinDone:
+					case <-stdinSrc.done:
 						return
 					}
 					continue
 				}
 				// count == cfg.TotalPlayers (or more, shouldn't happen)
-				broadcastReady(disp, srv)
 				return
 			}
 
-		case <-stdinDone:
+		case <-stdinSrc.done:
 			return
 		}
 	}
@@ -169,4 +256,30 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, scanner *bu
 func broadcastReady(disp *client.Display, srv *server.Server) {
 	disp.Info("0000", "游戏开始！")
 	srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgReady, Payload: ""})
+}
+
+// sendRoleToPlayers privately sends a ROLE message to each player.
+// The message format is ROLE|RoleName|word, e.g. ROLE|Civilian|苹果.
+// Blank players receive "你是白板" as the word.
+func sendRoleToPlayers(disp *client.Display, srv *server.Server, players []*game.Player) {
+	for _, p := range players {
+		var word string
+		var roleName string
+		switch p.Role {
+		case game.Civilian:
+			roleName = "Civilian"
+			word = p.Word
+		case game.Undercover:
+			roleName = "Undercover"
+			word = p.Word
+		case game.Blank:
+			roleName = "Blank"
+			word = "你是白板"
+		}
+		payload := roleName + "|" + word
+		msg := game.Message{Type: game.MsgRole, Payload: payload}
+		if err := srv.SendToPlayer(p.Name, msg); err != nil {
+			disp.Warn(fmt.Sprintf("发送 ROLE 给 %s 失败: %v", p.Name, err))
+		}
+	}
 }
