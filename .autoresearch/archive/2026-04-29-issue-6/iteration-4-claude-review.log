@@ -1,0 +1,191 @@
+我已经掌握了审核所需的所有信息。这是我的审核报告：
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #6
+- 标题: 伪装显示模块 — 日志风格输出
+- 子任务: T-002 - 添加 --stealth 参数支持及精简输出模式
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 35/100**
+
+T-002 子任务的核心需求**未实现**。`main.go` 中没有添加 `--stealth` 参数解析，没有将 stealth 配置传递给 Display，usage 帮助文本中也未包含 `--stealth` 说明。虽然 `display.go` 已有 stealth 字段和相关逻辑（属于 T-001 的成果），但 T-002 要求的 CLI 集成完全缺失。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: main.go 未添加 --stealth 参数解析
+
+**位置**: `cmd/doubletake/main.go:28-58`
+
+**问题描述**:
+T-002 的核心需求是在 `main.go` 中添加 `--stealth` 命令行参数，但当前代码的 `run()` 函数中没有任何 `--stealth` 相关的 case 分支。整个 `main.go` 对 stealth 完全无感知。
+
+**代码片段**:
+```go
+for i < len(args) {
+    switch args[i] {
+    case "--role":
+        // ...
+    case "--port":
+        // ...
+    case "--help", "-h":
+        // ...
+    default:
+        fmt.Fprintf(stderr, "Error: unknown option: %s\n", args[i])
+        return 1
+    }
+}
+```
+
+**建议修复**:
+```go
+var stealth bool
+// 在 switch 中添加:
+case "--stealth":
+    stealth = true
+    i++
+```
+
+**原因**: 这是 T-002 的核心验收条件，缺少此项整个子任务不成立。
+
+---
+
+#### 问题 2: usage 帮助文本未包含 --stealth 说明
+
+**位置**: `cmd/doubletake/main.go:11-20`
+
+**问题描述**:
+验收条件要求 `--help` 输出中包含 `--stealth` 说明，但 usage 常量中完全没有提及。
+
+**代码片段**:
+```go
+usage = `Usage: doubletake [options]
+
+Options:
+  --role string   Role mode: judge or player (required)
+  --port int      Server port (default 8127)
+```
+
+**建议修复**:
+```go
+usage = `Usage: doubletake [options]
+
+Options:
+  --role string   Role mode: judge or player (required)
+  --port int      Server port (default 8127)
+  --stealth       Enable stealth mode (simplified output, no game markers)
+```
+
+---
+
+#### 问题 3: main.go 未将 stealth 传递给 Display
+
+**位置**: `cmd/doubletake/main.go:76`
+
+**问题描述**:
+即使 `--stealth` 被解析了，`main.go` 的输出仍然是简单的 `fmt.Fprintf` 格式化输出，没有创建 `Display` 实例。需要集成 `client.NewDisplay(stdout, stealth)` 并通过 Display 输出。
+
+**原因**: `display.go` 已实现 stealth 逻辑，但 main.go 没有调用方。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 4: Warn() 未区分 stealth 模式
+
+**位置**: `client/display.go:53-55`
+
+**问题描述**:
+`Info()` 和 `Data()` 都根据 `d.stealth` 条件切换输出格式，但 `Warn()` 始终输出 `[WARN]` 前缀，在 stealth 模式下仍然暴露游戏特征。如果 "隐藏标识前缀" 是通用需求，`Warn()` 也应简化。
+
+**建议修复**:
+```go
+func (d *Display) Warn(msg string) {
+    if d.stealth {
+        fmt.Fprintf(d.out, "warning: %s\n", msg)
+        return
+    }
+    fmt.Fprintf(d.out, "[WARN] %s\n", msg)
+}
+```
+
+---
+
+#### 问题 5: TestListPlayers 中 string(rune('0'+idx)) 的 bug
+
+**位置**: `client/display_test.go:100`
+
+**问题描述**:
+`string(rune('0'+tt.idx))` 只在 idx < 10 时正确。当 idx >= 10 时会生成非数字字符（如 ':'、';'）。虽然当前测试用例只有 3 个元素不会触发此 bug，但测试代码本身有潜在错误，且与实际输出 `fmt.Fprintf(d.out, "connections.list[%d]", i)` 不一致 — 实际使用 `%d` 格式化。
+
+**建议修复**:
+```go
+want := fmt.Sprintf("connections.list[%d]: %s  status=active", tt.idx, tt.player)
+```
+
+---
+
+### 审核结论
+
+- [x] 阻塞 - 核心需求未实现
+
+**下一步行动**:
+T-002 要求的 `--stealth` CLI 参数集成完全未实现。需要：
+1. 在 `main.go` 的 `run()` 中添加 `--stealth` 参数解析
+2. 更新 usage 常量包含 `--stealth` 说明
+3. 将 stealth 配置传递给 `client.NewDisplay` 并通过 Display 输出
+4. 添加 `--stealth` 相关测试用例到 `main_test.go`
+
+---
+
+### 实现者自检确认
+- [x] 实现者已执行编译/类型检查 — 编译通过
+- [ ] 实现者已执行 Lint 检查 — `go vet` 通过但未涵盖功能缺失
+- [x] 实现者已运行相关测试 — 测试通过
+- [ ] 实现者已确认测试覆盖 — 无 `--stealth` 相关测试
+
+---
+
+### 验收条件检查
+
+| 验收条件 | 状态 |
+|---------|------|
+| main.go 支持 --stealth 参数，不传时默认关闭 | **未实现** |
+| --help 输出中包含 --stealth 说明 | **未实现** |
+| stealth 模式下隐藏 [DATA]、[INFO] 等标识前缀 | display.go 已实现，但 main.go 未集成 |
+| stealth 模式下输出更精简，但仍保留可读性 | display.go 已实现，但 main.go 未集成 |
+| 无效的 --stealth 使用不会导致 panic | **无法验证**（参数不存在） |
+
+### 评分明细
+
+| 维度 | 得分 | 说明 |
+|------|------|------|
+| 正确性 (35%) | 20 | 核心功能未实现，display.go 的 stealth 逻辑正确但未被 CLI 调用 |
+| 测试质量 (25%) | 40 | display.go 有 stealth 测试，但 main.go 缺少 --stealth 测试 |
+| 代码质量 (20%) | 70 | display.go 代码清晰，但 Warn() 未遵循 stealth 模式 |
+| 安全性 (10%) | 90 | 无安全风险 |
+| 性能 (10%) | 95 | 无性能问题 |
+
+**总分**: 20×0.35 + 40×0.25 + 70×0.20 + 90×0.10 + 95×0.10 = 7+10+14+9+9.5 = **49.5 → 49/100**
+
+修正：重新评估，考虑到 T-001 的 display.go 实现确实完整且 stealth 逻辑正确，而 T-002 的 CLI 集成完全缺失，评分调整为：
+
+**评分: 35/100**
+
+---
+
+## Learnings
+
+- **模式**: `Display` 结构体通过 `io.Writer` 实现输出可测试性 + `stealth bool` 控制输出风格 — 这是一种轻量级的策略模式，无需接口抽象即可切换行为
+- **踩坑**: 子任务边界模糊导致 T-001 做了部分 T-002 的工作（display.go 已有 stealth 字段），但 T-002 的 CLI 集成部分被遗漏。后续子任务划分应明确标注"需要修改哪些文件"
+- **经验**: `TestListPlayers` 中 `string(rune('0'+idx))` 在 idx ≥ 10 时会生成非数字字符，应统一使用 `strconv.Itoa(idx)` 或 `fmt.Sprintf`
+- **经验**: 审核子任务时应对照验收条件逐条检查，而非仅看代码质量

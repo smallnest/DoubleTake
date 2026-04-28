@@ -1,0 +1,34 @@
+## 实现总结
+
+### 已创建文件
+
+1. **`cmd/doubletake/judge.go`** — 包含以下内容的裁判交互式配置逻辑：
+   - `GameConfig` struct (TotalPlayers, Undercovers, Blanks)
+   - `RunJudge(out, in, port)` — 接受 `io.Writer`/`io.Reader` 以提高可测试性
+   - `collectConfig()` — 通过 `client.Display` 使用验证循环进行交互式提示
+   - `validateConfig()` — 纯验证：总人数 4-10，卧底 1-3，白板 >=0，卧底+白板 < 总人数/2
+   - `readInt()` / `readIntInput()` — 从扫描器解析数字并进行错误处理
+
+2. **`cmd/doubletake/judge_test.go`** — 29 个测试用例，覆盖率 98.7%：
+   - `TestValidateConfig_Valid` — 8 个有效组合（表驱动测试）
+   - `TestValidateConfig_TotalOutOfRange` — 5 个无效的总数值
+   - `TestValidateConfig_UndercoverOutOfRange` — 4 个无效的卧底值
+   - `TestValidateConfig_NegativeBlanks` — 负数白板
+   - `TestValidateConfig_TooManySpecialRoles` — 7 种卧底+白底 >= 总人数/2 的情况
+   - `TestCollectConfig_*` — 交互式集成测试，包含重试和警告消息验证
+   - `TestReadInt_*` — 单元测试，用于解析、空白字符处理、无效/空输入
+
+### 自检清单
+
+- [x] `go build ./...` — 通过
+- [x] `go vet ./...` — 通过
+- [x] `go test ./...` — 所有 4 个包通过
+- [x] 覆盖率：98.7%
+- [x] 无硬编码配置
+- [x] 验证失败时显示特定的错误原因
+
+### 经验总结
+
+- **文件位置**：Go 的 `package main` 要求同一包中的所有文件位于同一目录下。问题描述中的 `cmd/judge.go` 应放置在 `cmd/doubletake/judge.go` 中（与 `main.go` 并列）。
+- **可测试的 I/O**：将 `io.Writer`/`io.Reader` 传递给 `RunJudge` 可以进行确定性测试，无需真实终端。
+- **非数字输入行为**：当 `readInt` 失败时，函数仍会消耗当前迭代的剩余提示输入。测试必须为此提供足够的输入行。

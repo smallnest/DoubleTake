@@ -1,0 +1,29 @@
+## 质量自检清单
+
+- [x] 代码可以编译通过 (`go build ./...`)
+- [x] `go vet` 无错误
+- [x] 所有测试通过 (19/19)
+- [x] 测试覆盖率 85.7% (≥ 70%)
+- [x] 无安全漏洞
+- [x] 无硬编码配置
+
+## 总结
+
+已实现 `client/display.go`，包含所有验收标准中的函数：
+
+| 函数 | 输出格式 |
+|---|
+| `PrintStartup()` | `[sysmon] v2.4.1 — diagnostics mode` |
+| `Prompt(nodeID)` | `[node-XX]$ ` 提示符 + 从 stdin 读取 |
+| `Info(session, msg)` | `[INFO] [session:XXXX] msg` |
+| `Warn(msg)` | `[WARN] msg` |
+| `Data(nodeID, msg)` | `[DATA] [node-XX] msg` |
+| `ListPlayers(players)` | `connections.list[N]: name  status=active` |
+
+`--stealth` 模式通过 `NewDisplay(w, true)` 启用，隐藏 `[DATA]`/`[INFO]` 标识。`Display` 结构体接受 `io.Writer` 参数，方便测试。
+
+## 学习要点
+
+- **模式**: 使用 `io.Writer` 作为输出目标实现可测试的输出模块 — 与 `cmd/doubletake/main.go` 的 `run(stdout, stderr, args)` 模式一致
+- **踩坑**: `Prompt()` 必须从 `os.Stdin` 读取而非通用 `io.Reader`，因为终端交互需要真实 stdin，不能通过 `io.Writer` 接口模拟
+- **经验**: stealth 模式只需在每个输出方法中加一个条件分支，不需要额外的 wrapper 或中间层

@@ -1,0 +1,99 @@
+所有检查都通过了。现在让我对照验收条件逐条审核。
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #6
+- 标题: 伪装显示模块 — 日志风格输出
+- 子任务: T-003 — 编写 display 模块测试并确保编译和 lint 通过
+- 迭代次数: 1
+
+---
+
+### 验收条件检查
+
+| 验收条件 | 状态 | 说明 |
+|---------|------|------|
+| `client/display_test.go` 文件存在 | 通过 | 文件存在，136 行 |
+| 测试覆盖所有公共函数的正常输出格式 | 通过 | `PrintStartup`, `Info`, `Warn`, `Data`, `ListPlayers` 均有测试 |
+| 测试覆盖 stealth 模式下的精简输出格式 | 通过 | `TestInfoStealth`, `TestWarnStealth`, `TestDataStealth` |
+| `go build ./...` 编译通过 | 通过 | 无错误 |
+| `go vet ./...` 无错误 | 通过 | 无警告 |
+| `go test ./client/...` 全部通过 | 通过 | 10 个 display 相关测试全部 PASS |
+| 测试覆盖率 ≥ 70% | 通过 | **86.5%** |
+
+---
+
+### 总体评价
+
+**评分: 92/100**
+
+测试质量良好，覆盖了所有公共函数的正常路径和 stealth 路径，验收条件全部通过。`ListPlayersEmpty` 测试了空切片的边界情况，`TestNewDisplayNilWriter` 验证了 nil writer 的防御处理。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 1: `TestNewDisplayNilWriter` 仅验证非 nil，未验证行为
+
+**位置**: `client/display_test.go:130-135`
+
+**问题描述**:
+测试只检查 `NewDisplay(nil, false)` 返回值不为 nil，但未验证返回的 Display 实际能正常工作（如调用 `PrintStartup` 写到 os.Stdout 不会 panic）。
+
+**建议**:
+可以接受当前实现——在单元测试中向 os.Stdout 写入不太合适。但建议增加注释说明为什么只验证非 nil。
+
+#### 问题 2: `Prompt()` 无测试覆盖
+
+**位置**: `client/display.go:34-41`
+
+**问题描述**:
+`Prompt()` 因为硬编码 `os.Stdin` 而无法进行单元测试，这已被 CLAUDE.md 记录为已知限制。覆盖率 86.5% 已扣除这部分。这是可接受的设计权衡。
+
+#### 问题 3: 未使用表驱动测试
+
+**位置**: `client/display_test.go`
+
+**问题描述**:
+`Info`/`InfoStealth`、`Warn`/`WarnStealth`、`Data`/`DataStealth` 可以合并为表驱动测试，减少重复代码。不过当前每个测试函数命名清晰，意图明确，也是合理的风格选择。
+
+---
+
+### 建议改进 (可选)
+
+- 可考虑为 `ListPlayers` 添加一个单元素列表的测试用例，确认索引从 0 开始
+- `main_test.go` 中的 stealth 相关测试（`TestRun_StealthFlag`, `TestRun_NoStealthByDefault`, `TestRun_StealthInHelp`, `TestRun_StealthWithJudge`）形成了很好的端到端验证，与 `display_test.go` 的单元测试形成互补
+
+---
+
+### 评分明细
+
+| 维度 | 得分 | 说明 |
+|------|------|------|
+| 正确性 (35%) | 95 | 所有验收条件通过，边界情况覆盖良好 |
+| 测试质量 (25%) | 90 | 覆盖正常+stealth 路径，86.5% 覆盖率；Prompt() 无法测试是已知限制 |
+| 代码质量 (20%) | 95 | 测试命名清晰，结构统一，使用 bytes.Buffer 捕获输出 |
+| 安全性 (10%) | 90 | 无安全风险，nil writer 防御处理 |
+| 性能 (10%) | 90 | 无性能问题 |
+
+**总分**: 95×0.35 + 90×0.25 + 95×0.20 + 90×0.10 + 90×0.10 = **92.25 → 92**
+
+---
+
+### 审核结论
+
+- [x] 通过 - 代码质量达标，可以进入人工审核
+
+**下一步行动**:
+T-003 审核通过。所有验收条件满足，建议进入人工审核阶段。
+
+---
+
+## Learnings
+
+- **模式**: 测试分层策略 — `display_test.go` 使用 `bytes.Buffer` 精确匹配输出字符串验证单个函数格式，`main_test.go` 通过 `run()` 函数验证 CLI 解析到 Display 创建的端到端行为，两者互补
+- **踩坑**: `Prompt()` 硬编码 `os.Stdin` 导致无法单元测试，这是"终端交互函数"的通用测试难题。如需测试，可将 `io.Reader` 也注入 `Display` 结构体
+- **经验**: `ListPlayersEmpty` 测试空切片是好的边界测试实践；`TestNewDisplayNilWriter` 虽然只验证非 nil 但仍有价值，确认防御性代码路径被覆盖

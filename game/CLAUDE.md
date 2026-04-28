@@ -11,6 +11,8 @@
 - `base62.go`: 房间密码编解码（EncodeRoomCode/DecodeRoomCode），将 IP:port 编码为 base62 短字符串
 - `base62_test.go`: 房间密码编解码单元测试
 - `game.go`: 游戏逻辑（预留）
+- `network.go`: 网络工具函数（GetLocalIP），获取本机非 loopback IPv4 地址
+- `network_test.go`: 网络工具函数单元测试
 
 ## 命名约定
 - `protocol.go` 中已有 `Encode`/`Decode` 函数用于消息编解码，房间密码编解码使用 `EncodeRoomCode`/`DecodeRoomCode` 以避免命名冲突
@@ -22,3 +24,8 @@
 - Decode 使用 `strings.TrimRight` 去除末尾换行符
 - 空消息或仅换行符的消息返回 `ErrInvalidMessage`
 - 缺少 `|` 分隔符的消息返回 `ErrInvalidMessage`
+
+## 网络工具函数约定
+- `GetLocalIP()` 为纯工具函数，遍历 `net.Interfaces()` 取第一个 UP 且非 loopback 的 IPv4 地址
+- 过滤 link-local 地址（169.254.x.x）
+- 测试策略：不 mock `net.Interfaces`，通过验证返回值格式（IPv4 正则 + `net.ParseIP`）确保正确性

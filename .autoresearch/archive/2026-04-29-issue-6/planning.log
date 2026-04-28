@@ -1,0 +1,81 @@
+我现在对项目有了全面的了解。接下来我将分析 Issue #6 并规划子任务。
+
+## Issue #6 分析 — 伪装显示模块
+
+Issue 要求实现 `client/display.go`，包含一组伪装输出函数，让游戏的输入输出看起来像系统诊断工具。
+
+**当前状态**：
+- `client/` 包已有 `client.go`（TCP 连接）和 `client_test.go`
+- `cmd/doubletake/main.go` 手动解析 flag，当前支持 `--role`、`--port`、`--help`
+- 不存在 `--stealth` 参数或 `display.go` 文件
+
+**子任务拆分思路**：
+
+这是一个中等复杂度的 Issue，核心是在 `client/display.go` 中实现伪装输出函数集。功能相对集中，但涉及：
+1. 核心显示函数实现（多个格式化输出函数）
+2. `--stealth` 参数支持（需修改 main.go）
+3. 测试覆盖
+
+建议拆分为 3 个子任务：
+
+1. **T-001** — 实现核心伪装显示函数（PrintStartup, Prompt, Info, Warn, Data, ListPlayers）
+2. **T-002** — 添加 `--stealth` 参数支持和精简输出模式
+3. **T-003** — 编写测试并确保编译/lint 通过
+
+```json
+{
+  "issueNumber": 6,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "实现 client/display.go 核心伪装输出函数集",
+      "description": "创建 client/display.go 文件，实现所有伪装显示函数：PrintStartup() 显示类似 `[sysmon] v2.4.1 — diagnostics mode` 的启动信息；Prompt(nodeID string) string 显示技术风输入提示符 `[node-03]$ ` 并通过 bufio.Scanner 读取输入；Info(session, msg string) 输出 `[INFO] [session:7a3f] ...` 格式日志；Warn(msg string) 输出 `[WARN] ...` 格式日志；Data(nodeID, msg string) 输出 `[DATA] [node-05] ...` 格式数据消息；ListPlayers(players []string) 用类似 grep 输出格式列出玩家。所有输出函数应写入可配置的 io.Writer（默认 os.Stdout），便于测试。",
+      "acceptanceCriteria": [
+        "client/display.go 文件存在且编译通过",
+        "PrintStartup() 输出格式为 `[sysmon] v2.4.1 — diagnostics mode`",
+        "Prompt(nodeID) 输出 `[node-XX]$ ` 格式提示符并返回用户输入",
+        "Info(session, msg) 输出 `[INFO] [session:XXXX] msg` 格式",
+        "Warn(msg) 输出 `[WARN] msg` 格式",
+        "Data(nodeID, msg) 输出 `[DATA] [node-XX] msg` 格式",
+        "ListPlayers(players) 输出类似 grep 格式的玩家列表",
+        "Display 结构体接受 io.Writer 参数，方便测试"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "添加 --stealth 参数支持及精简输出模式",
+      "description": "在 cmd/doubletake/main.go 中添加 `--stealth` 命令行参数解析。当启用 stealth 模式时，display 模块隐藏 `[DATA]`、`[INFO]` 等标识前缀，输出更精简的技术风格日志，进一步降低游戏特征的可识别性。在 Display 结构体中增加 stealth 配置字段，各输出函数根据此字段决定输出格式。",
+      "acceptanceCriteria": [
+        "main.go 支持 --stealth 参数，不传时默认关闭",
+        "--help 输出中包含 --stealth 说明",
+        "stealth 模式下隐藏 [DATA]、[INFO] 等标识前缀",
+        "stealth 模式下输出更精简，但仍保留可读性",
+        "无效的 --stealth 使用不会导致 panic"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "编写 display 模块测试并确保编译和 lint 通过",
+      "description": "为 client/display.go 编写完整的单元测试（client/display_test.go），覆盖所有公共函数（PrintStartup, Prompt, Info, Warn, Data, ListPlayers）的正常路径和 stealth 模式路径。使用 bytes.Buffer 作为 io.Writer 来捕获和验证输出内容。运行 go build、go vet、go test 确保编译通过、lint 无错误、测试全部通过。",
+      "acceptanceCriteria": [
+        "client/display_test.go 文件存在",
+        "测试覆盖所有公共函数的正常输出格式",
+        "测试覆盖 stealth 模式下的精简输出格式",
+        "go build ./... 编译通过",
+        "go vet ./... 无错误",
+        "go test ./client/... 全部通过",
+        "测试覆盖率 ≥ 70%"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```

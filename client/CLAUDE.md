@@ -32,7 +32,17 @@
 - **并发 Disconnect 风险**: 当前 `Disconnect()` 在 `closeOnce.Do` 中 `close(c.messages)`，与 `receiveLoop` 的 `select { case c.messages <- msg }` 并发时可能 panic。修复方式：将 `close(c.messages)` 移到 `receiveLoop` 的 `defer` 中，`Disconnect()` 只负责 `close(c.done)` 和 `c.conn.Close()`。
 - **scanner.Err()**: `receiveLoop` 中 scanner 退出后应调用 `scanner.Err()` 检查错误（与服务端约定一致），当前被忽略。
 
+## 伪装显示模块 (display.go)
+- `Display` 结构体接受 `io.Writer`，默认 `os.Stdout`，便于测试
+- `stealth` 模式隐藏 `[DATA]`/`[INFO]`/`[WARN]` 标识，只保留 `[session:]`/`[node-]`/`warning:` 前缀
+- `Prompt()` 从 `os.Stdin` 读取（不经过 `io.Writer`），因为需要真实终端交互
+- 所有输出函数使用 `fmt.Fprintf(d.out, ...)` 写入，不直接 `fmt.Println`
+- 所有带标识前缀的输出函数（Info, Warn, Data）都根据 stealth 字段切换输出格式
+
 ## 测试约定
 - 使用 `startTestServer` 辅助函数创建临时 TCP 服务器
 - 所有异步测试带 timeout 保护（1秒）
 - 覆盖场景：连接成功/失败、发送/接收、断连、多次消息、无效消息
+- Display 测试使用 `bytes.Buffer` 捕获输出，验证格式字符串精确匹配
+- 每个 stealth 模式函数都有对应的独立测试用例（TestInfoStealth, TestWarnStealth, TestDataStealth）
+- `ListPlayers` 使用 `fmt.Sprintf("[%d]", idx)` 而非 `string(rune('0'+idx))` 避免 idx>=10 时生成非数字字符

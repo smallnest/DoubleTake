@@ -12,7 +12,7 @@ func TestRun_ValidRoleJudge(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "Starting DoubleTake in judge mode on port 8127") {
+	if !strings.Contains(stdout.String(), "mode=judge") {
 		t.Errorf("expected judge mode message, got: %s", stdout.String())
 	}
 }
@@ -23,7 +23,7 @@ func TestRun_ValidRolePlayer(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "Starting DoubleTake in player mode on port 8127") {
+	if !strings.Contains(stdout.String(), "mode=player") {
 		t.Errorf("expected player mode message, got: %s", stdout.String())
 	}
 }
@@ -34,7 +34,7 @@ func TestRun_CustomPort(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "port 9000") {
+	if !strings.Contains(stdout.String(), "port=9000") {
 		t.Errorf("expected port 9000 in output, got: %s", stdout.String())
 	}
 }
@@ -45,7 +45,7 @@ func TestRun_DefaultPort(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "port 8127") {
+	if !strings.Contains(stdout.String(), "port=8127") {
 		t.Errorf("expected default port 8127, got: %s", stdout.String())
 	}
 }
@@ -135,5 +135,60 @@ func TestRun_UnknownOption(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "unknown option") {
 		t.Errorf("expected unknown option error, got: %s", stderr.String())
+	}
+}
+
+func TestRun_StealthFlag(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player", "--stealth"})
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := stdout.String()
+	// stealth mode should NOT contain [INFO] or [DATA] markers
+	if strings.Contains(output, "[INFO]") {
+		t.Errorf("stealth mode should not contain [INFO], got: %s", output)
+	}
+	if !strings.Contains(output, "mode=player") {
+		t.Errorf("expected player mode info, got: %s", output)
+	}
+}
+
+func TestRun_NoStealthByDefault(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "player"})
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := stdout.String()
+	// default mode should contain [INFO] markers
+	if !strings.Contains(output, "[INFO]") {
+		t.Errorf("default mode should contain [INFO], got: %s", output)
+	}
+}
+
+func TestRun_StealthInHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := run(&stdout, &stderr, []string{"doubletake", "--help"})
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	if !strings.Contains(stdout.String(), "--stealth") {
+		t.Errorf("help output should mention --stealth, got: %s", stdout.String())
+	}
+}
+
+func TestRun_StealthWithJudge(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := run(&stdout, &stderr, []string{"doubletake", "--role", "judge", "--stealth"})
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := stdout.String()
+	if strings.Contains(output, "[INFO]") {
+		t.Errorf("stealth mode should not contain [INFO], got: %s", output)
+	}
+	if !strings.Contains(output, "mode=judge") {
+		t.Errorf("expected judge mode info, got: %s", output)
 	}
 }

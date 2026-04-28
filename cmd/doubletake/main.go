@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/smallnest/doubletake/client"
 )
 
 const (
@@ -13,16 +15,19 @@ const (
 Options:
   --role string   Role mode: judge or player (required)
   --port int      Server port (default 8127)
+  --stealth       Enable stealth mode (simplified output, no game markers)
 
 Examples:
   doubletake --role judge
   doubletake --role player --port 9000
+  doubletake --role player --stealth
 `
 )
 
 func run(stdout, stderr io.Writer, args []string) int {
 	var role string
 	var port int
+	var stealth bool
 
 	i := 1 // skip program name
 	for i < len(args) {
@@ -48,6 +53,9 @@ func run(stdout, stderr io.Writer, args []string) int {
 				return 1
 			}
 			i += 2
+		case "--stealth":
+			stealth = true
+			i++
 		case "--help", "-h":
 			fmt.Fprint(stdout, usage)
 			return 0
@@ -73,7 +81,10 @@ func run(stdout, stderr io.Writer, args []string) int {
 		port = defaultPort
 	}
 
-	fmt.Fprintf(stdout, "Starting DoubleTake in %s mode on port %d\n", role, port)
+	disp := client.NewDisplay(stdout, stealth)
+	disp.PrintStartup()
+	disp.Info("0000", fmt.Sprintf("mode=%s port=%d", role, port))
+
 	return 0
 }
 

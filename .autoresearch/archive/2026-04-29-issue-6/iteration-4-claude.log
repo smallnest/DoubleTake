@@ -1,0 +1,37 @@
+所有任务已完成。以下是已完成工作的总结：
+
+## 完成的修复
+
+### 严重问题（已全部修复）
+
+1. **main.go 添加 `--stealth` 参数解析** — 在 `run()` 的 switch 中添加 `case "--stealth"` 分支，设置 `stealth = true`，`i++`（布尔开关无需值）
+
+2. **usage 帮助文本添加 `--stealth` 说明** — usage 常量新增 `--stealth       Enable stealth mode (simplified output, no game markers)`
+
+3. **main.go 集成 Display 输出** — 创建 `client.NewDisplay(stdout, stealth)` 实例，通过 `PrintStartup()` 和 `Info()` 输出启动信息，替代原来的 `fmt.Fprintf` 直接输出
+
+### 一般问题（已全部修复）
+
+4. **`Warn()` 支持 stealth 模式** — stealth 模式下输出 `warning: msg` 而非 `[WARN] msg`
+
+5. **`TestListPlayers` idx bug** — 将 `string(rune('0'+tt.idx))` 替换为 `fmt.Sprintf("[%d]", tt.idx)`
+
+### 新增测试
+
+- `TestWarnStealth` — display_test.go 中验证 Warn 的 stealth 输出
+- `TestRun_StealthFlag` — 验证 `--stealth` 启动成功且无 `[INFO]` 标识
+- `TestRun_NoStealthByDefault` — 验证默认模式包含 `[INFO]` 标识
+- `TestRun_StealthInHelp` — 验证 `--help` 输出包含 `--stealth` 说明
+- `TestRun_StealthWithJudge` — 验证 judge 模式下 `--stealth` 正常工作
+
+### 测试结果
+
+- 36 个测试全部通过
+- client 覆盖率：86.5%
+- cmd/doubletake 覆盖率：97.7%
+
+## Learnings
+
+- **模式**: 布尔型 CLI 标志（如 `--stealth`）的解析模式：`case "--stealth": flag = true; i++`，不需要取值，与 `--port` 等 requires-value 参数的解析模式不同
+- **踩坑**: 修改 `main.go` 的输出格式时，需要同步更新所有依赖输出内容的测试断言（如 `port 9000` → `port=9000`，`Starting DoubleTake in judge mode` → `mode=judge`）
+- **经验**: 子任务划分应明确标注"需要修改哪些文件"，避免 display.go 已实现 stealth 但 CLI 集成遗漏的情况
