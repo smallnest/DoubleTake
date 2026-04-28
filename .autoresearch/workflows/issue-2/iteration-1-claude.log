@@ -1,0 +1,12 @@
+编译和 vet 均通过。
+
+## 实现总结
+
+- 创建了 `game/protocol.go`，包含 21 个消息类型字符串常量（JOIN, READY, ROLE, TURN, DESC, VOTE, RESULT, KICK, WIN, ERROR, RECONNECT, GUESS, START, PLAYERS, PK_START, PK_VOTE, STATE, RESTART, QUIT, ROUND, WORD）
+- 定义了 `Message` 结构体，含 `Type string` 和 `Payload string` 字段
+- `go build ./...` 和 `go vet ./...` 均通过
+
+## Learnings
+
+- **模式**: 项目使用 `game` 包存放游戏逻辑和协议定义，包名与目录名一致
+- **经验**: 常量命名采用 `Msg` 前缀 + 大写驼峰（如 `MsgPKStart`），与 Go 惯用的 `const` 命名风格一致，避免与可能的保留字冲突

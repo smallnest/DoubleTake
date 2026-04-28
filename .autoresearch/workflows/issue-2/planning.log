@@ -1,0 +1,69 @@
+现在我对项目和 issue #2 有了清晰的理解。让我来分析并拆解子任务。
+
+## Issue #2 子任务分析
+
+**Issue**: TCP 通信协议定义与解析
+**核心工作**: 在 `game/` 包下创建 `protocol.go`，定义消息格式、类型常量和编解码函数
+
+这个 Issue 相对聚焦，主要涉及一个文件（`game/protocol.go`）及其测试文件。按逻辑拆分为以下子任务：
+
+### 拆分思路
+
+1. **T-001**: 定义消息类型常量和 Message 结构体 — 这是基础，所有后续工作依赖它
+2. **T-002**: 实现 Encode/Decode 函数 — 核心编解码逻辑
+3. **T-003**: 编写测试并验证编译/lint — 确保质量和正确性
+
+```json
+{
+  "issueNumber": 2,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "定义消息类型常量和 Message 结构体",
+      "description": "在 game/protocol.go 中定义所有消息类型常量（JOIN, READY, ROLE, TURN, DESC, VOTE, RESULT, KICK, WIN, ERROR, RECONNECT, GUESS, START, PLAYERS, PK_START, PK_VOTE, STATE, RESTART, QUIT, ROUND, WORD）和 Message 结构体（Type string, Payload string）。",
+      "acceptanceCriteria": [
+        "game/protocol.go 文件存在且包名为 game",
+        "定义 21 个消息类型常量，均为 string 类型",
+        "定义 Message 结构体，包含 Type 和 Payload 两个 string 字段",
+        "go build ./... 编译通过",
+        "go vet ./... 无错误"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "实现 Encode 和 Decode 函数",
+      "description": "在 game/protocol.go 中实现 Encode 函数（将 Message 转为 TYPE|payload\\n 字符串）和 Decode 函数（将 TYPE|payload\\n 字符串解析为 Message）。Decode 需处理：空消息、缺少分隔符、payload 中含 | 的情况（仅分割第一个 |）、去除末尾换行符。对于空 payload 的消息格式为 TYPE|\\n。",
+      "acceptanceCriteria": [
+        "Encode(Message{Type: JOIN, Payload: 'alice'}) 返回 'JOIN|alice\\n'",
+        "Encode(Message{Type: READY, Payload: ''}) 返回 'READY|\\n'",
+        "Decode('JOIN|alice\\n') 返回 Message{Type: JOIN, Payload: 'alice'}, nil",
+        "Decode('DESC|这是含|分隔的内容\\n') 仅分割第一个 |，Payload 为 '这是含|分隔的内容'",
+        "Decode('') 或 Decode('\\n') 返回错误",
+        "go vet ./... 无错误"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "编写单元测试并完成自检验证",
+      "description": "创建 game/protocol_test.go，使用表格驱动测试覆盖 Encode/Decode 的正常场景和边界情况（空 payload、含 | 的 payload、无分隔符的输入、空输入、未知类型等）。运行 go test、go vet、golangci-lint 确保全部通过，测试覆盖率 >= 80%。",
+      "acceptanceCriteria": [
+        "game/protocol_test.go 文件存在",
+        "测试覆盖 Encode 正常场景（含 payload 和空 payload）",
+        "测试覆盖 Decode 正常场景和边界情况（含 | 的 payload、无分隔符、空输入、缺少换行符等）",
+        "go test ./... 全部通过",
+        "go vet ./... 无错误",
+        "测试覆盖率 >= 80%"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
