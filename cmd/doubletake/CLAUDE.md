@@ -30,7 +30,9 @@
 - 测试读取玩家连接消息时，需先消费 JOIN 确认消息，再检查后续的 READY 广播
 
 ## 注意事项
-- `waitingPhase` 中的 stdin goroutine 必须通过 `stdinDone` channel 通知主循环退出，否则 input 耗尽时主循环会永久阻塞在 select
-- 嵌套的 `select`（如确认 Y/N 时）也必须包含 `<-stdinDone` case，防止 EOF 时死锁
+- `waitingPhase` 使用 `stdinSource`（ch + done channel）读取 stdin，由 `newStdinSource` 创建的 goroutine 持续读取 scanner 并发送到 channel
+- `collectWordsFromCh` 也使用同一个 `stdinSource` channel，确保 waitingPhase 返回后词语输入不会被 stdin goroutine 抢先消费
+- 嵌套的 `select`（如确认 Y/N 时）也必须包含 `<-stdinSrc.done` case，防止 EOF 时死锁
 - `collectConfig` 中 `readIntInput` 在 EOF 时返回 -1 依赖 `validateConfig` 拒绝，会导致 EOF 场景下无限循环。如需优雅退出，应在 `collectConfig` 层检测 `scanner.Err()` 或 `readInt` 的 error
-- `strings.EqualFold(confirm, "Y")` 已覆盖大小写不敏感比较，不需要 `|| confirm == "y"` 冗余条件
+- `RunJudge` 流程：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady
+- 集成测试中 `extraLines` channel 提供的输入不仅包括 "start"/"Y"，还需包括词语输入（如 "苹果"、"香蕉"）

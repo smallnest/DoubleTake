@@ -264,3 +264,58 @@ func TestAssignRoles_Errors(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignWords_AllRoles(t *testing.T) {
+	players := []*Player{
+		{Name: "alice", Role: Civilian},
+		{Name: "bob", Role: Undercover},
+		{Name: "carol", Role: Blank},
+		{Name: "dave", Role: Civilian},
+	}
+
+	AssignWords(players, "苹果", "香蕉")
+
+	if players[0].Word != "苹果" {
+		t.Errorf("civilian alice: Word = %q, want %q", players[0].Word, "苹果")
+	}
+	if players[1].Word != "香蕉" {
+		t.Errorf("undercover bob: Word = %q, want %q", players[1].Word, "香蕉")
+	}
+	if players[2].Word != "" {
+		t.Errorf("blank carol: Word = %q, want empty", players[2].Word)
+	}
+	if players[3].Word != "苹果" {
+		t.Errorf("civilian dave: Word = %q, want %q", players[3].Word, "苹果")
+	}
+}
+
+func TestAssignWords_OnlyCivilians(t *testing.T) {
+	players := []*Player{
+		{Name: "a", Role: Civilian},
+		{Name: "b", Role: Civilian},
+	}
+	AssignWords(players, "hello", "world")
+
+	for _, p := range players {
+		if p.Word != "hello" {
+			t.Errorf("player %q: Word = %q, want %q", p.Name, p.Word, "hello")
+		}
+	}
+}
+
+func TestAssignWords_EmptyPlayers(t *testing.T) {
+	players := []*Player{}
+	AssignWords(players, "foo", "bar")
+	// Should not panic
+}
+
+func TestAssignWords_BlankRole(t *testing.T) {
+	players := []*Player{
+		{Name: "x", Role: Blank},
+	}
+	AssignWords(players, "foo", "bar")
+
+	if players[0].Word != "" {
+		t.Errorf("blank player: Word = %q, want empty", players[0].Word)
+	}
+}

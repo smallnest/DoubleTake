@@ -464,6 +464,9 @@ func TestWaitingPhase_StartConfirmed(t *testing.T) {
 
 	// Start with full capacity — no confirmation needed
 	stdin <- "start"
+	// Provide words for collectWords phase
+	stdin <- "苹果"
+	stdin <- "香蕉"
 	waitForOutput(t, out, "游戏开始！", 2*time.Second)
 
 	// Verify players receive READY message
@@ -506,7 +509,77 @@ func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
 	stdin <- "start"
 	waitForOutput(t, out, "当前 5/6 人，确认开始？(Y/N)", 2*time.Second)
 	stdin <- "Y"
+	// Provide words for collectWords phase
+	stdin <- "苹果"
+	stdin <- "香蕉"
 	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+// --- collectWords tests ---
+
+func TestCollectWords_Valid(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	scanner := newTestScanner("苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+}
+
+func TestCollectWords_SameWordsRetry(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	// First attempt: same words, second attempt: different words
+	scanner := newTestScanner("苹果\n苹果\n苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "不能相同") {
+		t.Errorf("expected warning about same words, got: %s", output)
+	}
+}
+
+func TestCollectWords_EmptyWordRetry(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	// First attempt: empty civilian word, second: valid
+	scanner := newTestScanner("\n香蕉\n苹果\n香蕉\n")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "苹果" {
+		t.Errorf("civilian word = %q, want %q", civilian, "苹果")
+	}
+	if undercover != "香蕉" {
+		t.Errorf("undercover word = %q, want %q", undercover, "香蕉")
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "不能为空") {
+		t.Errorf("expected warning about empty words, got: %s", output)
+	}
+}
+
+func TestCollectWords_EOF(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	scanner := newTestScanner("")
+
+	civilian, undercover := collectWords(out, disp, scanner)
+	if civilian != "" || undercover != "" {
+		t.Errorf("expected empty words on EOF, got %q/%q", civilian, undercover)
+	}
 }
 
 // --- Test helpers ---
