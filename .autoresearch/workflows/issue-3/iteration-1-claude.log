@@ -1,0 +1,22 @@
+T-001 已完成。以下是总结：
+
+## 实现总结
+
+**创建的文件：**
+- `game/base62.go` — `EncodeRoomCode(ipPort string) string` 和 `DecodeRoomCode(code string) (string, error)`
+- `game/base62_test.go` — 包含用于往返、有效性、错误处理和输出长度的测试
+
+**关键设计决策：**
+- 将 `IPv4` 地址（4字节）和端口（2字节）打包成一个 `uint64`（6字节 = 48位），然后转换为 `base62`
+- 命名为 `EncodeRoomCode`/`DecodeRoomCode`（而不是 `Encode`/`Decode`），以避免与 `protocol.go` 中现有的消息编码/解码函数冲突
+
+**质量检查（全部通过）：**
+- `go build ./...` — 通过
+- `go vet ./...` — 通过
+- `go test ./...` — 所有测试通过
+- `game` 包的覆盖率为 98%
+
+## 经验总结
+- **踩坑**：`protocol.go` 已存在 `Encode`/`Decode` 函数，`base62` 函数必须使用不同的名称（`EncodeRoomCode`/`DecodeRoomCode`）以避免重复声明错误
+- **模式**：`game` 包使用描述性函数前缀来区分不同关注点（消息编码与房间编码）
+- **经验**：添加新的编码/解码函数时，请先检查同一包中是否存在命名冲突

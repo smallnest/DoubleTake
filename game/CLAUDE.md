@@ -8,7 +8,12 @@
 ## 目录结构
 - `protocol.go`: 通信协议消息类型常量、Message 结构体、Encode/Decode 函数
 - `protocol_test.go`: Encode/Decode 单元测试
+- `base62.go`: 房间密码编解码（EncodeRoomCode/DecodeRoomCode），将 IP:port 编码为 base62 短字符串
+- `base62_test.go`: 房间密码编解码单元测试
 - `game.go`: 游戏逻辑（预留）
+
+## 命名约定
+- `protocol.go` 中已有 `Encode`/`Decode` 函数用于消息编解码，房间密码编解码使用 `EncodeRoomCode`/`DecodeRoomCode` 以避免命名冲突
 
 ## 协议编解码约定
 - 线路格式: `TYPE|payload\n`

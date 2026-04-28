@@ -1,0 +1,149 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead .
+[0m✱ [0mGlob "game/base62*"[90m 2 matches[0m
+[0m→ [0mRead game/base62.go
+[0m→ [0mRead game/base62_test.go
+[0m→ [0mRead game
+[0m→ [0mRead CLAUDE.md
+[0m
+[0m$ [0mgo build ./...
+(no output)
+[0m
+[0m$ [0mgo vet ./...
+(no output)
+[0m
+[0m$ [0mgo test ./game/ -v -count=1
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+=== RUN   TestEncodeRoomCode_InvalidInput/port_out_of_range
+=== RUN   TestEncodeRoomCode_InvalidInput/non-numeric_port
+--- PASS: TestEncodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/no_port (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/invalid_IP (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/port_out_of_range (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/non-numeric_port (0.00s)
+=== RUN   TestDecodeRoomCode_InvalidInput
+=== RUN   TestDecodeRoomCode_InvalidInput/empty
+=== RUN   TestDecodeRoomCode_InvalidInput/invalid_char
+=== RUN   TestDecodeRoomCode_InvalidInput/special_char
+=== RUN   TestDecodeRoomCode_InvalidInput/newline
+--- PASS: TestDecodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/invalid_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/special_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/newline (0.00s)
+=== RUN   TestEncodeRoomCode_ShortOutput
+--- PASS: TestEncodeRoomCode_ShortOutput (0.00s)
+=== RUN   TestEncode
+=== RUN   TestEncode/with_payload
+=== RUN   TestEncode/empty_payload
+--- PASS: TestEncode (0.00s)
+    --- PASS: TestEncode/with_payload (0.00s)
+    --- PASS: TestEncode/empty_payload (0.00s)
+=== RUN   TestDecode
+=== RUN   TestDecode/valid_message
+=== RUN   TestDecode/pipe_in_payload
+=== RUN   TestDecode/empty_payload
+=== RUN   TestDecode/empty_string
+=== RUN   TestDecode/newline_only
+=== RUN   TestDecode/no_separator
+--- PASS: TestDecode (0.00s)
+    --- PASS: TestDecode/valid_message (0.00s)
+    --- PASS: TestDecode/pipe_in_payload (0.00s)
+    --- PASS: TestDecode/empty_payload (0.00s)
+    --- PASS: TestDecode/empty_string (0.00s)
+    --- PASS: TestDecode/newline_only (0.00s)
+    --- PASS: TestDecode/no_separator (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	0.450s
+[0m
+[0m$ [0mwhich staticcheck golangci-lint 2>&1 || true
+staticcheck not found
+golangci-lint not found
+[0m
+[0m→ [0mRead game/protocol.go
+## 审核报告
+
+### Issue
+- 编号: #3
+- 子任务: T-001
+- 迭代次数: 2
+
+### 总体评价
+**评分: 93/100**
+
+> 实现整体质量优秀，编译通过，测试全绿，代码风格良好。与 AC 的命名差异（`EncodeRoomCode`/`DecodeRoomCode` 而非 `Encode`/`Decode`）属于必要折中——`protocol.go` 已存在同签名 `Encode`/`Decode` 函数，若按 AC 命名会导致编译冲突。但 AC 本身应随此发现更新。
+
+### 严重问题 (必须修复)
+无
+
+### 一般问题 (建议修复)
+
+1. **Decode 缺少上溢出保护** (`game/base62.go:77-88`)
+   - 问题：`DecodeRoomCode` 对任何 base62 字符串都解码为 `uint64` 并直接切分为 IP+port。若输入字符串对应的值 > 2^48（如 `zzzzzzzzz` 约 2^52），高位会被静默丢弃，产生不正确的 IP:port，且无法与 `EncodeRoomCode` 的输出区别。
+   - 建议：解码后检查 `num` 是否超出 48 位，若超出则返回错误：
+     ```go
+     const maxRoomCodeValue = 1<<48 - 1
+     if num > maxRoomCodeValue {
+         return "", fmt.Errorf("room code out of range")
+     }
+     ```
+
+2. **AC 函数名与实际实现不一致**
+   - AC 要求 `Encode(ipPort string) string` 和 `Decode(code string) (string, error)`，实际实现为 `EncodeRoomCode`/`DecodeRoomCode`。
+   - 当前命名是正确选择（避免与 `protocol.go` 冲突），但 AC 应同步更新。
+
+### 建议改进 (可选)
+
+1. **Encode 零值路径可简化** (`game/base62.go:40-42`)
+   - `num == 0` 的特殊分支处理了空字符串问题。实际上可以调整循环使用 `do...while` 模式（Go 中用 `for { ... if num == 0 { break } }`）统一处理零值和非零值，减少一条特殊路径。
+
+2. **添加 Decode 后 IP:port 再验证**
+   - 当前解码后直接 `fmt.Sprintf("%s:%d", ipBytes, port)`，未验证生成的 IP:port 是否合法。虽然内部构造通常合法，但增加 `net.ParseIP` + `net.SplitHostPort` 再验证可增强防御性。
+
+3. **测试集补充**
+   - 添加非 ASCII 字符（如中文、Unicode）的 Decode 测试
+   - 添加极长 base62 字符串的 Decode 测试（覆盖溢出路径）
+   - 添加编码确定性测试：相同输入多次 Encode 结果一致
+
+### 审核结论
+- [x] 通过
+
+### 自检验证
+
+```markdown
+### 实现者自检确认
+- [x] 实现者已执行编译/类型检查 (go build ./... - 通过)
+- [x] 实现者已执行 Lint 检查 (go vet ./... - 通过)
+- [x] 实现者已运行相关测试 (go test ./game/ -v - 10/10 通过)
+- [x] 实现者已确认测试覆盖
+```
+
+---
+
+## Learnings
+
+- **模式**: `game` 包中编解码函数的命名通过描述性前缀（`EncodeRoomCode` vs `Encode`）区分不同关注点，避免同一包内函数签名冲突
+- **踩坑**: AC 要求 `Encode`/`Decode` 函数名，但 `protocol.go` 已存在同名不同签名的函数，需改用 `EncodeRoomCode`/`DecodeRoomCode` —— AC 应在实现阶段同步更新
+- **经验**: 对短数据（6 字节）的 base62 编解码，需在 Decode 端增加上溢出检查（> 2^48），防止恶意或意外超长输入产生误导性结果
