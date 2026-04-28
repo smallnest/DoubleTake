@@ -1,0 +1,143 @@
+确认：Encode 和 Decode 函数完全未实现。
+
+## 审核报告
+
+### Issue
+- 编号: #2
+- 子任务: T-002 - 实现 Encode 和 Decode 函数
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+T-002 要求的 Encode 和 Decode 函数**未实现**。`game/protocol.go` 中仅包含 T-001 已完成的常量定义和 Message 结构体，没有任何编码/解码逻辑，也没有对应的测试文件。
+
+---
+
+### 验收条件检查
+
+| 验收条件 | 状态 |
+|----------|------|
+| Encode(Message{Type: JOIN, Payload: 'alice'}) 返回 'JOIN\|alice\n' | ❌ 函数不存在 |
+| Encode(Message{Type: READY, Payload: ''}) 返回 'READY\|\n' | ❌ 函数不存在 |
+| Decode('JOIN\|alice\n') 返回 Message{Type: JOIN, Payload: 'alice'}, nil | ❌ 函数不存在 |
+| Decode('DESC\|这是含\|分隔的内容\n') 仅分割第一个 \|，Payload 为 '这是含\|分隔的内容' | ❌ 函数不存在 |
+| Decode('') 或 Decode('\n') 返回错误 | ❌ 函数不存在 |
+| go vet ./... 无错误 | ✅ (但因为没有新代码) |
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: Encode 和 Decode 函数完全缺失
+
+**位置**: `game/protocol.go`
+
+**问题描述**:
+T-002 要求实现的 Encode 和 Decode 函数不存在。`protocol.go` 仅包含 T-001 的常量定义。
+
+**建议实现**:
+
+```go
+import (
+	"errors"
+	"strings"
+)
+
+var ErrInvalidMessage = errors.New("invalid message format")
+
+// Encode converts a Message to the wire format "TYPE|payload\n".
+func Encode(msg Message) string {
+	return msg.Type + "|" + msg.Payload + "\n"
+}
+
+// Decode parses a "TYPE|payload\n" string into a Message.
+// It only splits on the first '|' so payloads may contain '|'.
+func Decode(raw string) (Message, error) {
+	// Trim trailing newline
+	line := strings.TrimRight(raw, "\n")
+	if line == "" {
+		return Message{}, ErrInvalidMessage
+	}
+	parts := strings.SplitN(line, "|", 2)
+	if len(parts) < 2 {
+		return Message{}, ErrInvalidMessage
+	}
+	return Message{Type: parts[0], Payload: parts[1]}, nil
+}
+```
+
+对应测试文件 `game/protocol_test.go`:
+
+```go
+package game
+
+import (
+	"testing"
+)
+
+func TestEncode(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  Message
+		want string
+	}{
+		{"with payload", Message{Type: MsgJoin, Payload: "alice"}, "JOIN|alice\n"},
+		{"empty payload", Message{Type: MsgReady, Payload: ""}, "READY|\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Encode(tt.msg); got != tt.want {
+				t.Errorf("Encode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecode(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		want    Message
+		wantErr bool
+	}{
+		{"valid message", "JOIN|alice\n", Message{Type: MsgJoin, Payload: "alice"}, false},
+		{"pipe in payload", "DESC|这是含|分隔的内容\n", Message{Type: MsgDesc, Payload: "这是含|分隔的内容"}, false},
+		{"empty payload", "READY|\n", Message{Type: MsgReady, Payload: ""}, false},
+		{"empty string", "", Message{}, true},
+		{"newline only", "\n", Message{}, true},
+		{"no separator", "JOIN", Message{}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Decode(tt.raw)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Decode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("Decode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+```
+
+---
+
+### 审核结论
+
+- [x] 阻塞 - 功能完全未实现
+
+**下一步行动**:
+请实现 Encode 和 Decode 函数，并添加对应的单元测试，确保所有验收条件通过。
+
+---
+
+## Learnings
+
+- **踩坑**: T-002 子任务的实现尚未开始，可能是任务调度遗漏。建议实现者优先参照上述模板代码完成实现。
+- **经验**: Encode/Decode 的关键设计点是 `strings.SplitN(line, "|", 2)` 来处理 payload 中包含 `|` 的场景，以及 `strings.TrimRight` 去除换行符。

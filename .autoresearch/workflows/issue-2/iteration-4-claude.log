@@ -1,0 +1,16 @@
+T-002 完成。验收条件全部通过：
+
+| 验收条件 | 状态 |
+|----------|------|
+| `Encode(Message{Type: JOIN, Payload: "alice"})` → `"JOIN\|alice\n"` | ✅ |
+| `Encode(Message{Type: READY, Payload: ""})` → `"READY\|\n"` | ✅ |
+| `Decode("JOIN\|alice\n")` → `Message{Type: JOIN, Payload: "alice"}, nil` | ✅ |
+| `Decode("DESC\|这是含\|分隔的内容\n")` 仅分割第一个 `|` | ✅ |
+| `Decode("")` 或 `Decode("\n")` 返回错误 | ✅ |
+| `go vet ./...` 无错误 | ✅ |
+
+## Learnings
+
+- **模式**: `strings.SplitN(line, "|", 2)` 是处理 payload 中包含分隔符场景的关键技巧，限制分割次数为 2，确保只取第一个分隔符
+- **踩坑**: `strings.TrimRight` 去除换行符后空字符串需要检查（如 `"\n"` trim 后为 `""`），单独的 `"JOIN"` 无分隔符也需要返回错误
+- **经验**: 表格驱动测试（table-driven tests）是 Go 中测试 Encode/Decode 的标准模式，用 `wantErr` bool 统一处理正常和错误路径
