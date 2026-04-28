@@ -17,7 +17,7 @@
 2. 每个连接启动独立 goroutine 运行 handleConn
 3. handleConn 使用 bufio.Scanner 按行读取，调用 game.Decode 解析
 4. 解析失败仅记录日志不关闭连接（允许客户端恢复）
-5. 有效消息通过 switch msg.Type 路由到对应处理函数（如 handleJoin）
+5. 有效消息通过 switch msg.Type 路由到对应处理函数（如 handleJoin、handleDesc）
 6. 客户端断开时（scanner.Scan() 返回 false），defer 中 unregister 清理连接和注册名字
 
 ## 并发安全模式
@@ -39,3 +39,9 @@
 - SendToPlayer(name, msg) 按玩家名查找连接并私密发送消息，查不到时返回 error
 - SendToPlayer 持锁期间执行 conn.Write（与 Broadcast 模式一致），因最大连接数 <= 10，阻塞风险可忽略
 - 目前没有 name→conn 反向映射，SendToPlayer 使用 O(n) 遍历 connections map
+
+## DESC 消息处理
+- `handleDesc` 处理 DESC 消息：未命名玩家收到 ERROR("请先加入游戏")，已命名玩家的描述转发到 `OnDescMsg` channel
+- `OnDescMsg` channel 缓冲大小 64，满时丢弃消息并记录日志
+- `DescEvent` 结构体包含 `PlayerName` 和 `Description` 字段
+- server 层不做描述内容校验（空描述、非当前发言者），这些由 judge 端 `descriptionPhase` 通过 `DescRound.RecordDesc` 处理

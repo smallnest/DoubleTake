@@ -12,6 +12,11 @@ import (
 	"github.com/smallnest/doubletake/server"
 )
 
+// descResult holds the outcome of the description phase.
+type descResult struct {
+	Round *game.DescRound
+}
+
 // GameConfig holds the validated game parameters entered by the referee.
 type GameConfig struct {
 	TotalPlayers int // 总人数 (4-10)
@@ -190,6 +195,13 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 
 	broadcastReady(disp, srv)
 
+	// Run description phase for round 1 with all players.
+	descResult := descriptionPhase(disp, srv, 1, names)
+	if descResult == nil {
+		return cfg
+	}
+	_ = descResult // descriptions recorded for later phases
+
 	return cfg
 }
 
@@ -250,6 +262,83 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 			return
 		}
 	}
+}
+
+// descriptionPhase runs the description phase for one round.
+// It broadcasts ROUND|roundNum|speakerOrder, then sends TURN|playerName to the
+// first speaker and processes DESC messages until all players have spoken.
+func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string) *descResult {
+	round, err := game.NewDescRound(roundNum, alivePlayers)
+	if err != nil {
+		disp.Warn(fmt.Sprintf("创建描述轮次失败: %v", err))
+		return nil
+	}
+
+	// Broadcast ROUND|roundNum|speakerOrder to all named players.
+	speakerList := strings.Join(round.SpeakerOrder, ",")
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgRound,
+		Payload: fmt.Sprintf("%d|%s", roundNum, speakerList),
+	})
+
+	// Send TURN|playerName to the first speaker.
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgTurn,
+		Payload: round.CurrentSpeaker(),
+	})
+
+	for !round.AllDone() {
+		evt := <-srv.OnDescMsg
+		current := round.CurrentSpeaker()
+
+		// If all done (shouldn't happen due to loop condition), break.
+		if current == "" {
+			break
+		}
+
+		// Check if it's this player's turn.
+		if evt.PlayerName != current {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: "还没轮到你发言",
+			})
+			continue
+		}
+
+		// Try to record the description.
+		err := round.RecordDesc(evt.PlayerName, evt.Description)
+		if err == game.ErrEmptyDesc {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: "描述不能为空，请重新输入",
+			})
+			continue
+		}
+		// ErrNotYourTurn shouldn't happen here since we checked above, but handle defensively.
+		if err != nil {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: err.Error(),
+			})
+			continue
+		}
+
+		// Valid description: broadcast DESC|playerName|description to all.
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgDesc,
+			Payload: evt.PlayerName + "|" + evt.Description,
+		})
+
+		// Send TURN to the next speaker, if any.
+		if !round.AllDone() {
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgTurn,
+				Payload: round.CurrentSpeaker(),
+			})
+		}
+	}
+
+	return &descResult{Round: round}
 }
 
 // broadcastReady sends the READY message to all named players.

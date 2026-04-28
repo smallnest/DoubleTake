@@ -412,9 +412,9 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 		}
 		// Send JOIN confirmation, then a READY broadcast, then a ROLE message, then close
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgReady, Payload: ""}))
-		
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
 	}()
 
@@ -435,5 +435,294 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 	if !strings.Contains(output, "READY") {
 		t.Errorf("expected READY message, got: %s", output)
 	}
+	<-serverDone
+}
+
+// TestRunPlayer_DescPhase_OtherPlayerTurn tests that the player correctly
+// displays ROUND, TURN (other player), and DESC broadcast messages.
+func TestRunPlayer_DescPhase_OtherPlayerTurn(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		// ROUND message
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|Bob,Alice,Charlie"}))
+		// TURN for Bob (not Alice)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "Bob"}))
+		// DESC broadcast from Bob
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgDesc, Payload: "Bob|苹果是红色的"}))
+		// TURN for Alice (this is us)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "Alice"}))
+		// Read the DESC from Alice
+		if scanner.Scan() {
+			// This is the DESC message from the player; just consume it
+		}
+	}()
+
+	out := &bytes.Buffer{}
+	// Input: room code, name, then description for Alice's turn
+	input := roomCode + "\nAlice\n苹果很好吃\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	// Verify ROUND display
+	if !strings.Contains(output, "轮次 1，发言顺序: Bob → Alice → Charlie") {
+		t.Errorf("expected formatted ROUND display, got: %s", output)
+	}
+
+	// Verify waiting message for other player's turn
+	if !strings.Contains(output, "等待 Bob 描述...") {
+		t.Errorf("expected waiting message for Bob, got: %s", output)
+	}
+
+	// Verify DESC display from other player
+	if !strings.Contains(output, "Bob: 苹果是红色的") {
+		t.Errorf("expected formatted DESC display from Bob, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_DescPhase_OwnTurn tests that the player correctly prompts
+// for input when receiving TURN for itself and sends the description.
+func TestRunPlayer_DescPhase_OwnTurn(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		// ROUND message
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0,P1"}))
+		// TURN for P0 (us)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+		// Read the DESC message from P0
+		if !scanner.Scan() {
+			return
+		}
+		msg, err := game.Decode(scanner.Text())
+		if err != nil {
+			return
+		}
+		if msg.Type != game.MsgDesc {
+			t.Errorf("expected DESC message, got %s", msg.Type)
+			return
+		}
+		if msg.Payload != "苹果很好吃" {
+			t.Errorf("expected DESC payload '苹果很好吃', got '%s'", msg.Payload)
+			return
+		}
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\nP0\n苹果很好吃\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	// Verify prompt displayed
+	if !strings.Contains(output, "请输入描述:") {
+		t.Errorf("expected description prompt, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_DescPhase_EmptyDescRetry tests that the player re-prompts
+// when the user enters an empty description (client-side check).
+func TestRunPlayer_DescPhase_EmptyDescRetry(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		// ROUND message
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
+		// TURN for P0 (us)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+		// Client-side empty check blocks sending empty, so the first non-empty
+		// desc will arrive here.
+		if !scanner.Scan() {
+			return
+		}
+		msg, err := game.Decode(scanner.Text())
+		if err != nil {
+			return
+		}
+		if msg.Payload != "valid description" {
+			t.Errorf("expected 'valid description', got '%s'", msg.Payload)
+		}
+	}()
+
+	out := &bytes.Buffer{}
+	// Input: room code, name, empty line (caught client-side), valid desc
+	input := roomCode + "\nP0\n\nvalid description\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	// Verify client-side empty warning
+	if !strings.Contains(output, "描述不能为空") {
+		t.Errorf("expected empty description warning, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_DescPhase_ServerErrorRetry tests that the player re-prompts
+// when the server rejects a description with ERROR (server-side rejection).
+func TestRunPlayer_DescPhase_ServerErrorRetry(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		// ROUND message
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
+		// TURN for P0 (us)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+		// Read first DESC
+		if !scanner.Scan() {
+			return
+		}
+		// Send ERROR to reject (e.g. "还没轮到你发言")
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgError, Payload: "描述不能为空，请重新输入"}))
+		// Read second DESC
+		if !scanner.Scan() {
+			return
+		}
+		msg, err := game.Decode(scanner.Text())
+		if err != nil {
+			return
+		}
+		if msg.Payload != "valid description" {
+			t.Errorf("expected 'valid description', got '%s'", msg.Payload)
+		}
+	}()
+
+	out := &bytes.Buffer{}
+	// Input: room code, name, first desc (rejected by server), valid desc
+	input := roomCode + "\nP0\nfirst try\nvalid description\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	// Verify error message displayed
+	if !strings.Contains(output, "描述不能为空，请重新输入") {
+		t.Errorf("expected server error message, got: %s", output)
+	}
+	// Verify re-prompt
+	if strings.Count(output, "请输入描述:") < 2 {
+		t.Errorf("expected at least 2 prompts, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_DescPhase_ErrorFatal tests that non-desc-phase ERROR
+// messages cause the player to exit.
+func TestRunPlayer_DescPhase_ErrorFatal(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// Send ERROR immediately (not during desc phase)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgError, Payload: "game is full"}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\nPlayer1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	output := out.String()
+	if !strings.Contains(output, "game is full") {
+		t.Errorf("expected error message, got: %s", output)
+	}
+
 	<-serverDone
 }

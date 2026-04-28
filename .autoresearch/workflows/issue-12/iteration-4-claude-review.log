@@ -1,0 +1,86 @@
+所有测试通过，代码编译通过。我现在对情况有了全面的了解。接下来，我将根据 T-002 的验收标准生成审核报告。
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #12
+- 标题: 描述环节 — 轮流发言与广播
+- 子任务: T-002 - 裁判端描述环节流程
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+T-002 子任务**完全未实现**。当前代码库中不存在任何 T-002 要求的实现内容：没有 `descriptionPhase` 函数、没有 `DESC` 消息处理、没有 `TURN/ROUND` 消息发送逻辑。仅完成了 T-001（game/game.go 的 DescRound 数据结构），T-002 的所有验收条件均未满足。
+
+---
+
+### 验收条件逐项检查
+
+| 验收条件 | 状态 | 说明 |
+|---|---|---|
+| descriptionPhase 函数广播 ROUND\|轮次号\|发言顺序 | **未实现** | judge.go 中无此函数 |
+| 向当前发言者发送 TURN\|playerName 消息 | **未实现** | 无 TURN 消息发送逻辑 |
+| 非当前发言者发送 DESC 时服务端回复 ERROR | **未实现** | server.go 中无 DESC 消息处理 |
+| 描述为纯空白时回复 ERROR | **未实现** | 服务端无 DESC 路由 |
+| 有效描述后广播 DESC\|playerName\|description | **未实现** | 无广播逻辑 |
+| 裁判端通过 DescRound 记录描述内容 | **未实现** | judge.go 未使用 DescRound |
+| 所有玩家描述完毕后 descriptionPhase 返回 | **未实现** | 函数不存在 |
+| 单元测试和集成测试 | **未实现** | 无相关测试 |
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: T-002 核心功能完全缺失
+
+**位置**: `cmd/doubletake/judge.go`, `server/server.go`
+
+**问题描述**:
+T-002 要求的所有实现均不存在：
+
+1. **server/server.go** 的 `handleConn` 中 `switch msg.Type` 只有 `case game.MsgJoin`，缺少 `case game.MsgDesc` 分支
+2. **cmd/doubletake/judge.go** 中没有 `descriptionPhase` 函数
+3. **RunJudge** 函数在 `broadcastReady` 之后直接返回，没有进入描述环节
+4. 没有 TURN/ROUND/DESC 消息的发送逻辑
+
+**需要实现**:
+- `server/server.go`: 在 handleConn 的 switch 中添加 `case game.MsgDesc` 处理
+- `cmd/doubletake/judge.go`: 添加 `descriptionPhase` 函数，在 RunJudge 中 broadcastReady 之后调用
+- 集成测试覆盖正常流程、空描述拒绝、非当前发言者干扰
+
+---
+
+### 已有基础评估 (T-001)
+
+T-001 的实现质量良好，作为 T-002 的基础可以复用：
+
+- `game.DescRound` 结构体设计合理，包含 `RoundNum`、`SpeakerOrder`、`CurrentIndex`、`Descriptions`
+- `RecordDesc` 方法正确处理空描述（`ErrEmptyDesc`）和非当前发言者（`ErrNotYourTurn`）
+- `AllDone()` 和 `CurrentSpeaker()` 方法实现正确
+- `NewDescRound` 做了防御性拷贝、空名字和重复名字校验
+- 测试覆盖率 92.3%，包含正常流程、空描述、非当前发言者、边界场景
+
+---
+
+### 审核结论
+
+- [ ] 阻塞 - T-002 完全未实现，需要从头开始
+
+**下一步行动**:
+需要实现 T-002 的全部内容：
+1. 在 `server/server.go` 的 `handleConn` 中添加 `DESC` 消息处理
+2. 在 `cmd/doubletake/judge.go` 中实现 `descriptionPhase` 函数
+3. 在 `RunJudge` 中集成描述环节流程
+4. 编写单元测试和集成测试
+
+## Learnings
+
+- **模式**: T-001（game 包数据结构）和 T-002（server+judge 网络流程）的分拆模式是合理的——先实现纯逻辑层，再实现网络交互层
+- **踩坑**: 当前的 `server.handleConn` switch-case 结构只处理 `MsgJoin`，添加新消息类型时需要考虑如何传递描述阶段状态（DescRound）到消息处理函数
+- **经验**: `game.DescRound` 的 `RecordDesc` 已内置空描述和非当前发言者校验，server 端的 DESC handler 可以直接复用这些错误返回，不需要重复校验逻辑

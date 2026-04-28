@@ -1,0 +1,272 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m✱ [0mGlob "**/*.go"[90m in . · 22 matches[0m
+[0m→ [0mRead .
+I'll start by exploring the codebase to understand the existing implementation for sub-task T-002.
+[0m→ [0mRead server/server.go
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/network.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game/game_test.go
+[0m→ [0mRead game/role.go
+[0m✱ [0mGlob "tasks/**/*12*"[90m in . · 0 matches[0m
+Let me run the existing tests and check for any tasks directory context.
+[0m
+[0m$ [0mgo test ./... -v -count=1 -run "TestDescriptionPhase|TestDesc|TestAllDone|TestCurrentSpeaker|TestNewDescRound|TestRecordDesc" 2>&1
+testing: warning: no tests to run
+PASS
+ok  	github.com/smallnest/doubletake/client	0.447s [no tests to run]
+=== RUN   TestDescriptionPhase_NormalFlow
+2026/04/29 06:05:39 server listening on :64425
+2026/04/29 06:05:39 player connected: 127.0.0.1:64429
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64429
+2026/04/29 06:05:39 player connected: 127.0.0.1:64430
+2026/04/29 06:05:39 received from 127.0.0.1:64430: JOIN P0
+2026/04/29 06:05:39 player 127.0.0.1:64430 joined as P0
+2026/04/29 06:05:39 player connected: 127.0.0.1:64431
+2026/04/29 06:05:39 received from 127.0.0.1:64431: JOIN P1
+2026/04/29 06:05:39 player connected: 127.0.0.1:64432
+2026/04/29 06:05:39 player 127.0.0.1:64431 joined as P1
+2026/04/29 06:05:39 received from 127.0.0.1:64432: JOIN P2
+2026/04/29 06:05:39 player 127.0.0.1:64432 joined as P2
+2026/04/29 06:05:39 player connected: 127.0.0.1:64433
+2026/04/29 06:05:39 received from 127.0.0.1:64433: JOIN P3
+2026/04/29 06:05:39 player 127.0.0.1:64433 joined as P3
+    judge_test.go:1240: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 0: msg2=READY|
+    judge_test.go:1240: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 1: msg2=READY|
+    judge_test.go:1240: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 2: msg2=READY|
+    judge_test.go:1240: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1240: conn 3: msg2=READY|
+    judge_test.go:1243: setup complete, reading messages
+2026/04/29 06:05:39 received from 127.0.0.1:64431: DESC description from P1
+2026/04/29 06:05:39 received from 127.0.0.1:64432: DESC description from P2
+2026/04/29 06:05:39 received from 127.0.0.1:64433: DESC description from P3
+2026/04/29 06:05:39 received from 127.0.0.1:64430: DESC description from P0
+2026/04/29 06:05:39 connection error from 127.0.0.1:64430: read tcp 127.0.0.1:64425->127.0.0.1:64430: use of closed network connection
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64430
+2026/04/29 06:05:39 connection error from 127.0.0.1:64431: read tcp 127.0.0.1:64425->127.0.0.1:64431: use of closed network connection
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64431
+2026/04/29 06:05:39 connection error from 127.0.0.1:64432: read tcp 127.0.0.1:64425->127.0.0.1:64432: use of closed network connection
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64432
+2026/04/29 06:05:39 connection error from 127.0.0.1:64433: read tcp 127.0.0.1:64425->127.0.0.1:64433: use of closed network connection
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64433
+2026/04/29 06:05:39 server stopped
+--- PASS: TestDescriptionPhase_NormalFlow (0.05s)
+=== RUN   TestDescriptionPhase_EmptyDescRejected
+2026/04/29 06:05:39 server listening on :64434
+2026/04/29 06:05:39 player connected: 127.0.0.1:64436
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64436
+2026/04/29 06:05:39 player connected: 127.0.0.1:64437
+2026/04/29 06:05:39 received from 127.0.0.1:64437: JOIN P0
+2026/04/29 06:05:39 player 127.0.0.1:64437 joined as P0
+2026/04/29 06:05:39 player connected: 127.0.0.1:64438
+2026/04/29 06:05:39 received from 127.0.0.1:64438: JOIN P1
+2026/04/29 06:05:39 player 127.0.0.1:64438 joined as P1
+2026/04/29 06:05:39 player connected: 127.0.0.1:64439
+2026/04/29 06:05:39 received from 127.0.0.1:64439: JOIN P2
+2026/04/29 06:05:39 player 127.0.0.1:64439 joined as P2
+2026/04/29 06:05:39 player connected: 127.0.0.1:64440
+2026/04/29 06:05:39 received from 127.0.0.1:64440: JOIN P3
+2026/04/29 06:05:39 player 127.0.0.1:64440 joined as P3
+    judge_test.go:1305: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 0: msg2=READY|
+    judge_test.go:1305: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 1: msg2=READY|
+    judge_test.go:1305: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 2: msg2=READY|
+    judge_test.go:1305: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1305: conn 3: msg2=READY|
+2026/04/29 06:05:39 received from 127.0.0.1:64437: DESC    
+2026/04/29 06:05:39 received from 127.0.0.1:64437: DESC valid description
+--- PASS: TestDescriptionPhase_EmptyDescRejected (2.05s)
+=== RUN   TestDescriptionPhase_NotYourTurn
+2026/04/29 06:05:41 server listening on :64457
+2026/04/29 06:05:41 player connected: 127.0.0.1:64459
+2026/04/29 06:05:41 player disconnected: 127.0.0.1:64459
+2026/04/29 06:05:41 player connected: 127.0.0.1:64460
+2026/04/29 06:05:41 received from 127.0.0.1:64460: JOIN P0
+2026/04/29 06:05:41 player 127.0.0.1:64460 joined as P0
+2026/04/29 06:05:41 player connected: 127.0.0.1:64461
+2026/04/29 06:05:41 received from 127.0.0.1:64461: JOIN P1
+2026/04/29 06:05:41 player 127.0.0.1:64461 joined as P1
+2026/04/29 06:05:41 player connected: 127.0.0.1:64462
+2026/04/29 06:05:41 received from 127.0.0.1:64462: JOIN P2
+2026/04/29 06:05:41 player 127.0.0.1:64462 joined as P2
+2026/04/29 06:05:41 player connected: 127.0.0.1:64463
+2026/04/29 06:05:41 received from 127.0.0.1:64463: JOIN P3
+2026/04/29 06:05:41 player 127.0.0.1:64463 joined as P3
+    judge_test.go:1354: conn 0: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1354: conn 0: msg2=READY|
+    judge_test.go:1354: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 1: msg2=READY|
+    judge_test.go:1354: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 2: msg2=READY|
+    judge_test.go:1354: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 3: msg2=READY|
+2026/04/29 06:05:41 received from 127.0.0.1:64461: DESC sneaky description
+--- PASS: TestDescriptionPhase_NotYourTurn (2.05s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	5.435s
+=== RUN   TestNewDescRound
+--- PASS: TestNewDescRound (0.00s)
+=== RUN   TestCurrentSpeaker
+--- PASS: TestCurrentSpeaker (0.00s)
+=== RUN   TestCurrentSpeaker_AllDone
+--- PASS: TestCurrentSpeaker_AllDone (0.00s)
+=== RUN   TestRecordDesc_NormalFlow
+--- PASS: TestRecordDesc_NormalFlow (0.00s)
+=== RUN   TestRecordDesc_EmptyDescription
+=== RUN   TestRecordDesc_EmptyDescription/empty_string
+=== RUN   TestRecordDesc_EmptyDescription/spaces_only
+=== RUN   TestRecordDesc_EmptyDescription/tabs_only
+=== RUN   TestRecordDesc_EmptyDescription/newline_only
+=== RUN   TestRecordDesc_EmptyDescription/mixed_whitespace
+--- PASS: TestRecordDesc_EmptyDescription (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/empty_string (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/spaces_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/tabs_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/newline_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/mixed_whitespace (0.00s)
+=== RUN   TestRecordDesc_NotYourTurn
+--- PASS: TestRecordDesc_NotYourTurn (0.00s)
+=== RUN   TestAllDone_EmptyPlayers
+--- PASS: TestAllDone_EmptyPlayers (0.00s)
+=== RUN   TestAllDone_OnePlayer
+--- PASS: TestAllDone_OnePlayer (0.00s)
+=== RUN   TestDescRound_RecordsAllDescriptions
+--- PASS: TestDescRound_RecordsAllDescriptions (0.00s)
+=== RUN   TestRecordDesc_AllowsWhitespaceInContent
+--- PASS: TestRecordDesc_AllowsWhitespaceInContent (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	0.863s
+=== RUN   TestDesc_UnnamedPlayer
+2026/04/29 06:05:39 server listening on :64441
+2026/04/29 06:05:39 player connected: 127.0.0.1:64445
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64445
+2026/04/29 06:05:39 player connected: 127.0.0.1:64446
+2026/04/29 06:05:39 received from 127.0.0.1:64446: DESC some description
+2026/04/29 06:05:39 server stopped
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64446
+--- PASS: TestDesc_UnnamedPlayer (0.01s)
+=== RUN   TestDesc_NamedPlayerForwarded
+2026/04/29 06:05:39 server listening on :64447
+2026/04/29 06:05:39 player connected: 127.0.0.1:64449
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64449
+2026/04/29 06:05:39 player connected: 127.0.0.1:64450
+2026/04/29 06:05:39 received from 127.0.0.1:64450: JOIN Alice
+2026/04/29 06:05:39 player 127.0.0.1:64450 joined as Alice
+2026/04/29 06:05:39 received from 127.0.0.1:64450: DESC it is a fruit
+2026/04/29 06:05:39 server stopped
+2026/04/29 06:05:39 player disconnected: 127.0.0.1:64450
+--- PASS: TestDesc_NamedPlayerForwarded (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/server	1.740s
+[0m
+[0m$ [0mgo vet ./... 2>&1
+(no output)
+[0m
+Let me also run the full test suite and check for vet/lint issues.
+[0m$ [0mgo test ./... -count=1 2>&1
+ok  	github.com/smallnest/doubletake/client	0.381s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	17.412s
+ok  	github.com/smallnest/doubletake/game	1.067s
+ok  	github.com/smallnest/doubletake/server	2.928s
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && git log --oneline -10 2>&1
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+4f99d33 feat: implement issue #9 - #9 裁判等待玩家与启动控制
+7ac7582 Merge pull request #25 from smallnest/feature/issue-8
+3863227 feat: implement issue #8 - #8 玩家通过密码连接并加入房间
+[0m
+Now I have all the information needed for a thorough review. Let me compile the audit report.
+## 审核报告
+
+### Issue
+- 编号: #12
+- 子任务: T-002 — 裁判端描述环节流程
+- 当前 commit: `923c442`
+
+### 总体评价
+
+所有验收条件均已实现。代码质量高，测试覆盖全面（game 层 11 个单元测试 + server 层 2 个单元测试 + 3 个集成测试），全部通过，`go vet` 无警告。
+
+**评分: 94/100**
+
+### 各维度评分
+
+| 维度 | 权重 | 得分 | 加权 |
+|------|------|------|------|
+| 正确性 | 35% | 90 | 31.50 |
+| 测试质量 | 25% | 95 | 23.75 |
+| 代码质量 | 20% | 95 | 19.00 |
+| 安全性 | 10% | 100 | 10.00 |
+| 性能 | 10% | 100 | 10.00 |
+| **总分** | **100%** | | **94.25** |
+
+### 验收条件逐项审查
+
+| # | 验收条件 | 状态 | 实现位置 |
+|---|---------|------|---------|
+| 1 | descriptionPhase 广播 ROUND\|轮次号\|发言顺序 | ✅ | `cmd/doubletake/judge.go:278-282` |
+| 2 | 向当前发言者发送 TURN\|playerName | ✅ | `cmd/doubletake/judge.go:284-288`（广播给所有人，所有玩家能感知轮次） |
+| 3 | 非当前发言者 DESC 回复 ERROR | ✅ | `cmd/doubletake/judge.go:299-306` |
+| 4 | 空描述回复 ERROR，不推进发言索引 | ✅ | `cmd/doubletake/judge.go:309-315` + `game/game.go:61-63`（`CurrentIndex` 不递增） |
+| 5 | 有效描述后广播 DESC\|playerName\|description | ✅ | `cmd/doubletake/judge.go:327-330` |
+| 6 | 裁判端通过 DescRound 记录描述 | ✅ | `cmd/doubletake/judge.go:309` → `game/game.go:67` |
+| 7 | 所有存活玩家描述完毕返回 | ✅ | `cmd/doubletake/judge.go:290` 循环条件 + `judge.go:333,341` |
+| 8 | 单元测试和集成测试覆盖 | ✅ | 详见下方 |
+
+### 测试覆盖
+
+**game 包单元测试**：11 个用例覆盖正常流程、空描述（5 种空白变体表格驱动）、非当前玩家、0 人/1 人边界、完整记录验证、带空格内容保留。
+
+**server 包单元测试**：2 个用例覆盖未命名玩家 DESC 拒绝、已命名玩家 DESC 转发到 channel。
+
+**集成测试**：3 个用例覆盖 4 人正常流程（校验 ROUND → TURN → DESC×N → TURN×N-1 → DESC 序列）、空白描述错误重试、非当前发言者干扰错误。
+
+### 严重问题 (必须修复)
+
+无。
+
+### 一般问题 (建议修复)
+
+1. **`OnDescMsg` channel silent drop 风险** — `server/server.go:274-278` 中 `handleDesc` 在 channel 满时静默丢弃 DESC 事件，日志记录但未通知调用方。如果 `descriptionPhase` 阻塞在 channel 读取而某玩家的 DESC 被丢弃，游戏将永久挂起。建议：至少使用带 context 的 select，或阻塞发送（因为 channel 容量 64 远超玩家数，生产环境中永不触发，但应移除 `default` 分支或改为 `log.Fatal`）。
+
+2. **TURN 广播 vs 单发** — 验收条件要求"向当前发言者发送 TURN"，但实现中 `BroadcastToNamedPlayers` 广播给所有人。这是更好的设计（所有玩家能看到轮次），但建议更新验收条件文档以消除歧义，或补充注释说明有意广播。
+
+### 建议改进 (可选)
+
+1. `TestDescriptionPhase_NormalFlow` 中解析了 ROUND payload(`roundParts`) 但未显式断言轮次号为 `"1"`，当前通过 speakers 列表间接验证。可添加 `if roundParts[0] != "1"` 断言使意图更清晰。
+
+### 审核结论
+
+- [ ] 阻塞
+- [ ] 需要修改
+- [/] **通过** — 评分 94/100，达到达标线 85。
+
+### 实现者自检确认
+
+- [x] 实现者已执行编译/类型检查（`go vet ./...` 无警告）
+- [x] 实现者已运行相关测试（所有包 `ok`）
+- [x] 测试覆盖满足要求
+
+---
+
+## Learnings
+
+- **模式**: 描述环节的数据流清晰分层：server 层 `handleDesc` 负责消息转发（不校验语义），judge 层 `descriptionPhase` 通过 channel 接收并处理（校验空描述、轮次），game 层 `DescRound` 管理纯状态。这种 server→judge→game 的职责分离模式值得后续投票/PK 环节复用。
+- **踩坑**: `OnDescMsg` channel 的 `default` 分支（silent drop）是一个隐患。虽然在当前场景（buffer 64 > 最大玩家 10）下不会触发，但若未来增加消息类型或调整 buffer 大小，可能引入难排查的死锁 bug。
+- **经验**: 集成测试通过 `setupDescPhaseTest` 封装了完整的游戏初始化流程（启动服务器 → 玩家连接 → JOIN → start → 词语输入 → ROLE/READY），使描述阶段测试只需关注 DESC/TURN 交互。这种"夹具函数"模式应推广到后续投票、PK 等环节的测试。

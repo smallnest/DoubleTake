@@ -28,6 +28,7 @@ type Server struct {
 	stopOnce     sync.Once
 	ready        chan struct{}
 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
+	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -35,6 +36,12 @@ type PlayerJoinEvent struct {
 	Name      string
 	Current   int // number of named players after this join
 	Capacity  int // configured totalPlayers
+}
+
+// DescEvent carries a DESC message received from a named player.
+type DescEvent struct {
+	PlayerName  string
+	Description string
 }
 
 // NewServer creates a new Server that will listen on the given port.
@@ -48,6 +55,7 @@ func NewServer(port string, totalPlayers int) *Server {
 		done:         make(chan struct{}),
 		ready:        make(chan struct{}),
 		OnPlayerJoin: make(chan PlayerJoinEvent, 64),
+		OnDescMsg:    make(chan DescEvent, 64),
 	}
 }
 
@@ -128,6 +136,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		switch msg.Type {
 		case game.MsgJoin:
 			s.handleJoin(player, msg.Payload)
+		case game.MsgDesc:
+			s.handleDesc(player, msg.Payload)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -249,5 +259,21 @@ func (s *Server) BroadcastToNamedPlayers(msg game.Message) {
 		if _, err := player.Conn.Write(data); err != nil {
 			log.Printf("broadcast write error to %s: %v", player.Conn.RemoteAddr(), err)
 		}
+	}
+}
+
+// handleDesc processes a DESC message from a player.
+// Unnamed players receive an error. Named players' descriptions are forwarded
+// to the OnDescMsg channel for the judge to validate and process.
+func (s *Server) handleDesc(player *Player, payload string) {
+	if player.Name == "" {
+		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
+		return
+	}
+
+	select {
+	case s.OnDescMsg <- DescEvent{PlayerName: player.Name, Description: payload}:
+	default:
+		log.Printf("OnDescMsg channel full, dropping DESC from %s", player.Name)
 	}
 }

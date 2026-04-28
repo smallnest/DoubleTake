@@ -1,0 +1,89 @@
+Now I have a thorough understanding of the codebase. Let me analyze the issue and plan the subtasks.
+
+Based on my analysis of the codebase:
+
+**Current state**:
+- `game/game.go` is empty (only `package game`)
+- Server has `Broadcast`, `Send`, `SendToPlayer`, `BroadcastToNamedPlayers` methods
+- Protocol already defines `MsgTurn`, `MsgDesc`, `MsgRound`, `MsgError` constants
+- Issue #11 completed: player join, word input, role assignment, READY broadcast
+- `RunJudge` flow ends at `broadcastReady` — no description round yet
+- Player side only handles `JOIN`, `ROLE`, `ERROR` messages
+
+**Issue #12 requires**: Turn-based description round where players speak in order, descriptions are broadcast, empty descriptions are rejected, and descriptions are recorded for later review.
+
+Here's the subtask breakdown:
+
+---
+
+## 子任务拆分
+
+### T-001: 实现描述环节游戏状态管理 (game/game.go)
+实现 `game/game.go` 中的描述环节核心数据结构和状态管理：轮次信息、发言顺序、描述记录、存活玩家列表。提供初始化和状态查询方法。
+
+### T-002: 裁判端描述环节流程 — TURN/ROUND/DESC 消息处理
+在 `cmd/doubletake/judge.go` 和 `server/server.go` 中实现裁判端描述环节：按顺序发送 TURN 消息、处理 DESC 消息（含空描述拒绝）、广播描述内容、记录每轮描述。服务端需新增 DESC 消息的路由处理。
+
+### T-003: 玩家端描述环节交互 — 接收 TURN/ROUND/DESC 消息
+在 `cmd/doubletake/player.go` 中实现玩家端描述环节：接收 TURN 消息提示输入、发送描述、接收他人描述广播、显示等待状态。
+
+---
+
+```json
+{
+  "issueNumber": 12,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "实现描述环节游戏状态管理（game/game.go 数据结构与状态机）",
+      "description": "在 game/game.go 中实现描述环节的核心数据结构：DescRound 结构体（包含轮次号、发言顺序、当前发言者索引、所有玩家的描述记录），以及 NewDescRound 构造函数、NextTurn/CurrentSpeaker/RecordDesc/AllDone 等状态管理方法。描述记录使用 map[string]string 按玩家名存储，用于裁判端回溯。传入存活玩家列表作为发言顺序。",
+      "acceptanceCriteria": [
+        "DescRound 结构体包含轮次号、发言顺序列表、当前发言者索引、描述记录 map",
+        "NewDescRound(roundNum int, alivePlayers []string) 构造函数正确初始化状态",
+        "CurrentSpeaker() 返回当前应发言的玩家名，所有发言完毕后返回空字符串",
+        "RecordDesc(playerName, desc string) 记录描述并推进发言索引",
+        "AllDone() 在所有存活玩家发言完毕后返回 true",
+        "描述为纯空白时 RecordDesc 返回错误（不含非空白字符）",
+        "单元测试覆盖正常流程、空描述拒绝、边界情况（0人、1人）"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "裁判端描述环节流程 — 发送 TURN/ROUND 消息、处理 DESC 回复并广播",
+      "description": "在 server/server.go 的 handleConn 消息路由中新增 DESC 消息处理：服务端收到当前玩家 DESC 消息后，验证非空、记录描述、广播 DESC|playerName|description 给所有玩家，然后向下一个玩家发送 TURN 消息。在 judge.go 中添加 descriptionPhase 函数：广播 ROUND 消息通知轮次和发言顺序，然后向第一个玩家发送 TURN 消息启动流程。裁判端使用 game.DescRound 管理状态。当所有玩家描述完毕后返回，进入后续投票环节。需要处理：空描述时回复 ERROR 要求重新输入、非当前发言者发送 DESC 时忽略或回复 ERROR。",
+      "acceptanceCriteria": [
+        "descriptionPhase 函数广播 ROUND|轮次号|发言顺序 给所有命名玩家",
+        "向当前发言者发送 TURN|playerName 消息提示轮到描述",
+        "非当前发言者发送 DESC 时服务端回复 ERROR 消息",
+        "描述为纯空白时服务端回复 ERROR 要求重新输入，不推进发言索引",
+        "有效描述后广播 DESC|playerName|description 给所有命名玩家",
+        "裁判端通过 DescRound 记录每个玩家的描述内容",
+        "所有存活玩家描述完毕后 descriptionPhase 函数返回",
+        "单元测试和集成测试覆盖正常流程、空描述拒绝、非当前发言者干扰"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "玩家端描述环节交互 — 接收 TURN 提示输入、显示 DESC 广播和等待状态",
+      "description": "在 cmd/doubletake/player.go 的消息循环中新增 TURN、ROUND、DESC 消息处理：收到 ROUND 时显示当前轮次和发言顺序；收到 TURN（自己是当前发言者）时提示用户输入描述并发送 DESC 消息；收到 DESC（他人描述广播）时显示玩家名和描述内容；非自己回合时显示等待提示。复用 stdinSource 模式或直接使用 scanner 读取描述输入。",
+      "acceptanceCriteria": [
+        "收到 ROUND 消息时显示当前轮次号和发言顺序（如轮次1: 张三 → 李四 → 王五）",
+        "收到 TURN 消息且玩家名为自己时，提示输入描述并通过 DESC 消息发送",
+        "收到 DESC 消息时显示发送者名和描述内容（如张三: 苹果是红色的）",
+        "非自己回合收到 TURN 时显示等待提示（如等待 张三 描述...）",
+        "收到 ERROR 消息（空描述被拒）时重新提示输入",
+        "集成测试验证完整描述环节交互流程"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
