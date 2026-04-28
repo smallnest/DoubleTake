@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/smallnest/doubletake/client"
+	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
 )
 
 // GameConfig holds the validated game parameters entered by the referee.
@@ -82,12 +84,89 @@ func validateConfig(total, undercovers, blanks int) error {
 	return nil
 }
 
-// RunJudge runs the referee interactive configuration flow.
+// RunJudge runs the referee interactive configuration flow and the waiting phase.
 // out is used for display output; in provides the interactive input source.
+// It returns the GameConfig that was selected.
 func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig {
 	disp := client.NewDisplay(out, stealth)
 	disp.PrintStartup()
 
 	scanner := bufio.NewScanner(in)
-	return collectConfig(out, disp, scanner)
+	cfg := collectConfig(out, disp, scanner)
+
+	srv := server.NewServer(port, cfg.TotalPlayers)
+	go srv.Start()
+	defer srv.Stop()
+
+	disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
+
+	// waitingPhase blocks until the referee confirms game start.
+	waitingPhase(out, in, disp, scanner, srv, cfg)
+
+	return cfg
+}
+
+// waitingPhase displays player join events and reads stdin for "start" commands.
+// It blocks until the referee confirms game start or stdin is closed.
+func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, scanner *bufio.Scanner, srv *server.Server, cfg GameConfig) {
+	// stdinCh delivers lines read from stdin.
+	// stdinDone is closed when the stdin goroutine finishes (input exhausted).
+	stdinCh := make(chan string, 1)
+	stdinDone := make(chan struct{})
+	go func() {
+		defer close(stdinDone)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			stdinCh <- line
+		}
+	}()
+
+	for {
+		select {
+		case evt := <-srv.OnPlayerJoin:
+			disp.Info("0000", fmt.Sprintf("%s joined [%d/%d]", evt.Name, evt.Current, evt.Capacity))
+			if evt.Current >= cfg.TotalPlayers {
+				disp.Info("0000", "人已齐，输入 start 开始游戏")
+			}
+
+		case line := <-stdinCh:
+			if strings.EqualFold(line, "start") {
+				count := srv.PlayerCount()
+				if count < 4 {
+					disp.Warn(fmt.Sprintf("至少需要 4 人，当前 %d 人", count))
+					continue
+				}
+				if count < cfg.TotalPlayers {
+					fmt.Fprintf(out, "  当前 %d/%d 人，确认开始？(Y/N): ", count, cfg.TotalPlayers)
+					// Wait for confirmation
+					select {
+					case confirm := <-stdinCh:
+						if strings.EqualFold(confirm, "Y") || confirm == "y" {
+							broadcastReady(disp, srv)
+							return
+						}
+						disp.Info("0000", "已取消，继续等待玩家...")
+					case <-srv.OnPlayerJoin:
+						// A player joined while waiting for confirmation; go back to main loop.
+						continue
+					case <-stdinDone:
+						return
+					}
+					continue
+				}
+				// count == cfg.TotalPlayers (or more, shouldn't happen)
+				broadcastReady(disp, srv)
+				return
+			}
+
+		case <-stdinDone:
+			return
+		}
+	}
+}
+
+// broadcastReady sends the READY message to all named players.
+func broadcastReady(disp *client.Display, srv *server.Server) {
+	disp.Info("0000", "游戏开始！")
+	srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgReady, Payload: ""})
 }

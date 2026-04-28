@@ -1,0 +1,85 @@
+现在我对代码库有了全面的了解。让我分析一下需要做什么：
+
+**问题 #9** 要求：
+1. 服务器端：跟踪每个房间的玩家数量，在玩家加入时通知裁判
+2. 服务器端：房间状态管理（等待 -> 开始）
+3. 裁判端：等待阶段显示（玩家加入，当前人数）
+4. 裁判端：`stdin` 监听 `start` 命令并进行验证（最低 4 人，确认人数不足时）
+5. 服务器端：向所有玩家广播 `READY` 消息
+6. 客户端：处理 `READY` 消息
+
+**关键洞察**：目前服务器没有房间概念——它直接跟踪连接。裁判在收集 `config` 后不运行服务器。`RunJudge` 函数只收集 `config` 并返回。需要集成服务器生命周期。
+
+以下是我的子任务细分：
+
+```json
+{
+  "issueNumber": 9,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "Server 端添加玩家加入通知与房间人数管理",
+      "description": "扩展 Server 结构体，添加 totalPlayers 配置和 playerJoined channel。当玩家成功加入时（handleJoin），通过 channel 通知裁判端玩家名和当前人数。达到设定人数时通过另一个 channel 通知满员。确保 Broadcast 仅发送给已加入（有名字）的玩家。",
+      "acceptanceCriteria": [
+        "Server 新增 totalPlayers 字段和 PlayerEvents channel 用于通知裁判",
+        "handleJoin 成功后向 PlayerEvents 发送玩家名和当前人数",
+        "达到设定人数时发送满员通知",
+        "Broadcast 方法跳过未加入（无名）的连接",
+        "编译通过，现有测试不回归"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "裁判端等待阶段：实时显示玩家加入并监听 start 命令",
+      "description": "修改 RunJudge 函数，在 collectConfig 后启动 Server 并进入等待阶段。等待阶段使用 goroutine 并发：一个 goroutine 从 Server 的 PlayerEvents channel 读取玩家加入事件并打印（如 `[INFO] node-05 joined [3/6]`），另一个 goroutine 监听 stdin 读取 start 命令。实现 start 命令的三种验证逻辑：人数<4拒绝，4<=人数<设定人数需确认，满员直接开始。",
+      "acceptanceCriteria": [
+        "RunJudge 在 collectConfig 后启动 Server 并显示 room code 和等待信息",
+        "每有新玩家加入，打印格式为 `[INFO] [session:XXXX] node-XX joined [X/Y]`",
+        "达到设定人数时打印提示"人已齐，输入 start 开始游戏"",
+        "监听 stdin，输入 start 时验证人数",
+        "人数 < 4 时提示"至少需要 4 人"并继续等待",
+        "人数 >= 4 且 < 设定人数时提示确认"当前 X/Y 人，确认开始？(Y/N)"",
+        "确认后或满员输入 start 触发游戏开始",
+        "编译通过，无 lint 错误"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "Server 端广播 READY 消息与 Client 端处理",
+      "description": "裁判确认开始后，Server 端向所有已连接玩家广播 READY 消息（payload 包含玩家列表或游戏信息）。Client 端（player.go）在消息循环中处理 READY 消息，打印游戏开始提示。确保 READY 消息在 start 命令确认后立即发送。",
+      "acceptanceCriteria": [
+        "裁判触发 start 后 Server 向所有已加入玩家广播 READY 消息",
+        "READY 消息 payload 包含当前玩家列表信息",
+        "Client 端收到 READY 消息时打印游戏开始提示",
+        "广播后裁判端打印游戏启动确认信息",
+        "编译通过，无 lint 错误"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-004",
+      "title": "添加测试覆盖与质量自检",
+      "description": "为新增功能编写单元测试：Server 端玩家加入通知的测试（使用 mock connection），裁判端 start 命令验证逻辑的测试（使用 buffered input），READY 广播的端到端测试。确保测试覆盖核心路径和边界条件。运行 go build/vet/test 全部通过。",
+      "acceptanceCriteria": [
+        "Server 端 PlayerEvents channel 通知机制有测试覆盖",
+        "裁判端 start 命令的三种验证路径有测试（<4人、4-设定人数、满员）",
+        "READY 广播有测试覆盖",
+        "go build ./... 无错误",
+        "go vet ./... 无错误",
+        "go test ./... 全部通过"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```

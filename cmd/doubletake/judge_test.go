@@ -3,8 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"net"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/smallnest/doubletake/client"
+	"github.com/smallnest/doubletake/game"
 )
 
 func TestValidateConfig_Valid(t *testing.T) {
@@ -125,7 +132,7 @@ func TestValidateConfig_TooManySpecialRoles(t *testing.T) {
 func TestCollectConfig_ValidInput(t *testing.T) {
 	input := "6\n1\n1\n"
 	out := &bytes.Buffer{}
-	cfg := runJudgeWithInput(out, input)
+	cfg := runCollectConfig(out, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -140,7 +147,7 @@ func TestCollectConfig_ValidInput(t *testing.T) {
 
 func TestCollectConfig_InvalidTotalThenValid(t *testing.T) {
 	input := "3\n1\n0\n6\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -155,7 +162,7 @@ func TestCollectConfig_InvalidTotalThenValid(t *testing.T) {
 
 func TestCollectConfig_InvalidUndercoverThenValid(t *testing.T) {
 	input := "6\n4\n0\n6\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -164,7 +171,7 @@ func TestCollectConfig_InvalidUndercoverThenValid(t *testing.T) {
 
 func TestCollectConfig_NegativeBlanksThenValid(t *testing.T) {
 	input := "6\n1\n-1\n6\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.Blanks != 0 {
 		t.Errorf("expected blanks 0, got %d", cfg.Blanks)
@@ -173,7 +180,7 @@ func TestCollectConfig_NegativeBlanksThenValid(t *testing.T) {
 
 func TestCollectConfig_TooManySpecialRolesThenValid(t *testing.T) {
 	input := "4\n1\n1\n6\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -185,7 +192,7 @@ func TestCollectConfig_MultipleRetries(t *testing.T) {
 		"6\n0\n0\n" + // undercover too low
 		"6\n1\n-1\n" + // blanks negative
 		"6\n1\n0\n" // valid
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -200,7 +207,7 @@ func TestCollectConfig_MultipleRetries(t *testing.T) {
 
 func TestCollectConfig_BoundaryMaxPlayers(t *testing.T) {
 	input := "10\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 10 {
 		t.Errorf("expected total 10, got %d", cfg.TotalPlayers)
@@ -209,7 +216,7 @@ func TestCollectConfig_BoundaryMaxPlayers(t *testing.T) {
 
 func TestCollectConfig_BoundaryMinPlayers(t *testing.T) {
 	input := "4\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 4 {
 		t.Errorf("expected total 4, got %d", cfg.TotalPlayers)
@@ -219,7 +226,7 @@ func TestCollectConfig_BoundaryMinPlayers(t *testing.T) {
 func TestCollectConfig_WarnsOnInvalidTotal(t *testing.T) {
 	out := &bytes.Buffer{}
 	input := "3\n1\n0\n6\n1\n0\n"
-	runJudgeWithInput(out, input)
+	runCollectConfig(out, input)
 
 	output := out.String()
 	if !strings.Contains(output, "玩家人数 3 不在合法范围") {
@@ -230,7 +237,7 @@ func TestCollectConfig_WarnsOnInvalidTotal(t *testing.T) {
 func TestCollectConfig_WarnsOnInvalidUndercover(t *testing.T) {
 	out := &bytes.Buffer{}
 	input := "6\n0\n0\n6\n1\n0\n"
-	runJudgeWithInput(out, input)
+	runCollectConfig(out, input)
 
 	output := out.String()
 	if !strings.Contains(output, "卧底人数 0 不在合法范围") {
@@ -241,7 +248,7 @@ func TestCollectConfig_WarnsOnInvalidUndercover(t *testing.T) {
 func TestCollectConfig_WarnsOnNegativeBlanks(t *testing.T) {
 	out := &bytes.Buffer{}
 	input := "6\n1\n-1\n6\n1\n0\n"
-	runJudgeWithInput(out, input)
+	runCollectConfig(out, input)
 
 	output := out.String()
 	if !strings.Contains(output, "白板人数 -1 不能为负数") {
@@ -252,7 +259,7 @@ func TestCollectConfig_WarnsOnNegativeBlanks(t *testing.T) {
 func TestCollectConfig_WarnsOnTooManySpecialRoles(t *testing.T) {
 	out := &bytes.Buffer{}
 	input := "4\n1\n1\n6\n1\n0\n"
-	runJudgeWithInput(out, input)
+	runCollectConfig(out, input)
 
 	output := out.String()
 	if !strings.Contains(output, "卧底(1)+白板(1)=2，必须少于总人数的一半(2)") {
@@ -303,7 +310,7 @@ func TestCollectConfig_NonNumericInput(t *testing.T) {
 	// Second iteration: total=6, undercover=1, blanks=0 -> valid
 	input := "abc\n4\n4\n6\n1\n0\n"
 	out := &bytes.Buffer{}
-	cfg := runJudgeWithInput(out, input)
+	cfg := runCollectConfig(out, input)
 
 	if cfg.TotalPlayers != 6 {
 		t.Errorf("expected total 6, got %d", cfg.TotalPlayers)
@@ -312,7 +319,7 @@ func TestCollectConfig_NonNumericInput(t *testing.T) {
 
 func TestCollectConfig_ZeroBlanksAllowed(t *testing.T) {
 	input := "4\n1\n0\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.Blanks != 0 {
 		t.Errorf("expected blanks 0, got %d", cfg.Blanks)
@@ -324,7 +331,7 @@ func TestCollectConfig_ZeroBlanksAllowed(t *testing.T) {
 
 func TestCollectConfig_LargeValidGame(t *testing.T) {
 	input := "10\n3\n1\n"
-	cfg := runJudgeWithInput(&bytes.Buffer{}, input)
+	cfg := runCollectConfig(&bytes.Buffer{}, input)
 
 	if cfg.TotalPlayers != 10 {
 		t.Errorf("expected total 10, got %d", cfg.TotalPlayers)
@@ -337,12 +344,290 @@ func TestCollectConfig_LargeValidGame(t *testing.T) {
 	}
 }
 
+// --- Waiting phase integration tests ---
+
+func TestWaitingPhase_PlayerJoinNotification(t *testing.T) {
+	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+	defer cleanup()
+
+	// Connect a player
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+
+	// Wait for the join notification to appear in output
+	waitForOutput(t, out, "Alice joined [1/4]", 2*time.Second)
+}
+
+func TestWaitingPhase_AllPlayersJoined(t *testing.T) {
+	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"Alice", "Bob", "Charlie", "Dave"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	// Should see "人已齐" message
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 3*time.Second)
+}
+
+func TestWaitingPhase_StartWithFewerThan4(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	// Connect only 3 players
+	for _, name := range []string{"A", "B", "C"} {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "C joined [3/4]", 2*time.Second)
+
+	// Try to start with fewer than 4 players
+	stdin <- "start"
+
+	waitForOutput(t, out, "至少需要 4 人，当前 3 人", 2*time.Second)
+}
+
+func TestWaitingPhase_StartWithConfirmation(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
+	defer cleanup()
+
+	// Connect 4 players (less than 6)
+	for _, name := range []string{"A", "B", "C", "D"} {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "D joined [4/6]", 2*time.Second)
+
+	// Start with confirmation
+	stdin <- "start"
+	waitForOutput(t, out, "当前 4/6 人，确认开始？(Y/N)", 2*time.Second)
+	stdin <- "N"
+	waitForOutput(t, out, "已取消，继续等待玩家...", 2*time.Second)
+}
+
+func TestWaitingPhase_StartConfirmed(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	conns := make([]net.Conn, 4)
+	for i, name := range []string{"A", "B", "C", "D"} {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume the JOIN confirmation from each player connection first
+	for _, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("failed to consume JOIN confirmation: %v", err)
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Fatalf("failed to decode JOIN confirmation: %v", err)
+		}
+		if msg.Type != game.MsgJoin {
+			t.Fatalf("expected JOIN confirmation, got %s", msg.Type)
+		}
+	}
+
+	// Start with full capacity — no confirmation needed
+	stdin <- "start"
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+
+	// Verify players receive READY message
+	for i, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Errorf("player %d did not receive READY: %v", i, err)
+			continue
+		}
+		msg, err := game.Decode(line)
+		if err != nil {
+			t.Errorf("player %d: decode error: %v", i, err)
+			continue
+		}
+		if msg.Type != game.MsgReady {
+			t.Errorf("player %d: expected READY, got %s", i, msg.Type)
+		}
+	}
+}
+
+func TestWaitingPhase_StartWithPartialConfirmation(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
+	defer cleanup()
+
+	// Connect 5 players (>=4 but <6)
+	for _, name := range []string{"A", "B", "C", "D", "E"} {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "E joined [5/6]", 2*time.Second)
+
+	// Start and confirm with Y
+	stdin <- "start"
+	waitForOutput(t, out, "当前 5/6 人，确认开始？(Y/N)", 2*time.Second)
+	stdin <- "Y"
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+}
+
+// --- Test helpers ---
+
 // newTestScanner creates a bufio.Scanner from a string for testing.
 func newTestScanner(input string) *bufio.Scanner {
 	return bufio.NewScanner(strings.NewReader(input))
 }
 
-// runJudgeWithInput is a test helper that runs RunJudge with the given input string.
-func runJudgeWithInput(out *bytes.Buffer, input string) GameConfig {
-	return RunJudge(out, strings.NewReader(input), "8127", false)
+// runCollectConfig is a test helper that runs collectConfig with the given input.
+func runCollectConfig(out *bytes.Buffer, input string) GameConfig {
+	disp := newDisplay(out)
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	return collectConfig(out, disp, scanner)
+}
+
+// newDisplay creates a Display for testing.
+func newDisplay(out *bytes.Buffer) *client.Display {
+	return client.NewDisplay(out, false)
+}
+
+// startJudgeForTest runs RunJudge in a goroutine and returns a buffered output, the server port, and a cleanup function.
+func startJudgeForTest(t *testing.T, configInput string) (*safeBuffer, string, func()) {
+	t.Helper()
+	return startJudgeForTestWithStdinRaw(t, configInput)
+}
+
+// startJudgeForTestWithStdin runs RunJudge and also returns a channel to inject stdin lines.
+func startJudgeForTestWithStdin(t *testing.T, configInput string) (*safeBuffer, string, chan string, func()) {
+	t.Helper()
+	stdinCh := make(chan string, 16)
+	out, port, cleanup := startJudgeForTestWithStdinRaw(t, configInput, stdinCh)
+	return out, port, stdinCh, cleanup
+}
+
+func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines ...chan string) (*safeBuffer, string, func()) {
+	t.Helper()
+
+	// Find a free port
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to find free port: %v", err)
+	}
+	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
+	ln.Close()
+
+	out := &safeBuffer{}
+
+	// Build a reader that first provides config, then lines from extraLines channel
+	reader, writer := net.Pipe()
+
+	// Write config input
+	go func() {
+		writer.Write([]byte(configInput))
+		// If there's an extraLines channel, feed from it
+		if len(extraLines) > 0 {
+			for line := range extraLines[0] {
+				writer.Write([]byte(line + "\n"))
+			}
+		}
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		RunJudge(out, reader, port, false)
+		close(done)
+	}()
+
+	// Wait for server to be listening
+	for i := 0; i < 100; i++ {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 10*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	cleanup := func() {
+		// Close extraLines channel so the stdin goroutine in RunJudge can detect EOF
+		for _, ch := range extraLines {
+			close(ch)
+		}
+		writer.Close()
+		reader.Close()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+		}
+	}
+
+	return out, port, cleanup
+}
+
+// safeBuffer is a thread-safe bytes.Buffer for concurrent read/write in tests.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (sb *safeBuffer) Write(p []byte) (int, error) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.Write(p)
+}
+
+func (sb *safeBuffer) String() string {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.buf.String()
+}
+
+// waitForOutput polls the safeBuffer until the expected substring appears or times out.
+func waitForOutput(t *testing.T, out *safeBuffer, substr string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(out.String(), substr) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %q in output: %s", substr, out.String())
 }

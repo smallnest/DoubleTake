@@ -25,3 +25,12 @@
 - Judge 测试提供有效配置输入（如 `"6\n1\n0\n"`）
 - Player 测试可使用空 `strings.NewReader("")` 触发快速失败，或设置真实 TCP 服务器端到端测试
 - 覆盖场景：正常参数、无效 role、默认 port、自定义 port、缺失值、未知选项、help、stealth 开关
+- 等待阶段集成测试使用 `net.Pipe()` 模拟 stdin，通过 channel 注入交互式输入（如 "start"、"Y"）
+- 集成测试 cleanup 时必须关闭 extraLines channel，否则 stdin goroutine 会阻塞导致测试挂起
+- 测试读取玩家连接消息时，需先消费 JOIN 确认消息，再检查后续的 READY 广播
+
+## 注意事项
+- `waitingPhase` 中的 stdin goroutine 必须通过 `stdinDone` channel 通知主循环退出，否则 input 耗尽时主循环会永久阻塞在 select
+- 嵌套的 `select`（如确认 Y/N 时）也必须包含 `<-stdinDone` case，防止 EOF 时死锁
+- `collectConfig` 中 `readIntInput` 在 EOF 时返回 -1 依赖 `validateConfig` 拒绝，会导致 EOF 场景下无限循环。如需优雅退出，应在 `collectConfig` 层检测 `scanner.Err()` 或 `readInt` 的 error
+- `strings.EqualFold(confirm, "Y")` 已覆盖大小写不敏感比较，不需要 `|| confirm == "y"` 冗余条件
