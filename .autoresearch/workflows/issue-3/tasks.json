@@ -1,0 +1,35 @@
+{
+  "issueNumber": 3,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "实现 base62 编解码核心函数（Encode/Decode）",
+      "description": "在 game 包中创建 base62.go，实现 base62 编解码逻辑。将 IP:port（如 192.168.1.100:8127）编码为 base62 短字符串（如 a3F7b2Xk），并能从短字符串解码回原始 IP:port。编码思路：将 IP:port 的字节序列视为大整数，转换为 base62 表示。解码为逆过程。需处理无效输入（非法 base62 字符、解码后不是合法 IP:port 格式等）。",
+      "acceptanceCriteria": [
+        "game/base62.go 文件存在，包含 Encode(ipPort string) string 和 Decode(code string) (string, error) 两个公共函数",
+        "Encode 函数能将合法的 IP:port 字符串编码为 base62 短字符串",
+        "Decode 函数能将 base62 编码的字符串解码回原始 IP:port",
+        "Decode 对无效输入（空字符串、非法字符、解码后格式错误）返回 error",
+        "编译通过，无 lint 错误"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "编写 base62 编解码的完整测试用例",
+      "description": "创建 game/base62_test.go，编写表格驱动测试覆盖：正常编码解码往返（round-trip）、多种 IP:port 格式（IPv4、不同端口）、无效密码解码返回错误、边界情况等。确保测试覆盖率 ≥ 80%。",
+      "acceptanceCriteria": [
+        "game/base62_test.go 文件存在，包含 Encode/Decode 的单元测试",
+        "测试覆盖 round-trip：Encode(Decode(Encode(x))) == Encode(x) 且 Decode(Encode(x)) == x",
+        "测试覆盖多种 IP:port 格式（如 127.0.0.1:8127, 192.168.1.100:8127, 10.0.0.1:80）",
+        "测试覆盖无效输入：空字符串、非法 base62 字符、解码后非合法 IP:port",
+        "go test ./game/ 全部通过，测试覆盖率 ≥ 80%"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}
