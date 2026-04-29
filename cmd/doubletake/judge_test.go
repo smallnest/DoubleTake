@@ -1188,6 +1188,13 @@ func readMsgFromConn(t *testing.T, conn net.Conn) game.Message {
 // and are ready for the description phase.
 func setupDescPhaseTest(t *testing.T, numPlayers int) ([]net.Conn, func()) {
 	t.Helper()
+	conns, _, _, cleanup := setupDescPhaseTestFull(t, numPlayers)
+	return conns, cleanup
+}
+
+// setupDescPhaseTestFull is like setupDescPhaseTest but also returns the port and out buffer.
+func setupDescPhaseTestFull(t *testing.T, numPlayers int) ([]net.Conn, *safeBuffer, string, func()) {
+	t.Helper()
 
 	// 1U 0B for any count >= 4
 	configInput := fmt.Sprintf("%d\n1\n0\n", numPlayers)
@@ -1234,7 +1241,7 @@ func setupDescPhaseTest(t *testing.T, numPlayers int) ([]net.Conn, func()) {
 	// NOTE: we don't close stdin here because the description phase
 	// blocks on srv.OnDescMsg, not stdin. The caller must send DESC messages.
 	_ = stdin
-	return conns, cleanup
+	return conns, out, port, cleanup
 }
 
 func TestDescriptionPhase_NormalFlow(t *testing.T) {
@@ -1429,6 +1436,47 @@ func setupVotePhaseTest(t *testing.T, numPlayers int) ([]net.Conn, []string, fun
 	}
 
 	return conns, speakers, cleanup
+}
+
+// setupVotePhaseTestFull is like setupVotePhaseTest but also returns the port and out buffer.
+func setupVotePhaseTestFull(t *testing.T, numPlayers int) ([]net.Conn, []string, *safeBuffer, string, func()) {
+	t.Helper()
+	conns, out, port, cleanup := setupDescPhaseTestFull(t, numPlayers)
+
+	// Read ROUND + TURN to learn speaker order, then drive description phase.
+	var speakers []string
+	for i, conn := range conns {
+		roundMsg := readMsgFromConn(t, conn)
+		if roundMsg.Type != game.MsgRound {
+			t.Fatalf("conn %d: expected ROUND, got %s", i, roundMsg.Type)
+		}
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		if i == 0 {
+			speakers = strings.Split(roundParts[1], ",")
+		}
+		turnMsg := readMsgFromConn(t, conn)
+		if turnMsg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, turnMsg.Type)
+		}
+	}
+
+	for _, speaker := range speakers {
+		speakerConn := findConnByName(conns, speaker)
+		if speakerConn == nil {
+			t.Fatalf("connection not found for speaker %s", speaker)
+		}
+		fmt.Fprintf(speakerConn, "DESC|hello from %s\n", speaker)
+		for _, conn := range conns {
+			readMsgFromConn(t, conn)
+		}
+		if speaker != speakers[len(speakers)-1] {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn)
+			}
+		}
+	}
+
+	return conns, speakers, out, port, cleanup
 }
 
 func TestVotingPhase_NormalFlow(t *testing.T) {
@@ -2285,6 +2333,363 @@ func TestBuildWinPayload(t *testing.T) {
 	}
 	if parts[3] != "香蕉" {
 		t.Errorf("undercover word = %q, want 香蕉", parts[3])
+	}
+}
+
+// --- Disconnect timeout tests ---
+
+func TestIsPlayerDisconnected(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Alice", Connected: true},
+		{Name: "Bob", Connected: false},
+		{Name: "Charlie", Connected: true},
+	}
+	var mu sync.Mutex
+
+	tests := []struct {
+		name   string
+		target string
+		want   bool
+	}{
+		{"connected player", "Alice", false},
+		{"disconnected player", "Bob", true},
+		{"unknown player", "Dave", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPlayerDisconnected(tt.target, players, &mu)
+			if got != tt.want {
+				t.Errorf("isPlayerDisconnected(%q) = %v, want %v", tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDescriptionPhase_DisconnectedPlayerTimeout_Skip(t *testing.T) {
+	conns, out, _, cleanup := setupDescPhaseTestFull(t, 4)
+	defer cleanup()
+
+	// Read ROUND + TURN from all connections to learn the first speaker.
+	var firstSpeaker string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // ROUND
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	// Override timeout to a very short duration for testing.
+	savedTimeout := disconnectTimeout
+	disconnectTimeout = 50 * time.Millisecond
+	defer func() { disconnectTimeout = savedTimeout }()
+
+	// Close the first speaker's connection to trigger the disconnect path.
+	speakerConn := findConnByName(conns, firstSpeaker)
+	speakerConn.Close()
+
+	// Send a DESC from a non-current speaker to make the judge re-check
+	// isPlayerDisconnected at the top of the for loop (on continue).
+	var otherConn net.Conn
+	for i, conn := range conns {
+		name := fmt.Sprintf("P%d", i)
+		if name != firstSpeaker {
+			otherConn = conn
+			break
+		}
+	}
+	fmt.Fprintf(otherConn, "DESC|hello\n")
+
+	// Read the ERROR "还没轮到你发言" from otherConn.
+	errMsg := readMsgFromConn(t, otherConn)
+	if errMsg.Type != game.MsgError {
+		t.Fatalf("expected ERROR, got %s: %s", errMsg.Type, errMsg.Payload)
+	}
+
+	// Wait for the timeout skip message in the judge output.
+	waitForOutput(t, out, "超时未发言（已掉线），跳过", 2*time.Second)
+
+	// After skipping, a TURN must be broadcast for the next speaker.
+	for _, conn := range conns {
+		if conn == speakerConn {
+			continue
+		}
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN after skip, got %s: %s", msg.Type, msg.Payload)
+		}
+		if msg.Payload == firstSpeaker {
+			t.Errorf("TURN should not be for disconnected speaker %s", firstSpeaker)
+		}
+	}
+}
+
+func TestVotingPhase_DisconnectedPlayerTimeout_Skip(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Read VOTE + TURN from all connections.
+	var currentVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentVoter = msg.Payload
+		}
+	}
+
+	// Override timeout to a very short duration for testing.
+	savedTimeout := disconnectTimeout
+	disconnectTimeout = 50 * time.Millisecond
+	defer func() { disconnectTimeout = savedTimeout }()
+
+	// Close the current voter's connection to trigger the disconnect path.
+	voterConn := findConnByName(conns, currentVoter)
+	voterConn.Close()
+
+	// Send a VOTE from a non-current voter to make the judge re-check
+	// isPlayerDisconnected at the top of the for loop.
+	var otherConn net.Conn
+	for i, conn := range conns {
+		name := fmt.Sprintf("P%d", i)
+		if name != currentVoter {
+			otherConn = conn
+			break
+		}
+	}
+	fmt.Fprintf(otherConn, "VOTE|%s\n", voters[0])
+
+	// Read the ERROR "还没轮到你投票" from otherConn.
+	errMsg := readMsgFromConn(t, otherConn)
+	if errMsg.Type != game.MsgError {
+		t.Fatalf("expected ERROR, got %s: %s", errMsg.Type, errMsg.Payload)
+	}
+
+	// After skipping, a TURN must be broadcast for the next voter.
+	// readMsgFromConn will wait up to 2s for the broadcast (timeout fires at 50ms).
+	for _, conn := range conns {
+		if conn == voterConn {
+			continue
+		}
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN after skip, got %s: %s", msg.Type, msg.Payload)
+		}
+		if msg.Payload == currentVoter {
+			t.Errorf("TURN should not be for disconnected voter %s", currentVoter)
+		}
+	}
+}
+
+func TestDescriptionPhase_DisconnectedPlayerReconnectsBeforeTimeout(t *testing.T) {
+	conns, out, port, cleanup := setupDescPhaseTestFull(t, 4)
+	defer cleanup()
+
+	// Read ROUND + TURN from all connections to learn the first speaker.
+	var firstSpeaker string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // ROUND
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	// Override timeout to 5 seconds — long enough to reconnect before it fires.
+	savedTimeout := disconnectTimeout
+	disconnectTimeout = 5 * time.Second
+	defer func() { disconnectTimeout = savedTimeout }()
+
+	// Close the first speaker's connection to trigger disconnect.
+	speakerConn := findConnByName(conns, firstSpeaker)
+	speakerConn.Close()
+
+	// Build list of live connections (excluding the now-closed speaker).
+	var liveConns []net.Conn
+	for i, conn := range conns {
+		if fmt.Sprintf("P%d", i) != firstSpeaker {
+			liveConns = append(liveConns, conn)
+		}
+	}
+
+	// Send a DESC from another player to make the judge re-enter its loop
+	// and detect the disconnected player.
+	otherConn := liveConns[0]
+	fmt.Fprintf(otherConn, "DESC|interloper desc\n")
+
+	// Read the ERROR from that player.
+	errMsg := readMsgFromConn(t, otherConn)
+	if errMsg.Type != game.MsgError {
+		t.Fatalf("expected ERROR, got %s: %s", errMsg.Type, errMsg.Payload)
+	}
+
+	// The judge is now in its select with the 5s timer running.
+	// Reconnect the disconnected speaker via a new TCP connection.
+	newConn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to reconnect: %v", err)
+	}
+	defer newConn.Close()
+
+	fmt.Fprintf(newConn, "RECONNECT|%s\n", firstSpeaker)
+
+	// Consume RECONNECT confirmation.
+	newReader := bufio.NewReader(newConn)
+	newConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	line, err := newReader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read RECONNECT confirmation: %v", err)
+	}
+	msg1, err := game.Decode(line)
+	if err != nil {
+		t.Fatalf("failed to decode RECONNECT confirmation: %v", err)
+	}
+	if msg1.Type != game.MsgReconnect {
+		t.Fatalf("expected RECONNECT, got %s: %s", msg1.Type, msg1.Payload)
+	}
+
+	// Consume STATE message.
+	newConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	line, err = newReader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read STATE: %v", err)
+	}
+	msg2, err := game.Decode(line)
+	if err != nil {
+		t.Fatalf("failed to decode STATE: %v", err)
+	}
+	if msg2.Type != game.MsgState {
+		t.Fatalf("expected STATE, got %s: %s", msg2.Type, msg2.Payload)
+	}
+
+	// Send DESC from the reconnected player on the new connection.
+	fmt.Fprintf(newConn, "DESC|reconnected desc\n")
+
+	// Verify DESC broadcast to all live connections.
+	for _, conn := range liveConns {
+		descMsg := readMsgFromConn(t, conn)
+		if descMsg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC broadcast, got %s: %s", descMsg.Type, descMsg.Payload)
+		}
+		if !strings.Contains(descMsg.Payload, "reconnected desc") {
+			t.Errorf("DESC should contain the reconnected desc, got %q", descMsg.Payload)
+		}
+	}
+
+	// Verify TURN for the next speaker (no longer the reconnected player).
+	for _, conn := range liveConns {
+		turnMsg := readMsgFromConn(t, conn)
+		if turnMsg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN after reconnect, got %s: %s", turnMsg.Type, turnMsg.Payload)
+		}
+		if turnMsg.Payload == firstSpeaker {
+			t.Errorf("TURN should not be for reconnected speaker %s", firstSpeaker)
+		}
+	}
+
+	// Verify no timeout message appeared.
+	if strings.Contains(out.String(), "超时未发言") {
+		t.Error("should not have timed out when player reconnected before timeout")
+	}
+}
+
+func TestVotingPhase_DisconnectedPlayerReconnectsBeforeTimeout(t *testing.T) {
+	conns, voters, out, port, cleanup := setupVotePhaseTestFull(t, 4)
+	defer cleanup()
+
+	// Read VOTE + TURN from all connections.
+	var currentVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			currentVoter = msg.Payload
+		}
+	}
+
+	// Override timeout to 5 seconds.
+	savedTimeout := disconnectTimeout
+	disconnectTimeout = 5 * time.Second
+	defer func() { disconnectTimeout = savedTimeout }()
+
+	// Close the current voter's connection.
+	voterConn := findConnByName(conns, currentVoter)
+	voterConn.Close()
+
+	// Build list of live connections.
+	var liveConns []net.Conn
+	for i, conn := range conns {
+		if fmt.Sprintf("P%d", i) != currentVoter {
+			liveConns = append(liveConns, conn)
+		}
+	}
+
+	// Send a VOTE from another player to trigger re-check.
+	otherConn := liveConns[0]
+	fmt.Fprintf(otherConn, "VOTE|%s\n", voters[0])
+
+	// Read the ERROR from that player.
+	errMsg := readMsgFromConn(t, otherConn)
+	if errMsg.Type != game.MsgError {
+		t.Fatalf("expected ERROR, got %s: %s", errMsg.Type, errMsg.Payload)
+	}
+
+	// The judge is now in its select with the 5s timer running.
+	// Reconnect the disconnected voter via a new TCP connection.
+	newConn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to reconnect: %v", err)
+	}
+	defer newConn.Close()
+
+	fmt.Fprintf(newConn, "RECONNECT|%s\n", currentVoter)
+
+	// Consume RECONNECT confirmation.
+	newReader := bufio.NewReader(newConn)
+	newConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	line, err := newReader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read RECONNECT confirmation: %v", err)
+	}
+	msg1, err := game.Decode(line)
+	if err != nil {
+		t.Fatalf("failed to decode RECONNECT confirmation: %v", err)
+	}
+	if msg1.Type != game.MsgReconnect {
+		t.Fatalf("expected RECONNECT, got %s: %s", msg1.Type, msg1.Payload)
+	}
+
+	// Consume STATE message.
+	newConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	line, err = newReader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read STATE: %v", err)
+	}
+	_, _ = game.Decode(line)
+
+	// Send VOTE from the reconnected player on the new connection.
+	// Choose a target different from the reconnected player to avoid self-vote rejection.
+	voteTarget := voters[0]
+	if voteTarget == currentVoter {
+		voteTarget = voters[1]
+	}
+	fmt.Fprintf(newConn, "VOTE|%s\n", voteTarget)
+
+	// Verify TURN for the next voter (no longer the reconnected voter).
+	for _, conn := range liveConns {
+		turnMsg := readMsgFromConn(t, conn)
+		if turnMsg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN after reconnect, got %s: %s", turnMsg.Type, turnMsg.Payload)
+		}
+		if turnMsg.Payload == currentVoter {
+			t.Errorf("TURN should not be for reconnected voter %s", currentVoter)
+		}
+	}
+
+	// Verify no timeout message appeared.
+	if strings.Contains(out.String(), "超时未投票") {
+		t.Error("should not have timed out when voter reconnected before timeout")
 	}
 }
 

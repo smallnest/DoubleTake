@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/smallnest/doubletake/game"
 )
@@ -33,6 +35,7 @@ type Server struct {
 	OnVoteMsg    chan VoteEvent        // forwards VOTE messages from named players
 	OnGuessMsg   chan GuessEvent       // forwards GUESS messages from named players
 	OnDisconnect chan DisconnectEvent  // notifies when a named player disconnects
+	OnReconnect  chan ReconnectRequest // requests game state for a reconnected player
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -65,6 +68,20 @@ type DisconnectEvent struct {
 	PlayerName string
 }
 
+// ReconnectRequest is sent when a player successfully reconnects and needs game state.
+// The handler must send a ReconnectResponse on the Response channel.
+type ReconnectRequest struct {
+	PlayerName string
+	Response   chan<- ReconnectResponse
+}
+
+// ReconnectResponse carries the game state to send to a reconnected player.
+type ReconnectResponse struct {
+	Round       int
+	Word        string
+	AlivePlayers []string
+}
+
 // NewServer creates a new Server that will listen on the given port.
 // totalPlayers sets the expected player capacity for join notifications.
 func NewServer(port string, totalPlayers int) *Server {
@@ -81,6 +98,7 @@ func NewServer(port string, totalPlayers int) *Server {
 		OnVoteMsg:    make(chan VoteEvent, 64),
 		OnGuessMsg:   make(chan GuessEvent, 64),
 		OnDisconnect: make(chan DisconnectEvent, 64),
+		OnReconnect:  make(chan ReconnectRequest, 64),
 	}
 }
 
@@ -376,6 +394,8 @@ func (s *Server) SetGamePlayers(players []*game.Player) {
 // handleReconnect processes a RECONNECT message from a disconnected player.
 // The payload should be the player's name. If the name matches a disconnected
 // player, the connection is restored; otherwise an ERROR is returned.
+// After successful reconnection, it requests game state via OnReconnect and
+// sends a STATE message to the player with current round, word, and alive players.
 func (s *Server) handleReconnect(player *Player, name string) {
 	if name == "" {
 		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "名字不能为空"})
@@ -398,4 +418,21 @@ func (s *Server) handleReconnect(player *Player, name string) {
 
 	s.Send(player.Conn, game.Message{Type: game.MsgReconnect, Payload: name})
 	log.Printf("player %s reconnected as %s", player.Conn.RemoteAddr(), name)
+
+	// Request game state from the judge for the reconnected player.
+	respCh := make(chan ReconnectResponse, 1)
+	req := ReconnectRequest{PlayerName: name, Response: respCh}
+	select {
+	case s.OnReconnect <- req:
+		select {
+		case resp := <-respCh:
+			aliveList := strings.Join(resp.AlivePlayers, ",")
+			payload := fmt.Sprintf("%d|%s|%s", resp.Round, resp.Word, aliveList)
+			s.Send(player.Conn, game.Message{Type: game.MsgState, Payload: payload})
+		case <-time.After(5 * time.Second):
+			log.Printf("timeout waiting for reconnect state response for %s", name)
+		}
+	case <-time.After(5 * time.Second):
+		log.Printf("timeout sending reconnect request for %s", name)
+	}
 }

@@ -362,3 +362,60 @@ func TestPKRound_FullRound_Integration(t *testing.T) {
 		t.Errorf("FindEliminated() = %q, want %q", eliminated, "bob")
 	}
 }
+
+// ---------- SkipCurrentVoter ----------
+
+func TestSkipCurrentVoter(t *testing.T) {
+	tied := []string{"alice", "bob"}
+	alive := []string{"alice", "bob", "carol"}
+	pk, err := NewPKRound(1, tied, alive)
+	if err != nil {
+		t.Fatalf("NewPKRound error: %v", err)
+	}
+	pk.StartVote()
+
+	if pk.CurrentVoter() != "alice" {
+		t.Fatalf("expected alice as first voter, got %q", pk.CurrentVoter())
+	}
+
+	pk.SkipCurrentVoter()
+	if pk.CurrentVoter() != "bob" {
+		t.Errorf("after skip, expected bob, got %q", pk.CurrentVoter())
+	}
+	if len(pk.Votes) != 0 {
+		t.Error("SkipCurrentVoter should not record a vote")
+	}
+}
+
+func TestSkipCurrentVoter_AllSkipped(t *testing.T) {
+	tied := []string{"alice", "bob"}
+	alive := []string{"alice", "bob", "carol"}
+	pk, err := NewPKRound(1, tied, alive)
+	if err != nil {
+		t.Fatalf("NewPKRound error: %v", err)
+	}
+	pk.StartVote()
+
+	pk.SkipCurrentVoter()
+	pk.SkipCurrentVoter()
+	pk.SkipCurrentVoter()
+	if !pk.AllVoted() {
+		t.Error("AllVoted() should be true after skipping all voters")
+	}
+}
+
+func TestSkipCurrentVoter_NoOpWhenDone(t *testing.T) {
+	tied := []string{"alice", "bob"}
+	alive := []string{"alice", "bob", "carol"}
+	pk, err := NewPKRound(1, tied, alive)
+	if err != nil {
+		t.Fatalf("NewPKRound error: %v", err)
+	}
+	pk.StartVote()
+	pk.CurrentVote = 3 // all done
+
+	pk.SkipCurrentVoter() // should be a no-op
+	if pk.CurrentVote != 3 {
+		t.Errorf("CurrentVote should remain 3 after no-op skip, got %d", pk.CurrentVote)
+	}
+}

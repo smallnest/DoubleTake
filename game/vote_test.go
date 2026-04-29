@@ -216,6 +216,56 @@ func TestRecordVote_VoteUnknown(t *testing.T) {
 	}
 }
 
+// ---------- SkipCurrent ----------
+
+func TestSkipCurrent_VoteRound(t *testing.T) {
+	v, err := NewVoteRound(1, []string{"alice", "bob", "carol"})
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+
+	if v.CurrentVoter() != "alice" {
+		t.Fatalf("expected alice as current voter")
+	}
+
+	v.SkipCurrent()
+	if v.CurrentVoter() != "bob" {
+		t.Errorf("after skip, expected bob as current voter, got %q", v.CurrentVoter())
+	}
+	if v.Votes["alice"] != "" {
+		t.Error("SkipCurrent should not record a vote")
+	}
+}
+
+func TestSkipCurrent_AllSkipped_VoteRound(t *testing.T) {
+	v, err := NewVoteRound(1, []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+
+	v.SkipCurrent()
+	v.SkipCurrent()
+	if !v.AllDone() {
+		t.Error("AllDone() should be true after skipping all voters")
+	}
+	if v.CurrentVoter() != "" {
+		t.Errorf("CurrentVoter() should be empty after all skipped")
+	}
+}
+
+func TestSkipCurrent_NoOpWhenDone_VoteRound(t *testing.T) {
+	v, err := NewVoteRound(1, []string{"alice"})
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+	v.CurrentIndex = 1
+
+	v.SkipCurrent() // should be a no-op
+	if v.CurrentIndex != 1 {
+		t.Errorf("CurrentIndex should remain 1 after no-op skip, got %d", v.CurrentIndex)
+	}
+}
+
 // ---------- AllDone boundary cases ----------
 
 func TestAllDone_ZeroPlayers(t *testing.T) {

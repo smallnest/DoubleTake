@@ -96,6 +96,14 @@ func (v *VoteRound) RecordVote(voter, target string, alivePlayers []string) erro
 	return nil
 }
 
+// SkipCurrent skips the current voter without recording a vote.
+// The vote is treated as an abstention. Advances the turn index to the next voter.
+func (v *VoteRound) SkipCurrent() {
+	if v.CurrentIndex < len(v.Voters) {
+		v.CurrentIndex++
+	}
+}
+
 // AllDone returns true when every player in the voter list has voted.
 func (v *VoteRound) AllDone() bool {
 	return v.CurrentIndex >= len(v.Voters)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -418,10 +419,32 @@ func TestInvalidMessageNoPanic(t *testing.T) {
 	}
 }
 
+// Package-level persistent readers per connection, so that multiple calls to
+// readMsg on the same conn don't lose buffered data when messages arrive in
+// the same TCP segment.
+var (
+	readers   map[net.Conn]*bufio.Reader
+	readersMu sync.Mutex
+)
+
+func readerForConn(conn net.Conn) *bufio.Reader {
+	readersMu.Lock()
+	defer readersMu.Unlock()
+	if readers == nil {
+		readers = make(map[net.Conn]*bufio.Reader)
+	}
+	r, ok := readers[conn]
+	if !ok {
+		r = bufio.NewReader(conn)
+		readers[conn] = r
+	}
+	return r
+}
+
 func readMsg(t *testing.T, conn net.Conn) game.Message {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-	reader := bufio.NewReader(conn)
+	reader := readerForConn(conn)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		t.Fatalf("failed to read message: %v", err)
@@ -1165,4 +1188,192 @@ func TestSetGamePlayers(t *testing.T) {
 		t.Errorf("expected 2 game players, got %d", len(srv.gamePlayers))
 	}
 	srv.mu.Unlock()
+}
+
+func TestReconnectSendsStateMessage(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Word: "苹果", Alive: true, Connected: true},
+		{Name: "Bob", Role: game.Undercover, Word: "香蕉", Alive: true, Connected: true},
+		{Name: "Charlie", Role: game.Blank, Word: "", Alive: false, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins and disconnects.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	if gamePlayers[0].Connected {
+		t.Fatal("expected Connected=false after disconnect")
+	}
+
+	// Alice reconnects.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	// Handle reconnect request in a goroutine.
+	// readMsg has a 500ms deadline so we don't need explicit synchronization.
+	go func() {
+		req := <-srv.OnReconnect
+		if req.PlayerName != "Alice" {
+			t.Errorf("expected reconnect request for Alice, got %s", req.PlayerName)
+		}
+		req.Response <- ReconnectResponse{
+			Round:        2,
+			Word:         "苹果",
+			AlivePlayers: []string{"Alice", "Bob"},
+		}
+	}()
+
+	fmt.Fprintf(conn2, "RECONNECT|Alice\n")
+
+	// Read RECONNECT confirmation (sent before OnReconnect request).
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgReconnect {
+		t.Errorf("expected RECONNECT response, got %s", msg.Type)
+	}
+
+	// Read STATE message (sent after OnReconnect response).
+	stateMsg := readMsg(t, conn2)
+	if stateMsg.Type != game.MsgState {
+		t.Fatalf("expected STATE message, got %s", stateMsg.Type)
+	}
+
+	// Verify STATE payload: "2|苹果|Alice,Bob"
+	expectedPayload := "2|苹果|Alice,Bob"
+	if stateMsg.Payload != expectedPayload {
+		t.Errorf("expected STATE payload %q, got %q", expectedPayload, stateMsg.Payload)
+	}
+}
+
+func TestReconnectStateBlankPlayerWord(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Word: "苹果", Alive: true, Connected: true},
+		{Name: "Bob", Role: game.Blank, Word: "", Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Bob joins and disconnects.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Bob\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// Bob reconnects.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	// Handle reconnect request and signal when done.
+	responseSent := make(chan struct{})
+	go func() {
+		req := <-srv.OnReconnect
+		req.Response <- ReconnectResponse{
+			Round:        1,
+			Word:         "你是白板",
+			AlivePlayers: []string{"Alice", "Bob"},
+		}
+		close(responseSent)
+	}()
+
+	fmt.Fprintf(conn2, "RECONNECT|Bob\n")
+	<-responseSent
+
+	// Read RECONNECT confirmation.
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgReconnect {
+		t.Errorf("expected RECONNECT response, got %s", msg.Type)
+	}
+
+	// Read STATE message.
+	stateMsg := readMsg(t, conn2)
+	if stateMsg.Type != game.MsgState {
+		t.Fatalf("expected STATE message, got %s", stateMsg.Type)
+	}
+
+	// Verify blank player gets "你是白板" as word.
+	expectedPayload := "1|你是白板|Alice,Bob"
+	if stateMsg.Payload != expectedPayload {
+		t.Errorf("expected STATE payload %q, got %q", expectedPayload, stateMsg.Payload)
+	}
+}
+
+func TestReconnectStateNoAlivePlayers(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Word: "苹果", Alive: false, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins and disconnects.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// Alice reconnects.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	// Handle reconnect request and signal when done.
+	responseSent := make(chan struct{})
+	go func() {
+		req := <-srv.OnReconnect
+		req.Response <- ReconnectResponse{
+			Round:        3,
+			Word:         "苹果",
+			AlivePlayers: nil,
+		}
+		close(responseSent)
+	}()
+
+	fmt.Fprintf(conn2, "RECONNECT|Alice\n")
+	<-responseSent
+
+	// Read RECONNECT confirmation.
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgReconnect {
+		t.Errorf("expected RECONNECT response, got %s", msg.Type)
+	}
+
+	// Read STATE message.
+	stateMsg := readMsg(t, conn2)
+	if stateMsg.Type != game.MsgState {
+		t.Fatalf("expected STATE message, got %s", stateMsg.Type)
+	}
+
+	// Verify empty alive list produces "3|苹果|".
+	expectedPayload := "3|苹果|"
+	if stateMsg.Payload != expectedPayload {
+		t.Errorf("expected STATE payload %q, got %q", expectedPayload, stateMsg.Payload)
+	}
 }

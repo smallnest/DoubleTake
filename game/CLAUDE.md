@@ -60,6 +60,7 @@
 - `RecordDesc(playerName, desc string)` 校验顺序：先检查空描述（`ErrEmptyDesc`），再检查是否轮到该玩家（`ErrNotYourTurn`）
 - 空描述判定使用 `strings.TrimSpace`，纯空白视为空；有实际内容的描述保留原始内容（不做 trim）
 - `AllDone()` 在 `CurrentIndex >= len(SpeakerOrder)` 时返回 true，0 人场景天然为 true
+- `SkipCurrent()` 跳过当前发言者（不记录描述），仅当 `CurrentIndex < len(SpeakerOrder)` 时递增索引
 - 错误变量 `ErrEmptyDesc`、`ErrNotYourTurn` 定义在 `game.go` 中作为包级变量
 - 描述记录使用 `map[string]string`，以玩家名为 key，方便裁判端按名回溯
 - `game_test.go` 覆盖：正常流程、空描述拒绝（表格驱动）、非当前玩家拒绝、边界（0人、1人）、完整记录验证
@@ -73,6 +74,7 @@
 - `Tally()` 返回 `map[string]int` 每个被投票者的得票数，仅统计被投的人
 - `FindEliminated()` 返回票数最高者；平票返回空字符串和 `tie=true`；无投票返回空字符串和 `tie=false`
 - 错误变量 `ErrVoteSelf`、`ErrVoteEliminated`、`ErrVoteUnknown`、`ErrVoteEmpty` 定义在 `vote.go` 中；`ErrNotYourTurn` 定义在 `game.go` 中为 DescRound 和 VoteRound 共用
+- `SkipCurrent()` 跳过当前投票者（视为弃票），仅当 `CurrentIndex < len(Voters)` 时递增索引
 - `vote_test.go` 覆盖：构造函数校验（空名/重复名）、正常投票流程、所有校验错误路径、平票场景、边界（0人、1人）、完整轮次集成测试
 - 注意避免与 `game_test.go` 中已有测试函数同名（如 `TestAllDone_OnePlayer` 需加后缀 `_VoteRound`）
 
@@ -90,5 +92,6 @@
 - 描述阶段复用 `DescRound`，发言者列表为平票玩家（非全部存活玩家）
 - 投票阶段投票目标只能是平票玩家之一（`ErrVoteNotTied`），不能投非平票玩家或自己
 - `TiedSet`（`map[string]bool`）用于快速校验投票目标是否为平票玩家
+- `SkipCurrentVoter()` 跳过当前 PK 投票者（视为弃票），仅当 `CurrentVote < len(VoterOrder)` 时递增索引
 - `FindEliminated()` 仅统计平票玩家的得票，返回得票最高者；仍平票返回空字符串和 `tie=true`
 - `pk_test.go` 覆盖：构造函数校验、描述阶段流程、投票阶段流程（含各类校验错误）、计票和平票判定、完整 PK 集成测试

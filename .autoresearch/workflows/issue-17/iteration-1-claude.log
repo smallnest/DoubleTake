@@ -1,0 +1,36 @@
+## Subtask T-001 - Implementation Complete
+
+The STATE message sending after reconnection is **already fully implemented** in the current codebase. Here's the verification:
+
+### Acceptance Criteria Checklist
+
+| Criteria | Status | Evidence |
+|----------|--------|----------|
+| handleReconnect sends STATE message | ✅ | `server/server.go:430-431` |
+| STATE includes current round number | ✅ | Payload format: `round|word|aliveList` |
+| STATE includes player's word | ✅ | Blank players get "你是白板" (`cmd/doubletake/judge.go:255-258`) |
+| STATE includes alive player list | ✅ | Comma-separated names (`server/server.go:429`) |
+| Compilation passes | ✅ | `go build ./...` succeeded |
+| No lint errors | ✅ | `go vet ./...` clean |
+| Tests verify STATE content | ✅ | 3 tests cover all cases |
+
+### Test Coverage
+
+- **`TestReconnectSendsStateMessage`** - Verifies payload `"2|苹果|Alice,Bob"` (round, word, alive players)
+- **`TestReconnectStateBlankPlayerWord`** - Verifies Blank player gets `"1|你是白板|Alice,Bob"`
+- **`TestReconnectStateNoAlivePlayers`** - Verifies empty alive list: `"3|苹果|"`
+
+### Architecture
+
+The implementation uses a channel-based callback pattern:
+1. `server.handleReconnect` sends a `ReconnectRequest` to `OnReconnect` channel
+2. Judge goroutine receives the request, looks up game state, sends `ReconnectResponse`
+3. Server constructs and sends `STATE|round|word|aliveList` to the reconnected player
+
+All tests pass (100% pass rate across all packages).
+
+## Learnings
+
+- **Pattern**: The project uses a channel-based request/response pattern for server-to-judge communication. The server sends events via channels (OnReconnect, OnDescMsg, OnVoteMsg), and the judge provides responses via embedded response channels.
+- **Testing**: Reconnection tests use goroutines to handle the async OnReconnect channel, with `responseSent` channel for synchronization before reading client messages.
+- **Blank handling**: Blank players receive "你是白板" as their word in STATE messages, consistent with ROLE message handling.
