@@ -1,0 +1,33 @@
+All tests pass. Here's a summary of the T-003 implementation:
+
+## Changes Made
+
+### 1. `server/server.go` — Password storage
+- Added `password` field to `Server` struct
+- Added `SetPassword(pwd string)` and `Password() string` methods, both mutex-protected for concurrency safety
+
+### 2. `cmd/doubletake/judge.go` — Password integration
+- After `srv.Start()`, calls `game.GetExternalIP()` to get the external IP (falls back to `127.0.0.1` on failure)
+- Calls `game.GenerateRoomPassword(ip, port)` to generate a SHA256-based hex password
+- Stores the password in the server via `srv.SetPassword(pwd)`
+- Displays the password to the referee: `"房间已创建！连接密码: <password>\n请告知玩家此密码以连接到房间"`
+
+### 3. Tests
+- `server/server_test.go`: `TestSetPassword` — unit test for `SetPassword`/`Password` (empty initial, set, overwrite)
+- `cmd/doubletake/main_test.go`: `TestRun_JudgeDisplaysPassword` — integration test verifying the password message appears in output
+
+### 4. CLAUDE.md updates
+- `server/CLAUDE.md`: Documented the new password field and methods
+- `cmd/doubletake/CLAUDE.md`: Updated `RunJudge` flow to include password generation step
+
+## Verification Criteria
+- [x] When room is created, the password is displayed to the referee in the specified format
+- [x] The IP used for password generation is the external IP (not 127.0.0.1) — `GetExternalIP()` is called, with fallback only on error
+- [x] The password is stored for later client verification — `Server.password` field with `SetPassword`/`Password`
+- [x] Integration does not break existing waiting phase and game flow — all existing tests pass
+
+## Learnings
+
+- **模式**: `Server` 结构体的字段访问都通过同一个 `sync.Mutex` 保护，新增的 `password` 字段遵循了相同的并发安全模式（`SetPassword`/`Password` 方法）。
+- **踩坑**: `GetExternalIP()` 可能在某些环境下失败（如无网络），代码添加了优雅降级（回退到 `127.0.0.1`），避免密码生成流程中断。
+- **经验**: 集成测试验证密码显示时，使用简单的 `strings.Contains` 检查关键词即可，不需要精确匹配完整密码（密码是随机的）。

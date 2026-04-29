@@ -102,6 +102,22 @@
 - 客户端空投票拦截：stdin 读取到空行时本地拒绝（不发 VOTE），显示 "投票目标不能为空" 并重新提示
 - `handleMessage` 签名为 `(msg, disp, out, cc, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool)`
 
+## PK 环节约定
+- `pkPhase` 在 `votingPhase` 检测到平票后被调用，循环 PK 轮次直到分出唯一最高票
+- PK 消息序列：PK_START → TURN（首位 PK 发言者）→ [DESC 广播 + TURN] × N（平票玩家描述）→ PK_VOTE → TURN（首位 PK 投票者）→ [TURN] × N-1 → RESULT
+- PK 投票目标只能是平票玩家之一，不能投非平票玩家或自己
+- PK 每轮若仍平票，`pkNum++` 并缩小平票范围后继续下一轮 PK
+- 平票玩家列表来自 `FindTiedPlayers()`，顺序取决于 map 迭代（不确定），不等于描述阶段发言顺序
+- PK 投票者顺序来自 `alivePlayers`（由 `players` 切片构建），与描述阶段发言顺序可能不同
+
+## PK 环节测试约定
+- **关键**: PK 投票顺序不等于描述发言顺序。`alivePlayers` 来自 `players` 切片（经 `AssignRoles` shuffle），所以 PK 投票者的实际顺序可能与 `voters`（描述发言顺序）不同
+- 测试中必须通过 TURN 消息动态发现 PK 投票顺序，不能假设 `voters[0]` 就是第一个 PK 投票者
+- `TestPKPhase_FullFlow` 中：先从 PK_VOTE 后的 TURN 消息获取 `firstPKVoter`，然后每次投票后读取 TURN 获取下一个投票者
+- `TestPKPhase_InvalidVoteForNonTiedPlayer` 中：同样需要从 TURN 获取 `firstPKVoter`，而非使用 `voters[0]`
+- PK 发言顺序来自 `NewPKRound` 中 `NewDescRound(pkNum, tied)`，tied 列表顺序来自 `FindTiedPlayers()`（map 迭代顺序不确定）
+- `doVoting` 辅助函数用于驱动普通投票阶段，返回 RESULT 消息
+
 ## 玩家端投票环节测试约定
 - 投票阶段测试复用 `startTestPlayerServer` 创建 TCP 服务器
 - 测试覆盖：其他玩家投票回合显示"等待 X 投票..."、自己回合提示"请输入投票目标"并发送 VOTE|targetName、空目标客户端拦截、服务端 ERROR 重试、RESULT 结果显示、描述阶段→投票阶段过渡

@@ -1,0 +1,72 @@
+{
+  "issueNumber": 13,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "投票环节核心逻辑 — VoteRound 状态管理与校验",
+      "description": "在 game 包中实现 VoteRound 结构体及相关方法：NewVoteRound 创建投票轮次、CurrentVoter 返回当前投票者、RecordVote 校验并记录投票（空目标→非当前投票者→投自己→投已出局→投不存在）、AllDone 判断是否全部完成、Tally 统计票数、FindEliminated 找出局者（含平票处理）。定义错误变量 ErrVoteSelf、ErrVoteEliminated、ErrVoteUnknown、ErrVoteEmpty。编写完整单元测试覆盖正常流程、所有校验错误路径、边界（0人、1人）、平票场景和完整轮次集成测试。",
+      "acceptanceCriteria": [
+        "NewVoteRound 正确创建投票轮次，校验空名和重复名",
+        "RecordVote 按顺序校验：空目标(ErrVoteEmpty) → 非当前投票者(ErrNotYourTurn) → 投自己(ErrVoteSelf) → 投已出局(ErrVoteEliminated) → 投不存在(ErrVoteUnknown)",
+        "CurrentVoter 返回当前应投票的玩家，AllDone 正确判断投票是否结束",
+        "Tally 返回每人得票数 map，FindEliminated 返回票数最高者（平票返回空字符串和 tie=true）",
+        "单元测试覆盖：正常投票流程、所有校验错误路径、平票场景、0人/1人边界、完整轮次集成测试",
+        "编译通过，相关测试全部通过"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "服务端 VOTE 消息路由与转发",
+      "description": "在 server 包中实现 VOTE 消息处理：添加 VoteEvent 结构体（PlayerName + Target 字段）和 OnVoteMsg channel（缓冲64）；handleVote 方法校验玩家已加入（未加入返回 ERROR），已命名玩家的投票转发到 OnVoteMsg channel（满时丢弃并记录日志）。handleConn 的 switch 中添加 MsgVote case 路由到 handleVote。编写测试覆盖未命名玩家收到 ERROR 和已命名玩家投票被正确转发。",
+      "acceptanceCriteria": [
+        "Server 结构体包含 OnVoteMsg channel (buffered 64) 和 VoteEvent 类型",
+        "handleVote 对未命名玩家返回 ERROR('请先加入游戏')",
+        "handleVote 将已命名玩家的投票转发到 OnVoteMsg channel",
+        "VOTE 与 DESC 消息处理遵循完全对称的模式",
+        "测试覆盖：未命名玩家被拒绝、已命名玩家投票被转发",
+        "编译通过，相关测试全部通过"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "裁判端投票阶段编排 — votingPhase",
+      "description": "在 judge.go 中实现 votingPhase 函数：创建 VoteRound → 广播 VOTE|roundNum|alivePlayerList → 发送 TURN 给首位投票者 → 循环读取 OnVoteMsg → 校验投票者轮次和内容 → 校验失败发送 ERROR 要求重新投票 → 校验成功发送 TURN 给下一位 → 投票结束后 Tally + FindEliminated → 广播 RESULT|playerA:count,playerB:count,... → 标记出局者 p.Alive=false。voteResult 结构体包含 Round 和 Eliminated 字段。RunJudge 在 descriptionPhase 之后调用 votingPhase。编写集成测试覆盖正常投票流程、校验拒绝（空目标/投自己）、非当前投票者拒绝、结果广播与出局标记。",
+      "acceptanceCriteria": [
+        "votingPhase 广播 VOTE|roundNum|alivePlayerList 给所有已命名玩家",
+        "按顺序发送 TURN 给每位投票者，校验投票者轮次和内容",
+        "校验失败发送 ERROR 要求重新投票（投自己、空目标、投已出局、投不存在）",
+        "所有玩家投票完成后统计票数，广播 RESULT|playerA:count,playerB:count,...",
+        "票数最高者标记 Alive=false，平票不标记任何人出局",
+        "集成测试覆盖：正常投票流程、校验拒绝、非当前投票者拒绝、结果广播与出局标记",
+        "编译通过，所有测试通过"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-004",
+      "title": "玩家端投票交互 — 状态管理与消息处理",
+      "description": "在 player.go 中实现投票阶段的客户端交互：定义 votePhase 三态类型（voteIdle/voteWaitingInput/voteSubmitted）和 inVotePhase 布尔标志区分描述/投票阶段。handleMessage 处理 MsgVote（显示投票环节信息和可投票列表）、MsgTurn（inVotePhase 时显示投票提示）、MsgResult（显示每人得票数）。主循环 select 同时处理网络消息和 stdin 输入，支持投票提交和 ERROR 重试。客户端空投票本地拦截。编写测试覆盖其他玩家投票回合等待、自己回合提示和发送、空目标客户端拦截、ERROR 重试、RESULT 显示、描述→投票阶段过渡。",
+      "acceptanceCriteria": [
+        "收到 VOTE 消息时显示 '投票环节 轮次 N，可投票: P0 → P1' 并设置 inVotePhase=true",
+        "TURN 消息根据 inVotePhase 区分显示 '请输入投票目标:' 或 '请输入描述:'",
+        "客户端空投票本地拦截，显示 '投票目标不能为空' 并重新提示",
+        "ERROR 消息在投票阶段重新提示 '请输入投票目标:'",
+        "RESULT 消息逐行显示每人得票数（如 'Bob: 3 票'）",
+        "描述→投票阶段过渡正确切换提示文案",
+        "测试覆盖：等待他人投票、自己投票、空目标拦截、ERROR 重试、RESULT 显示、阶段过渡",
+        "编译通过，所有测试通过"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

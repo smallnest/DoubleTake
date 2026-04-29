@@ -1,0 +1,43 @@
+
+
+## 子任务 T-001 实现完成
+
+### 实现内容
+
+**`game/network.go`** 新增 `GetExternalIP()` 函数：
+
+```go
+// GetExternalIP returns a usable external IP address for remote connections.
+// It first tries to resolve the hostname via net.LookupHost to get an external IP.
+// If that fails or returns a loopback address, it falls back to GetLocalIP().
+// Returns error only if neither method works.
+func GetExternalIP() (string, error)
+```
+
+**逻辑**：
+1. 先调用 `os.Hostname()` 获取主机名
+2. 通过 `net.LookupHost(hostname)` 解析出 IP 列表
+3. 遍历结果，返回第一个非 loopback 的 IPv4 地址
+4. 如果 hostname 解析失败或全返回 loopback，fallback 到 `GetLocalIP()`
+5. 仅在两者都失败时返回错误
+
+**`game/network_test.go`** 新增 `TestGetExternalIP()` 测试，验证：
+- 返回有效 IPv4 格式
+- 返回非 loopback 地址
+- 返回非 link-local 地址（169.254.x.x）
+
+### 质量检查
+
+- ✅ `go build ./...` — 编译通过
+- ✅ `go vet ./...` — 无错误
+- ✅ `go test ./...` — 所有测试通过
+
+---
+
+## Learnings
+
+- **模式**：项目约定在 `game/network.go` 中放置网络工具函数，`GetLocalIP()` 已有完整的实现和测试。新增 `GetExternalIP()` 遵循相同模式。
+- **验收条件覆盖**：
+  - `GetExternalIP()` 返回可用外部 IP（非 127.0.0.1）✅
+  - 优先使用 hostname IP（通过 `net.LookupHost`）✅
+  - hostname 解析失败时 fallback 到 `GetLocalIP()` ✅

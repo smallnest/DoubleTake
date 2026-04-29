@@ -1634,3 +1634,298 @@ func TestVotingPhase_ResultBroadcastAndElimination(t *testing.T) {
 		}
 	}
 }
+
+// --- PK phase integration tests ---
+
+// doVoting is a test helper that drives the voting phase given a vote mapping.
+// It reads VOTE+TURN from all conns, sends votes in order, reads TURN for subsequent
+// voters, and reads the RESULT broadcast. Returns the RESULT message from conns[0].
+func doVoting(t *testing.T, conns []net.Conn, voters []string, votes map[string]string) game.Message {
+	t.Helper()
+
+	// Read VOTE + TURN from all connections.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	for vi, voter := range voters {
+		voterConn := findConnByName(conns, voter)
+		fmt.Fprintf(voterConn, "VOTE|%s\n", votes[voter])
+
+		if vi < len(voters)-1 {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn) // TURN for next voter
+			}
+		}
+	}
+
+	// Read RESULT from all connections.
+	resultMsg := readMsgFromConn(t, conns[0])
+	if resultMsg.Type != game.MsgResult {
+		t.Fatalf("expected RESULT, got %s: %s", resultMsg.Type, resultMsg.Payload)
+	}
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i]) // RESULT
+	}
+	return resultMsg
+}
+
+func TestPKPhase_TieTriggersPK(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	resultMsg := doVoting(t, conns, voters, votes)
+
+	// Verify tie in RESULT.
+	if !strings.Contains(resultMsg.Payload, voters[0]+":2") {
+		t.Errorf("RESULT should contain %s:2, got %q", voters[0], resultMsg.Payload)
+	}
+	if !strings.Contains(resultMsg.Payload, voters[1]+":2") {
+		t.Errorf("RESULT should contain %s:2, got %q", voters[1], resultMsg.Payload)
+	}
+
+	// All connections should receive PK_START.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKStart {
+			t.Fatalf("conn %d: expected PK_START, got %s: %s", i, msg.Type, msg.Payload)
+		}
+		// PK_START payload: "1|P0,P1" (or P1,P0)
+		if !strings.Contains(msg.Payload, voters[0]) || !strings.Contains(msg.Payload, voters[1]) {
+			t.Errorf("PK_START should contain both tied players, got %q", msg.Payload)
+		}
+	}
+}
+
+func TestPKPhase_FullFlow(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	doVoting(t, conns, voters, votes)
+
+	// Read PK_START from all connections.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKStart {
+			t.Fatalf("expected PK_START, got %s", msg.Type)
+		}
+	}
+
+	// Read TURN for first PK speaker from all connections.
+	var firstSpeaker string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	// Identify tied players from PK_START (firstSpeaker is one of them).
+	// The other tied player is the one who's not firstSpeaker.
+	var otherTied string
+	if firstSpeaker == voters[0] {
+		otherTied = voters[1]
+	} else {
+		otherTied = voters[0]
+	}
+
+	// First tied player describes.
+	firstConn := findConnByName(conns, firstSpeaker)
+	fmt.Fprintf(firstConn, "DESC|PK desc from %s\n", firstSpeaker)
+
+	// All connections receive DESC broadcast.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive TURN for second tied player.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN, got %s: %s", msg.Type, msg.Payload)
+		}
+		if msg.Payload != otherTied {
+			t.Errorf("expected TURN for %s, got %s", otherTied, msg.Payload)
+		}
+	}
+
+	// Second tied player describes.
+	otherConn := findConnByName(conns, otherTied)
+	fmt.Fprintf(otherConn, "DESC|PK desc from %s\n", otherTied)
+
+	// All connections receive DESC broadcast.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive PK_VOTE.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKVote {
+			t.Fatalf("conn %d: expected PK_VOTE, got %s: %s", i, msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive TURN for first PK voter.
+	var firstPKVoter string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+		if i == 0 {
+			firstPKVoter = msg.Payload
+		}
+	}
+
+	// Vote in PK: discover voter order from TURN messages.
+	// Everyone votes for firstSpeaker (one of the tied players) to ensure clear
+	// elimination, but that tied player votes for otherTied (can't vote for self).
+	// We use firstPKVoter (from TURN) to start, not firstSpeaker (from desc order).
+	numPKVoters := len(voters)
+	nextVoter := firstPKVoter
+	for i := 0; i < numPKVoters; i++ {
+		voterConn := findConnByName(conns, nextVoter)
+		var target string
+		if nextVoter == firstSpeaker {
+			target = otherTied
+		} else {
+			target = firstSpeaker
+		}
+		fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+
+		if i < numPKVoters-1 {
+			// Read TURN for next voter from all connections.
+			turnMsg := readMsgFromConn(t, conns[0])
+			if turnMsg.Type != game.MsgTurn {
+				t.Fatalf("expected TURN for next PK voter, got %s: %s", turnMsg.Type, turnMsg.Payload)
+			}
+			nextVoter = turnMsg.Payload
+			for j := 1; j < len(conns); j++ {
+				readMsgFromConn(t, conns[j])
+			}
+		}
+	}
+
+	// Read PK RESULT from all connections.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgResult {
+			t.Fatalf("conn %d: expected RESULT, got %s: %s", i, msg.Type, msg.Payload)
+		}
+		// firstSpeaker should have 3 votes (from all except themselves).
+		if !strings.Contains(msg.Payload, firstSpeaker+":3") {
+			t.Errorf("conn %d: RESULT should show %s:3, got %q", i, firstSpeaker, msg.Payload)
+		}
+	}
+}
+
+func TestPKPhase_InvalidVoteForNonTiedPlayer(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	doVoting(t, conns, voters, votes)
+
+	// Read PK_START.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // PK_START
+	}
+
+	// Read TURN for first PK speaker.
+	var firstSpeaker string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	var otherTied string
+	if firstSpeaker == voters[0] {
+		otherTied = voters[1]
+	} else {
+		otherTied = voters[0]
+	}
+
+	// Both tied players describe.
+	firstConn := findConnByName(conns, firstSpeaker)
+	fmt.Fprintf(firstConn, "DESC|desc1\n")
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // DESC
+	}
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	otherConn := findConnByName(conns, otherTied)
+	fmt.Fprintf(otherConn, "DESC|desc2\n")
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // DESC
+	}
+
+	// Read PK_VOTE + TURN from all.
+	var firstPKVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // PK_VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstPKVoter = msg.Payload
+		}
+	}
+
+	// First PK voter tries to vote for a non-tied player.
+	// Find a non-tied player who is NOT the firstPKVoter (to avoid self-vote check).
+	var nonTiedTarget string
+	for _, v := range voters {
+		if v != firstSpeaker && v != otherTied && v != firstPKVoter {
+			nonTiedTarget = v
+			break
+		}
+	}
+	if nonTiedTarget == "" {
+		t.Fatal("could not find a non-tied target different from firstPKVoter")
+	}
+	firstVoterConn := findConnByName(conns, firstPKVoter)
+
+	// Try voting for a non-tied player — should get ERROR.
+	fmt.Fprintf(firstVoterConn, "VOTE|%s\n", nonTiedTarget)
+	msg := readMsgFromConn(t, firstVoterConn)
+	if msg.Type != game.MsgError {
+		t.Fatalf("expected ERROR for non-tied vote, got %s: %s", msg.Type, msg.Payload)
+	}
+	if !strings.Contains(msg.Payload, "tied players") {
+		t.Errorf("error should mention tied players, got: %q", msg.Payload)
+	}
+}
+

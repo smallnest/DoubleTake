@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue #14 Summary</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:#f8fafc; color:#334155; line-height:1.6; padding:32px 16px; }
+  .container { max-width:800px; margin:0 auto; }
+  .header { background:white; border-radius:16px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }
+  .header h1 { font-size:24px; font-weight:800; color:#0f172a; margin-bottom:4px; }
+  .header .subtitle { font-size:14px; color:#94a3b8; }
+  .score-ring { width:88px; height:88px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; float:right; margin:-8px 0 0 16px; border:4px solid #3b82f6; color:#3b82f6; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:24px; }
+  .card { background:white; border-radius:12px; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .card .label { font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+  .card .value { font-size:18px; font-weight:700; color:#1e293b; }
+  .section { margin-bottom:24px; }
+  .section h3 { margin:0 0 12px 0; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; }
+  td,th { padding:10px 12px; }
+  tbody tr { border-bottom:1px solid #f1f5f9; }
+  tbody tr:last-child { border-bottom:none; }
+  .footer { text-align:center; padding:24px; color:#94a3b8; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="score-ring">89</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <h1>Issue #14</h1>
+      <span style="display:inline-block;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:700;background:#dcfce7;color:#22c55e;text-transform:uppercase">completed</span>
+    </div>
+    <div class="subtitle">#14 平票 PK 机制 — 多轮 PK 描述+投票</div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">Duration</div><div class="value">29m 27s</div></div>
+    <div class="card"><div class="label">Iterations</div><div class="value">3</div></div>
+    <div class="card"><div class="label">Passing Score</div><div class="value">85</div></div>
+    <div class="card"><div class="label">Branch</div><div class="value" style="font-size:13px">feature/issue-14</div></div>
+  </div>
+
+  
+    <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+      <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:700;color:#1e293b">Subtasks <span style="font-weight:400;color:#94a3b8;font-size:14px">0/5 passed</span></h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #f1f5f9">
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">ID</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Title</th>
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Status</th>
+        </tr></thead>
+        <tbody>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-001</td>
+              <td style="color:#334155">实现 PK 投票轮次数据结构和投票约束逻辑</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#fef2f2;color:#dc2626">FAIL</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-002</td>
+              <td style="color:#334155">实现 PK 描述轮次数据结构</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#fef2f2;color:#dc2626">FAIL</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-003</td>
+              <td style="color:#334155">在 judge.go 中集成 PK 流程，投票平票后触发多轮 PK</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#fef2f2;color:#dc2626">FAIL</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-004</td>
+              <td style="color:#334155">玩家端处理 PK_START 和 PK_VOTE 消息</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#fef2f2;color:#dc2626">FAIL</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-005</td>
+              <td style="color:#334155">编写 PK 机制端到端集成测试</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#fef2f2;color:#dc2626">FAIL</span></td>
+            </tr></tbody>
+      </table>
+    </div>
+
+  
+    <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+      <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:700;color:#1e293b">Iterations <span style="font-weight:400;color:#94a3b8;font-size:14px">3 total</span></h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #f1f5f9">
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:60px">#</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:100px">Agent</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:120px">Type</th>
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:70px">Score</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Key Findings</th>
+        </tr></thead>
+        <tbody>
+            <tr>
+              <td style="text-align:center;font-weight:600">1</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">claude</span></td>
+              <td style="color:#64748b">初始实现 - </td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">N/A</span></td>
+              <td style="color:#64748b;font-size:13px">**PK voter order ≠ desc speaker order**: The PK voter order is determined by `alivePlayers` (from the shuffled `players` slice), not by the description speaker order. Tests must discover PK voter order dynamically from TURN messages. **FindTiedPlayers order is non-deterministic**: Go map iteration</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">2</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">codex</span></td>
+              <td style="color:#64748b">审核+修复</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">0100</span></td>
+              <td style="color:#64748b;font-size:13px">**PK voter order ≠ desc speaker order**: The PK voter order is determined by `alivePlayers` (from the shuffled `players` slice), not by the description speaker order. Tests must discover PK voter order dynamically from TURN messages. **FindTiedPlayers order is non-deterministic**: Go map iteration</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">3</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">opencode</span></td>
+              <td style="color:#64748b">审核+修复</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">89100</span></td>
+              <td style="color:#64748b;font-size:13px">**PK 投票顺序 ≠ 描述发言顺序**: `TestPKPhase_InvalidVoteForNonTiedPlayer` 的 bug 验证了这一模式。查找非平票玩家时不能假设其与 PK 投票者顺序一致，必须确保 target ≠ voter 避免 `ErrVoteSelf` 掩盖 `ErrVoteNotTied` **自投票检查优先于非平票�</td>
+            </tr></tbody>
+      </table>
+    </div>
+
+  <div class="footer">Generated by autoresearch &middot; 2026-04-29 12:58</div>
+</div>
+</body>
+</html>

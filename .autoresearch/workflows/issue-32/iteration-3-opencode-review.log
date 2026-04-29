@@ -1,0 +1,100 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead game/network.go
+[0m→ [0mRead game/network_test.go
+[0m→ [0mRead game
+I'll start by reading the current implementation files to understand what's been done.
+[0m
+[0m$ [0mgo vet ./game/ 2>&1
+(no output)
+[0m
+[0m✗ [0mread failed
+[91m[1mError: [0mFile not found: /Users/smallnest/ai/DoubleTake/progress.md
+[0m
+[0m$ [0mgo test ./game/ -run TestGetExternalIP -v 2>&1
+=== RUN   TestGetExternalIP
+--- PASS: TestGetExternalIP (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/game	0.612s
+[0m
+Let me check the test compilation and run the tests, and also look at the AGENT.md and progress.md files for context.
+[0m✱ [0mGlob "**/AGENT.md"[90m 3 matches[0m
+Good — tests pass and `go vet` is clean. Let me also check for any AGENT.md files with relevant context.
+[0m→ [0mRead game/AGENT.md
+Now I have all the information needed. Let me compile the review.
+
+## 审核报告
+
+### Issue
+- 编号: #32
+- 子任务: T-001 - Create external IP detection utility
+- 审核轮次: Iteration 2
+
+### 总体评价
+**评分: 86/100**
+
+### 实现者自检确认
+- [x] 编译通过 (`go vet` clean)
+- [x] 测试通过 (`TestGetExternalIP` PASS)
+
+### 各维度评分
+
+| 维度 | 权重 | 得分 | 加权 |
+|------|------|------|------|
+| 正确性 | 35% | 90 | 31.5 |
+| 测试质量 | 25% | 70 | 17.5 |
+| 代码质量 | 20% | 85 | 17.0 |
+| 安全性 | 10% | 100 | 10.0 |
+| 性能 | 10% | 100 | 10.0 |
+| **总分** | **100%** | | **86.0** |
+
+### 严重问题 (必须修复)
+
+**1. 缺少失败路径测试 (测试质量)**
+
+验收条件明确要求：*"Function has unit tests covering hostname resolution success and failure cases"*。
+
+当前 `TestGetExternalIP` 仅覆盖 happy path（真实机器上运行，验证返回格式）。以下场景完全未覆盖：
+- `os.Hostname()` 成功但 `net.LookupHost()` 失败 → 应回退到 `GetLocalIP()`
+- hostname 解析仅返回 loopback → 应回退到 `GetLocalIP()`
+- 两种方法都失败 → 应返回 error
+
+由于项目测试惯例为 *"不 mock net.Interfaces，通过验证返回值格式确保正确性"*，建议在不引入 mock 的前提下使用两种方案之一补充测试：
+
+**方案 A — 依赖注入改造**：将 `os.Hostname` / `net.LookupHost` 抽取为可注入的函数变量，然后在测试中注入模拟实现来覆盖失败路径。
+
+**方案 B — 环境控制**：在测试中用 `os.Hostname()` 获取真实 hostname 确认成功路径，同时补充逻辑验证（例如验证返回值 != GetLocalIP() 仅当 hostname 解析到非 loopback 地址时成立）。
+
+### 一般问题 (建议修复)
+
+**1. 错误信息丢失细节 (代码质量)**
+
+`network.go:60` 处 `net.LookupHost` 的错误被内层作用域遮蔽，当 `os.Hostname()` 成功但 `net.LookupHost()` 失败时，最终错误消息 `"hostname resolution failed"` 丢失了具体原因：
+
+```go
+ips, err := net.LookupHost(hostname)  // err 被此处遮蔽
+if err == nil && len(ips) > 0 {
+    ...
+}
+// 后面的 return，err 来自 GetLocalIP()，丢失了 LookupHost 的原因
+```
+
+建议：将 `LookupHost` 的错误保存到外部 `err` 变量，或在最终错误中包含更多上下文。
+
+**2. `len(ips) > 0` 检查多余 (代码质量)**
+
+`for` 循环天然正确处理空切片，`len(ips) > 0` 是冗余检查。可简化。
+
+### 审核结论
+- [ ] 通过 / [x] **需要修改** / [ ] 阻塞
+
+**结论**：实现逻辑正确，代码质量良好，但测试覆盖率未满足验收条件对失败路径的明确要求。建议补充失败路径测试后通过。
+
+---
+
+### Learnings
+
+- **模式**: `game/network.go` 中的网络工具函数遵循不 mock 系统调用的测试策略，通过真实返回值的格式验证确保正确性。但此策略与"覆盖失败路径"的验收要求存在天然矛盾——`os.Hostname()` / `net.LookupHost()` 的失败路径需要依赖注入或环境控制才能测试。
+- **踩坑**: 内层 `if` 作用域中的 `err` 变量遮蔽了外层同名变量，导致 `LookupHost` 的失败详情丢失。Go 中 `:=` 在嵌套 `if` 中会创建新作用域变量，需注意。
+- **经验**: 对于包含系统调用（网络/DNS）的工具函数，如果验收条件要求覆盖失败路径测试，需要在设计时就考虑依赖注入（如函数变量 `var lookupHost = net.LookupHost`），否则后续难以满足测试要求。

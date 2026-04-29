@@ -213,6 +213,16 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		if *descP == descSubmitted {
 			*descP = descIdle
 		}
+	case game.MsgPKStart:
+		handlePKStartMsg(disp, msg.Payload)
+		// Reset desc phase for PK descriptions.
+		*descP = descIdle
+		*voteP = voteIdle
+		*inVotePhase = false
+	case game.MsgPKVote:
+		handlePKVoteMsg(disp, msg.Payload)
+		*voteP = voteIdle
+		*inVotePhase = true
 	case game.MsgResult:
 		handleResultMsg(disp, msg.Payload)
 	case game.MsgError:
@@ -292,4 +302,32 @@ func handleResultMsg(disp *client.Display, payload string) {
 		}
 		disp.Data("00", fmt.Sprintf("  %s: %s 票", kv[0], kv[1]))
 	}
+}
+
+// handlePKStartMsg parses and displays the PK_START broadcast.
+// Payload format: "pkNum|tiedPlayerList"
+func handlePKStartMsg(disp *client.Display, payload string) {
+	parts := strings.SplitN(payload, "|", 2)
+	if len(parts) < 2 {
+		disp.Data("00", fmt.Sprintf("PK %s", payload))
+		return
+	}
+	pkNum := parts[0]
+	tiedPlayers := strings.Split(parts[1], ",")
+	orderStr := strings.Join(tiedPlayers, " → ")
+	disp.Data("00", fmt.Sprintf("平票！PK 第 %s 轮，PK 玩家: %s", pkNum, orderStr))
+}
+
+// handlePKVoteMsg parses and displays the PK_VOTE broadcast.
+// Payload format: "pkNum|tiedPlayerList"
+func handlePKVoteMsg(disp *client.Display, payload string) {
+	parts := strings.SplitN(payload, "|", 2)
+	if len(parts) < 2 {
+		disp.Data("00", fmt.Sprintf("PK_VOTE %s", payload))
+		return
+	}
+	pkNum := parts[0]
+	tiedPlayers := strings.Split(parts[1], ",")
+	orderStr := strings.Join(tiedPlayers, " → ")
+	disp.Data("00", fmt.Sprintf("PK 投票环节 第 %s 轮，可投票: %s", pkNum, orderStr))
 }

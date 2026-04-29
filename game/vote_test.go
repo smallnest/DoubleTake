@@ -410,3 +410,77 @@ func TestVoteRound_FullRound_Integration(t *testing.T) {
 		t.Errorf("FindEliminated() = %q, want %q", eliminated, "bob")
 	}
 }
+
+// ---------- FindTiedPlayers ----------
+
+func TestFindTiedPlayers_TwoWayTie(t *testing.T) {
+	alive := []string{"alice", "bob", "carol", "dave"}
+	v, err := NewVoteRound(1, alive)
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+
+	// alice:2, bob:2 → tie
+	_ = v.RecordVote("alice", "bob", alive)
+	_ = v.RecordVote("bob", "alice", alive)
+	_ = v.RecordVote("carol", "alice", alive)
+	_ = v.RecordVote("dave", "bob", alive)
+
+	tied := v.FindTiedPlayers()
+	if len(tied) != 2 {
+		t.Fatalf("FindTiedPlayers() returned %d players, want 2", len(tied))
+	}
+	tiedSet := make(map[string]bool)
+	for _, name := range tied {
+		tiedSet[name] = true
+	}
+	if !tiedSet["alice"] || !tiedSet["bob"] {
+		t.Errorf("FindTiedPlayers() = %v, want alice and bob", tied)
+	}
+}
+
+func TestFindTiedPlayers_ClearWinner(t *testing.T) {
+	alive := []string{"alice", "bob", "carol"}
+	v, err := NewVoteRound(1, alive)
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+
+	_ = v.RecordVote("alice", "bob", alive)
+	_ = v.RecordVote("bob", "carol", alive)
+	_ = v.RecordVote("carol", "bob", alive)
+
+	tied := v.FindTiedPlayers()
+	if tied != nil {
+		t.Errorf("FindTiedPlayers() = %v, want nil for clear winner", tied)
+	}
+}
+
+func TestFindTiedPlayers_AllTie(t *testing.T) {
+	alive := []string{"alice", "bob", "carol"}
+	v, err := NewVoteRound(1, alive)
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+
+	// Each gets 1 vote.
+	_ = v.RecordVote("alice", "bob", alive)
+	_ = v.RecordVote("bob", "carol", alive)
+	_ = v.RecordVote("carol", "alice", alive)
+
+	tied := v.FindTiedPlayers()
+	if len(tied) != 3 {
+		t.Errorf("FindTiedPlayers() returned %d, want 3", len(tied))
+	}
+}
+
+func TestFindTiedPlayers_NoVotes(t *testing.T) {
+	v, err := NewVoteRound(1, []string{})
+	if err != nil {
+		t.Fatalf("NewVoteRound error: %v", err)
+	}
+	tied := v.FindTiedPlayers()
+	if tied != nil {
+		t.Errorf("FindTiedPlayers() = %v, want nil for no votes", tied)
+	}
+}
