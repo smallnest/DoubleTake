@@ -1,0 +1,39 @@
+实现完成。以下是本次改动的总结：
+
+## 实现内容
+
+### `game/game.go` — 新增 `CheckWinCondition` 函数
+
+函数签名：`func CheckWinCondition(players []*Player) (winner Role, gameOver bool)`
+
+逻辑：
+- 遍历所有玩家，统计存活的 Undercover 数量和 Civilian+Blank 数量
+- 卧底全灭 → `(Civilian, true)` 平民胜利
+- 卧底存活 >= 平民存活 → `(Undercover, true)` 卧底胜利
+- 否则 → `(0, false)` 游戏继续
+
+### `game/game_test.go` — 新增 10 个测试场景
+
+表格驱动测试覆盖：
+1. 卧底出局 → 平民胜
+2. 卧底多于平民 → 卧底胜
+3. 卧底等于平民 → 卧底胜
+4. 卧底少于平民 → 继续
+5. 全平民 → 平民胜
+6. 0 人 → 平民胜
+7. Blank 归入平民阵营（卧底出局）
+8. Blank 归入平民阵营（卧底胜）
+9. 仅卧底存活 → 卧底胜
+10. 1v1 → 卧底胜
+
+## 自检结果
+
+- `go build ./...` — 通过
+- `go vet ./...` — 通过
+- `go test ./...` — 全部通过
+
+## Learnings
+
+- **模式**: `game` 包的公共函数遵循 `CheckXxx` 命名风格，返回值使用命名返回值增强可读性
+- **经验**: Blank 角色在胜负判定中归入平民阵营，与 Civilian 统一计数，这是一个重要的设计决策
+- **踩坑**: 无

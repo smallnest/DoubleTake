@@ -1,0 +1,1711 @@
+=== 硬门禁检查 (迭代 10) ===
+时间: 2026-04-29 11:01:59
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+
+结果: 通过
+
+--- 测试 ---
+命令: go test ./... -v
+=== RUN   TestNewClient
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestConnectSuccess
+--- PASS: TestConnectSuccess (0.00s)
+=== RUN   TestConnectFailure
+--- PASS: TestConnectFailure (0.00s)
+=== RUN   TestSendNotConnected
+--- PASS: TestSendNotConnected (0.00s)
+=== RUN   TestSendAndReceive
+--- PASS: TestSendAndReceive (0.00s)
+=== RUN   TestReceiveFromServer
+--- PASS: TestReceiveFromServer (0.00s)
+=== RUN   TestDisconnect
+--- PASS: TestDisconnect (0.00s)
+=== RUN   TestServerDisconnectDetectsEOF
+--- PASS: TestServerDisconnectDetectsEOF (0.00s)
+=== RUN   TestMultipleMessages
+--- PASS: TestMultipleMessages (0.00s)
+=== RUN   TestInvalidMessagesSkipped
+--- PASS: TestInvalidMessagesSkipped (0.00s)
+=== RUN   TestPrintStartup
+--- PASS: TestPrintStartup (0.00s)
+=== RUN   TestInfo
+--- PASS: TestInfo (0.00s)
+=== RUN   TestInfoStealth
+--- PASS: TestInfoStealth (0.00s)
+=== RUN   TestWarn
+--- PASS: TestWarn (0.00s)
+=== RUN   TestWarnStealth
+--- PASS: TestWarnStealth (0.00s)
+=== RUN   TestData
+--- PASS: TestData (0.00s)
+=== RUN   TestDataStealth
+--- PASS: TestDataStealth (0.00s)
+=== RUN   TestListPlayers
+--- PASS: TestListPlayers (0.00s)
+=== RUN   TestListPlayersEmpty
+--- PASS: TestListPlayersEmpty (0.00s)
+=== RUN   TestNewDisplayNilWriter
+--- PASS: TestNewDisplayNilWriter (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/client	(cached)
+=== RUN   TestValidateConfig_Valid
+=== RUN   TestValidateConfig_Valid/minimum_4_players_1_undercover
+=== RUN   TestValidateConfig_Valid/5_players_2_undercovers
+=== RUN   TestValidateConfig_Valid/6_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_Valid/8_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_Valid/10_players_3_undercovers
+=== RUN   TestValidateConfig_Valid/10_players_2_undercovers_2_blanks
+=== RUN   TestValidateConfig_Valid/7_players_1_undercover_2_blanks
+=== RUN   TestValidateConfig_Valid/9_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_Valid (0.00s)
+    --- PASS: TestValidateConfig_Valid/minimum_4_players_1_undercover (0.00s)
+    --- PASS: TestValidateConfig_Valid/5_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/6_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/8_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_2_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/7_players_1_undercover_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/9_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestValidateConfig_TotalOutOfRange
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_3
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_1
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_0
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_11
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_15
+--- PASS: TestValidateConfig_TotalOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_3 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_1 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_0 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_11 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_15 (0.00s)
+=== RUN   TestValidateConfig_UndercoverOutOfRange
+=== RUN   TestValidateConfig_UndercoverOutOfRange/zero_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/negative_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5
+--- PASS: TestValidateConfig_UndercoverOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/zero_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/negative_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4 (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5 (0.00s)
+=== RUN   TestValidateConfig_NegativeBlanks
+--- PASS: TestValidateConfig_NegativeBlanks (0.00s)
+=== RUN   TestValidateConfig_TooManySpecialRoles
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_TooManySpecialRoles (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestCollectConfig_ValidInput
+--- PASS: TestCollectConfig_ValidInput (0.00s)
+=== RUN   TestCollectConfig_InvalidTotalThenValid
+--- PASS: TestCollectConfig_InvalidTotalThenValid (0.00s)
+=== RUN   TestCollectConfig_InvalidUndercoverThenValid
+--- PASS: TestCollectConfig_InvalidUndercoverThenValid (0.00s)
+=== RUN   TestCollectConfig_NegativeBlanksThenValid
+--- PASS: TestCollectConfig_NegativeBlanksThenValid (0.00s)
+=== RUN   TestCollectConfig_TooManySpecialRolesThenValid
+--- PASS: TestCollectConfig_TooManySpecialRolesThenValid (0.00s)
+=== RUN   TestCollectConfig_MultipleRetries
+--- PASS: TestCollectConfig_MultipleRetries (0.00s)
+=== RUN   TestCollectConfig_BoundaryMaxPlayers
+--- PASS: TestCollectConfig_BoundaryMaxPlayers (0.00s)
+=== RUN   TestCollectConfig_BoundaryMinPlayers
+--- PASS: TestCollectConfig_BoundaryMinPlayers (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidTotal
+--- PASS: TestCollectConfig_WarnsOnInvalidTotal (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidUndercover
+--- PASS: TestCollectConfig_WarnsOnInvalidUndercover (0.00s)
+=== RUN   TestCollectConfig_WarnsOnNegativeBlanks
+--- PASS: TestCollectConfig_WarnsOnNegativeBlanks (0.00s)
+=== RUN   TestCollectConfig_WarnsOnTooManySpecialRoles
+--- PASS: TestCollectConfig_WarnsOnTooManySpecialRoles (0.00s)
+=== RUN   TestReadInt_ValidInput
+--- PASS: TestReadInt_ValidInput (0.00s)
+=== RUN   TestReadInt_TrimsWhitespace
+--- PASS: TestReadInt_TrimsWhitespace (0.00s)
+=== RUN   TestReadInt_InvalidInput
+--- PASS: TestReadInt_InvalidInput (0.00s)
+=== RUN   TestReadInt_EmptyInput
+--- PASS: TestReadInt_EmptyInput (0.00s)
+=== RUN   TestCollectConfig_NonNumericInput
+--- PASS: TestCollectConfig_NonNumericInput (0.00s)
+=== RUN   TestCollectConfig_ZeroBlanksAllowed
+--- PASS: TestCollectConfig_ZeroBlanksAllowed (0.00s)
+=== RUN   TestCollectConfig_LargeValidGame
+--- PASS: TestCollectConfig_LargeValidGame (0.00s)
+=== RUN   TestWaitingPhase_PlayerJoinNotification
+2026/04/29 11:02:01 server listening on :57791
+2026/04/29 11:02:01 player connected: 127.0.0.1:57795
+2026/04/29 11:02:01 password verification: client 127.0.0.1:57795 disconnected before sending password
+2026/04/29 11:02:01 player disconnected: 127.0.0.1:57795
+2026/04/29 11:02:01 player connected: 127.0.0.1:57796
+2026/04/29 11:02:01 password verification: client 127.0.0.1:57796 did not send PASSWORD message
+2026/04/29 11:02:01 player disconnected: 127.0.0.1:57796
+    judge_test.go:363: timed out waiting for "Alice joined [1/4]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 8a7aadfec4088dae7109cbae14d8e907
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+2026/04/29 11:02:03 server stopped
+--- FAIL: TestWaitingPhase_PlayerJoinNotification (2.04s)
+=== RUN   TestWaitingPhase_AllPlayersJoined
+2026/04/29 11:02:03 server listening on :57925
+2026/04/29 11:02:03 player connected: 127.0.0.1:57929
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57929 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57929
+2026/04/29 11:02:03 player connected: 127.0.0.1:57930
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57930 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57930
+2026/04/29 11:02:03 player connected: 127.0.0.1:57931
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57931 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57931
+2026/04/29 11:02:03 player connected: 127.0.0.1:57932
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57932 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57932
+2026/04/29 11:02:03 player connected: 127.0.0.1:57933
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57933 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57933
+    judge_test.go:383: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 37a0c5f2b5ed95bb6a81a22779be7a67
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+2026/04/29 11:02:06 server stopped
+--- FAIL: TestWaitingPhase_AllPlayersJoined (3.04s)
+=== RUN   TestWaitingPhase_StartWithFewerThan4
+2026/04/29 11:02:06 server listening on :57934
+2026/04/29 11:02:06 player connected: 127.0.0.1:57936
+2026/04/29 11:02:06 password verification: client 127.0.0.1:57936 disconnected before sending password
+2026/04/29 11:02:06 player disconnected: 127.0.0.1:57936
+2026/04/29 11:02:06 player connected: 127.0.0.1:57937
+2026/04/29 11:02:06 password verification: client 127.0.0.1:57937 did not send PASSWORD message
+2026/04/29 11:02:06 player disconnected: 127.0.0.1:57937
+2026/04/29 11:02:06 player connected: 127.0.0.1:57938
+2026/04/29 11:02:06 password verification: client 127.0.0.1:57938 did not send PASSWORD message
+2026/04/29 11:02:06 player disconnected: 127.0.0.1:57938
+2026/04/29 11:02:06 player connected: 127.0.0.1:57939
+2026/04/29 11:02:06 password verification: client 127.0.0.1:57939 did not send PASSWORD message
+2026/04/29 11:02:06 player disconnected: 127.0.0.1:57939
+    judge_test.go:400: timed out waiting for "C joined [3/4]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: f31cffd707344b28be25ae03caf8f233
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+2026/04/29 11:02:08 server stopped
+--- FAIL: TestWaitingPhase_StartWithFewerThan4 (2.03s)
+=== RUN   TestWaitingPhase_StartWithConfirmation
+2026/04/29 11:02:08 server listening on :57943
+2026/04/29 11:02:08 player connected: 127.0.0.1:57945
+2026/04/29 11:02:08 password verification: client 127.0.0.1:57945 disconnected before sending password
+2026/04/29 11:02:08 player connected: 127.0.0.1:57947
+2026/04/29 11:02:08 player disconnected: 127.0.0.1:57945
+2026/04/29 11:02:08 password verification: client 127.0.0.1:57947 did not send PASSWORD message
+2026/04/29 11:02:08 player disconnected: 127.0.0.1:57947
+2026/04/29 11:02:08 player connected: 127.0.0.1:57948
+2026/04/29 11:02:08 password verification: client 127.0.0.1:57948 did not send PASSWORD message
+2026/04/29 11:02:08 player disconnected: 127.0.0.1:57948
+2026/04/29 11:02:08 player connected: 127.0.0.1:57949
+2026/04/29 11:02:08 password verification: client 127.0.0.1:57949 did not send PASSWORD message
+2026/04/29 11:02:08 player disconnected: 127.0.0.1:57949
+2026/04/29 11:02:08 player connected: 127.0.0.1:57950
+2026/04/29 11:02:08 password verification: client 127.0.0.1:57950 did not send PASSWORD message
+2026/04/29 11:02:08 player disconnected: 127.0.0.1:57950
+    judge_test.go:422: timed out waiting for "D joined [4/6]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 4772e16d5a9058522972070817bb1477
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 6 名玩家加入...
+2026/04/29 11:02:10 server stopped
+--- FAIL: TestWaitingPhase_StartWithConfirmation (2.03s)
+=== RUN   TestWaitingPhase_StartConfirmed
+2026/04/29 11:02:10 server listening on :57951
+2026/04/29 11:02:10 player connected: 127.0.0.1:57954
+2026/04/29 11:02:10 password verification: client 127.0.0.1:57954 disconnected before sending password
+2026/04/29 11:02:10 player disconnected: 127.0.0.1:57954
+2026/04/29 11:02:10 player connected: 127.0.0.1:57955
+2026/04/29 11:02:10 password verification: client 127.0.0.1:57955 did not send PASSWORD message
+2026/04/29 11:02:10 player disconnected: 127.0.0.1:57955
+2026/04/29 11:02:10 player connected: 127.0.0.1:57956
+2026/04/29 11:02:10 player connected: 127.0.0.1:57957
+2026/04/29 11:02:10 password verification: client 127.0.0.1:57956 did not send PASSWORD message
+2026/04/29 11:02:10 player disconnected: 127.0.0.1:57956
+2026/04/29 11:02:10 password verification: client 127.0.0.1:57957 did not send PASSWORD message
+2026/04/29 11:02:10 player disconnected: 127.0.0.1:57957
+2026/04/29 11:02:10 player connected: 127.0.0.1:57958
+2026/04/29 11:02:10 password verification: client 127.0.0.1:57958 did not send PASSWORD message
+2026/04/29 11:02:10 player disconnected: 127.0.0.1:57958
+    judge_test.go:447: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 36a6f0ce365d00a6142f71fca43a93a3
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+2026/04/29 11:02:12 server stopped
+--- FAIL: TestWaitingPhase_StartConfirmed (2.04s)
+=== RUN   TestWaitingPhase_WithBlankPlayer
+2026/04/29 11:02:12 server listening on :57959
+2026/04/29 11:02:12 player connected: 127.0.0.1:57961
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57961 disconnected before sending password
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57961
+2026/04/29 11:02:12 player connected: 127.0.0.1:57962
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57962 did not send PASSWORD message
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57962
+2026/04/29 11:02:12 player connected: 127.0.0.1:57963
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57963 did not send PASSWORD message
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57963
+2026/04/29 11:02:12 player connected: 127.0.0.1:57964
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57964 did not send PASSWORD message
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57964
+2026/04/29 11:02:12 player connected: 127.0.0.1:57965
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57965 did not send PASSWORD message
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57965
+2026/04/29 11:02:12 player connected: 127.0.0.1:57966
+2026/04/29 11:02:12 password verification: client 127.0.0.1:57966 did not send PASSWORD message
+2026/04/29 11:02:12 player disconnected: 127.0.0.1:57966
+    judge_test.go:569: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 3045e43b3ffd86c6f24b19d8fdece9ef
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 5 名玩家加入...
+2026/04/29 11:02:14 server stopped
+--- FAIL: TestWaitingPhase_WithBlankPlayer (2.03s)
+=== RUN   TestWaitingPhase_SameWordRetry
+2026/04/29 11:02:14 server listening on :57971
+2026/04/29 11:02:14 player connected: 127.0.0.1:57974
+2026/04/29 11:02:14 password verification: client 127.0.0.1:57974 did not send PASSWORD message
+2026/04/29 11:02:14 player disconnected: 127.0.0.1:57974
+2026/04/29 11:02:14 player connected: 127.0.0.1:57973
+2026/04/29 11:02:14 password verification: client 127.0.0.1:57973 disconnected before sending password
+2026/04/29 11:02:14 player disconnected: 127.0.0.1:57973
+2026/04/29 11:02:14 player connected: 127.0.0.1:57975
+2026/04/29 11:02:14 password verification: client 127.0.0.1:57975 did not send PASSWORD message
+2026/04/29 11:02:14 player disconnected: 127.0.0.1:57975
+2026/04/29 11:02:14 player connected: 127.0.0.1:57976
+2026/04/29 11:02:14 password verification: client 127.0.0.1:57976 did not send PASSWORD message
+2026/04/29 11:02:14 player disconnected: 127.0.0.1:57976
+2026/04/29 11:02:14 player connected: 127.0.0.1:57977
+2026/04/29 11:02:14 password verification: client 127.0.0.1:57977 did not send PASSWORD message
+2026/04/29 11:02:14 player disconnected: 127.0.0.1:57977
+    judge_test.go:674: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 85322adda4017cc77d0c8839805e0f6a
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+2026/04/29 11:02:16 server stopped
+--- FAIL: TestWaitingPhase_SameWordRetry (2.03s)
+=== RUN   TestWaitingPhase_EndToEnd
+2026/04/29 11:02:16 server listening on :57978
+2026/04/29 11:02:16 player connected: 127.0.0.1:57980
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57980 disconnected before sending password
+2026/04/29 11:02:16 player connected: 127.0.0.1:57981
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57980
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57981 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57981
+2026/04/29 11:02:16 player connected: 127.0.0.1:57982
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57982 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57982
+2026/04/29 11:02:16 player connected: 127.0.0.1:57983
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57983 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57983
+2026/04/29 11:02:16 player connected: 127.0.0.1:57984
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57984 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57984
+2026/04/29 11:02:16 player connected: 127.0.0.1:57985
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57985 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57985
+2026/04/29 11:02:16 player connected: 127.0.0.1:57986
+2026/04/29 11:02:16 password verification: client 127.0.0.1:57986 did not send PASSWORD message
+2026/04/29 11:02:16 player disconnected: 127.0.0.1:57986
+    judge_test.go:798: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 12f34360345492ededadf06571733ad0
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 6 名玩家加入...
+2026/04/29 11:02:18 server stopped
+--- FAIL: TestWaitingPhase_EndToEnd (2.04s)
+=== RUN   TestWaitingPhase_StartWithPartialConfirmation
+2026/04/29 11:02:18 server listening on :57987
+2026/04/29 11:02:18 player connected: 127.0.0.1:57989
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57989 disconnected before sending password
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57989
+2026/04/29 11:02:18 player connected: 127.0.0.1:57990
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57990 did not send PASSWORD message
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57990
+2026/04/29 11:02:18 player connected: 127.0.0.1:57991
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57991 did not send PASSWORD message
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57991
+2026/04/29 11:02:18 player connected: 127.0.0.1:57992
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57992 did not send PASSWORD message
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57992
+2026/04/29 11:02:18 player connected: 127.0.0.1:57993
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57993 did not send PASSWORD message
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57993
+2026/04/29 11:02:18 player connected: 127.0.0.1:57994
+2026/04/29 11:02:18 password verification: client 127.0.0.1:57994 did not send PASSWORD message
+2026/04/29 11:02:18 player disconnected: 127.0.0.1:57994
+    judge_test.go:919: timed out waiting for "E joined [5/6]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: b5d44444320ffa3510b86f509a304589
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 6 名玩家加入...
+2026/04/29 11:02:20 server stopped
+--- FAIL: TestWaitingPhase_StartWithPartialConfirmation (2.04s)
+=== RUN   TestCollectWords_Valid
+--- PASS: TestCollectWords_Valid (0.00s)
+=== RUN   TestCollectWords_SameWordsRetry
+--- PASS: TestCollectWords_SameWordsRetry (0.00s)
+=== RUN   TestCollectWords_EmptyWordRetry
+--- PASS: TestCollectWords_EmptyWordRetry (0.00s)
+=== RUN   TestCollectWords_EOF
+--- PASS: TestCollectWords_EOF (0.00s)
+=== RUN   TestDescriptionPhase_NormalFlow
+2026/04/29 11:02:20 server listening on :57995
+2026/04/29 11:02:20 player connected: 127.0.0.1:57997
+2026/04/29 11:02:20 password verification: client 127.0.0.1:57997 disconnected before sending password
+2026/04/29 11:02:20 player disconnected: 127.0.0.1:57997
+2026/04/29 11:02:20 player connected: 127.0.0.1:57998
+2026/04/29 11:02:20 password verification: client 127.0.0.1:57998 did not send PASSWORD message
+2026/04/29 11:02:20 player disconnected: 127.0.0.1:57998
+2026/04/29 11:02:20 player connected: 127.0.0.1:57999
+2026/04/29 11:02:20 password verification: client 127.0.0.1:57999 did not send PASSWORD message
+2026/04/29 11:02:20 player disconnected: 127.0.0.1:57999
+2026/04/29 11:02:20 player connected: 127.0.0.1:58000
+2026/04/29 11:02:20 password verification: client 127.0.0.1:58000 did not send PASSWORD message
+2026/04/29 11:02:20 player disconnected: 127.0.0.1:58000
+2026/04/29 11:02:20 player connected: 127.0.0.1:58001
+2026/04/29 11:02:20 password verification: client 127.0.0.1:58001 did not send PASSWORD message
+2026/04/29 11:02:20 player disconnected: 127.0.0.1:58001
+    judge_test.go:1240: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 683a7905ca1911edadc823cee3e8ae89
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestDescriptionPhase_NormalFlow (2.04s)
+=== RUN   TestDescriptionPhase_EmptyDescRejected
+2026/04/29 11:02:22 server listening on :58002
+2026/04/29 11:02:22 player connected: 127.0.0.1:58004
+2026/04/29 11:02:22 password verification: client 127.0.0.1:58004 disconnected before sending password
+2026/04/29 11:02:22 player disconnected: 127.0.0.1:58004
+2026/04/29 11:02:22 player connected: 127.0.0.1:58005
+2026/04/29 11:02:22 password verification: client 127.0.0.1:58005 did not send PASSWORD message
+2026/04/29 11:02:22 player disconnected: 127.0.0.1:58005
+2026/04/29 11:02:22 player connected: 127.0.0.1:58006
+2026/04/29 11:02:22 password verification: client 127.0.0.1:58006 did not send PASSWORD message
+2026/04/29 11:02:22 player disconnected: 127.0.0.1:58006
+2026/04/29 11:02:22 player connected: 127.0.0.1:58007
+2026/04/29 11:02:22 password verification: client 127.0.0.1:58007 did not send PASSWORD message
+2026/04/29 11:02:22 player disconnected: 127.0.0.1:58007
+2026/04/29 11:02:22 player connected: 127.0.0.1:58008
+2026/04/29 11:02:22 password verification: client 127.0.0.1:58008 did not send PASSWORD message
+2026/04/29 11:02:22 player disconnected: 127.0.0.1:58008
+    judge_test.go:1305: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 509c0af8041b6f3a932eff4a9eead38e
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestDescriptionPhase_EmptyDescRejected (2.03s)
+=== RUN   TestDescriptionPhase_NotYourTurn
+2026/04/29 11:02:24 server listening on :58009
+2026/04/29 11:02:24 player connected: 127.0.0.1:58012
+2026/04/29 11:02:24 player connected: 127.0.0.1:58011
+2026/04/29 11:02:24 password verification: client 127.0.0.1:58012 did not send PASSWORD message
+2026/04/29 11:02:24 player disconnected: 127.0.0.1:58012
+2026/04/29 11:02:24 password verification: client 127.0.0.1:58011 disconnected before sending password
+2026/04/29 11:02:24 player disconnected: 127.0.0.1:58011
+2026/04/29 11:02:24 player connected: 127.0.0.1:58013
+2026/04/29 11:02:24 password verification: client 127.0.0.1:58013 did not send PASSWORD message
+2026/04/29 11:02:24 player disconnected: 127.0.0.1:58013
+2026/04/29 11:02:24 player connected: 127.0.0.1:58014
+2026/04/29 11:02:24 password verification: client 127.0.0.1:58014 did not send PASSWORD message
+2026/04/29 11:02:24 player disconnected: 127.0.0.1:58014
+2026/04/29 11:02:24 player connected: 127.0.0.1:58015
+2026/04/29 11:02:24 password verification: client 127.0.0.1:58015 did not send PASSWORD message
+2026/04/29 11:02:24 player disconnected: 127.0.0.1:58015
+    judge_test.go:1354: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 36a9a1c10f9b89b90644df1c5acde8d6
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestDescriptionPhase_NotYourTurn (2.04s)
+=== RUN   TestVotingPhase_NormalFlow
+2026/04/29 11:02:26 server listening on :58016
+2026/04/29 11:02:26 player connected: 127.0.0.1:58018
+2026/04/29 11:02:26 password verification: client 127.0.0.1:58018 disconnected before sending password
+2026/04/29 11:02:26 player disconnected: 127.0.0.1:58018
+2026/04/29 11:02:26 player connected: 127.0.0.1:58019
+2026/04/29 11:02:26 password verification: client 127.0.0.1:58019 did not send PASSWORD message
+2026/04/29 11:02:26 player disconnected: 127.0.0.1:58019
+2026/04/29 11:02:26 player connected: 127.0.0.1:58020
+2026/04/29 11:02:26 password verification: client 127.0.0.1:58020 did not send PASSWORD message
+2026/04/29 11:02:26 player disconnected: 127.0.0.1:58020
+2026/04/29 11:02:26 player connected: 127.0.0.1:58021
+2026/04/29 11:02:26 password verification: client 127.0.0.1:58021 did not send PASSWORD message
+2026/04/29 11:02:26 player disconnected: 127.0.0.1:58021
+2026/04/29 11:02:26 player connected: 127.0.0.1:58022
+2026/04/29 11:02:26 password verification: client 127.0.0.1:58022 did not send PASSWORD message
+2026/04/29 11:02:26 player disconnected: 127.0.0.1:58022
+    judge_test.go:1434: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 0bddb6093497f855a583693522212636
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestVotingPhase_NormalFlow (2.03s)
+=== RUN   TestVotingPhase_ValidationRejectsInvalidVote
+2026/04/29 11:02:28 server listening on :58025
+2026/04/29 11:02:28 player connected: 127.0.0.1:58027
+2026/04/29 11:02:28 password verification: client 127.0.0.1:58027 disconnected before sending password
+2026/04/29 11:02:28 player disconnected: 127.0.0.1:58027
+2026/04/29 11:02:28 player connected: 127.0.0.1:58028
+2026/04/29 11:02:28 password verification: client 127.0.0.1:58028 did not send PASSWORD message
+2026/04/29 11:02:28 player disconnected: 127.0.0.1:58028
+2026/04/29 11:02:28 player connected: 127.0.0.1:58029
+2026/04/29 11:02:28 password verification: client 127.0.0.1:58029 did not send PASSWORD message
+2026/04/29 11:02:28 player disconnected: 127.0.0.1:58029
+2026/04/29 11:02:28 player connected: 127.0.0.1:58030
+2026/04/29 11:02:28 password verification: client 127.0.0.1:58030 did not send PASSWORD message
+2026/04/29 11:02:28 player disconnected: 127.0.0.1:58030
+2026/04/29 11:02:28 player connected: 127.0.0.1:58031
+2026/04/29 11:02:28 password verification: client 127.0.0.1:58031 did not send PASSWORD message
+2026/04/29 11:02:28 player disconnected: 127.0.0.1:58031
+    judge_test.go:1505: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 29f5cc3a7806907c5907a59544c8bf85
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestVotingPhase_ValidationRejectsInvalidVote (2.03s)
+=== RUN   TestVotingPhase_NotYourTurn
+2026/04/29 11:02:30 server listening on :58032
+2026/04/29 11:02:30 player connected: 127.0.0.1:58034
+2026/04/29 11:02:30 password verification: client 127.0.0.1:58034 disconnected before sending password
+2026/04/29 11:02:30 player disconnected: 127.0.0.1:58034
+2026/04/29 11:02:30 player connected: 127.0.0.1:58035
+2026/04/29 11:02:30 password verification: client 127.0.0.1:58035 did not send PASSWORD message
+2026/04/29 11:02:30 player disconnected: 127.0.0.1:58035
+2026/04/29 11:02:30 player connected: 127.0.0.1:58036
+2026/04/29 11:02:30 password verification: client 127.0.0.1:58036 did not send PASSWORD message
+2026/04/29 11:02:30 player disconnected: 127.0.0.1:58036
+2026/04/29 11:02:30 player connected: 127.0.0.1:58037
+2026/04/29 11:02:30 password verification: client 127.0.0.1:58037 did not send PASSWORD message
+2026/04/29 11:02:30 player disconnected: 127.0.0.1:58037
+2026/04/29 11:02:30 player connected: 127.0.0.1:58038
+2026/04/29 11:02:30 password verification: client 127.0.0.1:58038 did not send PASSWORD message
+2026/04/29 11:02:30 player disconnected: 127.0.0.1:58038
+    judge_test.go:1557: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: e854e7a5273230c4b2d27e387e3e9022
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestVotingPhase_NotYourTurn (2.04s)
+=== RUN   TestVotingPhase_ResultBroadcastAndElimination
+2026/04/29 11:02:33 server listening on :58039
+2026/04/29 11:02:33 player connected: 127.0.0.1:58041
+2026/04/29 11:02:33 password verification: client 127.0.0.1:58041 disconnected before sending password
+2026/04/29 11:02:33 player disconnected: 127.0.0.1:58041
+2026/04/29 11:02:33 player connected: 127.0.0.1:58042
+2026/04/29 11:02:33 password verification: client 127.0.0.1:58042 did not send PASSWORD message
+2026/04/29 11:02:33 player disconnected: 127.0.0.1:58042
+2026/04/29 11:02:33 player connected: 127.0.0.1:58043
+2026/04/29 11:02:33 password verification: client 127.0.0.1:58043 did not send PASSWORD message
+2026/04/29 11:02:33 player disconnected: 127.0.0.1:58043
+2026/04/29 11:02:33 player connected: 127.0.0.1:58044
+2026/04/29 11:02:33 password verification: client 127.0.0.1:58044 did not send PASSWORD message
+2026/04/29 11:02:33 player disconnected: 127.0.0.1:58044
+2026/04/29 11:02:33 player connected: 127.0.0.1:58045
+2026/04/29 11:02:33 password verification: client 127.0.0.1:58045 did not send PASSWORD message
+2026/04/29 11:02:33 player disconnected: 127.0.0.1:58045
+    judge_test.go:1590: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间已创建！连接密码: 08412897c3c0d79f9d9b5d0113c92363
+        请告知玩家此密码以连接到房间
+        [INFO] [session:0000] 等待 4 名玩家加入...
+--- FAIL: TestVotingPhase_ResultBroadcastAndElimination (2.04s)
+=== RUN   TestRun_ValidRoleJudge
+2026/04/29 11:02:35 server listening on :8127
+2026/04/29 11:02:35 server stopped
+--- PASS: TestRun_ValidRoleJudge (0.01s)
+=== RUN   TestRun_ValidRolePlayer
+--- PASS: TestRun_ValidRolePlayer (0.00s)
+=== RUN   TestRun_CustomPort
+2026/04/29 11:02:35 server listening on :9000
+2026/04/29 11:02:35 server stopped
+--- PASS: TestRun_CustomPort (0.00s)
+=== RUN   TestRun_DefaultPort
+--- PASS: TestRun_DefaultPort (0.00s)
+=== RUN   TestRun_InvalidRole
+--- PASS: TestRun_InvalidRole (0.00s)
+=== RUN   TestRun_NoArgs
+--- PASS: TestRun_NoArgs (0.00s)
+=== RUN   TestRun_HelpFlag
+--- PASS: TestRun_HelpFlag (0.00s)
+=== RUN   TestRun_ShortHelpFlag
+--- PASS: TestRun_ShortHelpFlag (0.00s)
+=== RUN   TestRun_MissingRoleValue
+--- PASS: TestRun_MissingRoleValue (0.00s)
+=== RUN   TestRun_MissingPortValue
+--- PASS: TestRun_MissingPortValue (0.00s)
+=== RUN   TestRun_InvalidPort
+--- PASS: TestRun_InvalidPort (0.00s)
+=== RUN   TestRun_UnknownOption
+--- PASS: TestRun_UnknownOption (0.00s)
+=== RUN   TestRun_StealthFlag
+--- PASS: TestRun_StealthFlag (0.00s)
+=== RUN   TestRun_NoStealthByDefault
+--- PASS: TestRun_NoStealthByDefault (0.00s)
+=== RUN   TestRun_StealthInHelp
+--- PASS: TestRun_StealthInHelp (0.00s)
+=== RUN   TestRun_StealthWithJudge
+2026/04/29 11:02:35 server listening on :8127
+2026/04/29 11:02:35 server stopped
+--- PASS: TestRun_StealthWithJudge (0.00s)
+=== RUN   TestRun_JudgeDisplaysPassword
+2026/04/29 11:02:35 server listening on :8127
+2026/04/29 11:02:35 server stopped
+--- PASS: TestRun_JudgeDisplaysPassword (0.00s)
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyRoomCode
+--- PASS: TestRunPlayer_EmptyRoomCode (0.00s)
+=== RUN   TestRunPlayer_InvalidRoomCode
+--- PASS: TestRunPlayer_InvalidRoomCode (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:96: test server on 127.0.0.1:58047, room code: deP6OMcp
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:140: test server on 127.0.0.1:58049, room code: deP6OMcr
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:175: test server on 127.0.0.1:58051, room code: deP6OMct
+    player_test.go:197: expected name error, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: 
+--- FAIL: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:203: test server on 127.0.0.1:58053, room code: deP6OMcv
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:236: test server on 127.0.0.1:58055, room code: deP6OMcx
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Civilian
+    player_test.go:268: test server on 127.0.0.1:58057, room code: deP6OMcz
+    player_test.go:294: expected exit code 0, got 1
+    player_test.go:298: expected joined message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+    player_test.go:301: expected disguised civilian role message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+--- FAIL: TestRunPlayer_ReceivesRole_Civilian (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Undercover
+    player_test.go:307: test server on 127.0.0.1:58059, room code: deP6OMd1
+    player_test.go:333: expected exit code 0, got 1
+    player_test.go:337: expected disguised undercover role message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+--- FAIL: TestRunPlayer_ReceivesRole_Undercover (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Blank
+    player_test.go:343: test server on 127.0.0.1:58061, room code: deP6OMd3
+    player_test.go:369: expected exit code 0, got 1
+    player_test.go:373: expected disguised blank role message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+--- FAIL: TestRunPlayer_ReceivesRole_Blank (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Stealth
+    player_test.go:379: test server on 127.0.0.1:58063, room code: deP6OMd5
+    player_test.go:405: expected exit code 0, got 1
+    player_test.go:414: expected token display in stealth mode, got: [sysmon] v2.4.1 — diagnostics mode
+        [session:0000] 请输入房间码
+          房间码: [session:0000] 请输入连接密码
+          连接密码: [session:0000] 请输入你的名字
+          名字: 
+--- FAIL: TestRunPlayer_ReceivesRole_Stealth (0.00s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:420: test server on 127.0.0.1:58065, room code: deP6OMd7
+    player_test.go:449: expected exit code 0, got 1
+    player_test.go:453: expected joined message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+    player_test.go:456: expected ROLE message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+    player_test.go:459: expected READY message, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: 
+--- FAIL: TestRunPlayer_ReceivesMultipleMessages (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OtherPlayerTurn
+    player_test.go:467: test server on 127.0.0.1:58067, room code: deP6OMd9
+--- PASS: TestRunPlayer_DescPhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OwnTurn
+    player_test.go:531: test server on 127.0.0.1:58069, room code: deP6OMdB
+    player_test.go:563: expected DESC message, got JOIN
+    player_test.go:583: expected description prompt, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [DATA] [node-00] 轮次 1，发言顺序: P0 → P1
+        [DATA] [node-00] 等待 P0 描述...
+--- FAIL: TestRunPlayer_DescPhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_EmptyDescRetry
+    player_test.go:592: test server on 127.0.0.1:58071, room code: deP6OMdD
+    player_test.go:635: expected exit code 0, got 1
+    player_test.go:641: expected empty description warning, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [WARN] 名字不能为空
+--- FAIL: TestRunPlayer_DescPhase_EmptyDescRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ServerErrorRetry
+    player_test.go:650: test server on 127.0.0.1:58073, room code: deP6OMdF
+    player_test.go:698: expected exit code 0, got 1
+    player_test.go:708: expected at least 2 prompts, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [DATA] [node-00] 轮次 1，发言顺序: P0
+        [DATA] [node-00] 等待 P0 描述...
+        [WARN] 描述不能为空，请重新输入
+--- FAIL: TestRunPlayer_DescPhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ErrorFatal
+    player_test.go:717: test server on 127.0.0.1:58075, room code: deP6OMdH
+--- PASS: TestRunPlayer_DescPhase_ErrorFatal (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OtherPlayerTurn
+    player_test.go:756: test server on 127.0.0.1:58077, room code: deP6OMdJ
+    player_test.go:806: expected waiting message for Bob voting, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [DATA] [node-00] 投票环节 轮次 1，可投票: Bob → Alice
+          请输入投票目标: [DATA] [node-00] 等待 Alice 投票...
+--- FAIL: TestRunPlayer_VotePhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OwnTurn
+    player_test.go:815: test server on 127.0.0.1:58079, room code: deP6OMdL
+    player_test.go:847: expected VOTE message, got JOIN
+    player_test.go:867: expected vote prompt, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [DATA] [node-00] 投票环节 轮次 1，可投票: P0 → P1
+        [DATA] [node-00] 等待 P0 投票...
+--- FAIL: TestRunPlayer_VotePhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_EmptyTargetRetry
+    player_test.go:876: test server on 127.0.0.1:58081, room code: deP6OMdN
+    player_test.go:919: expected exit code 0, got 1
+    player_test.go:925: expected empty vote target warning, got: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 请输入房间码
+          房间码: [INFO] [session:0000] 请输入连接密码
+          连接密码: [INFO] [session:0000] 请输入你的名字
+          名字: [WARN] 名字不能为空
+--- FAIL: TestRunPlayer_VotePhase_EmptyTargetRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ServerErrorRetry
+    player_test.go:934: test server on 127.0.0.1:58083, room code: deP6OMdP
+--- PASS: TestRunPlayer_VotePhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ResultDisplay
+    player_test.go:1001: test server on 127.0.0.1:58085, room code: deP6OMdR
+--- PASS: TestRunPlayer_VotePhase_ResultDisplay (0.00s)
+=== RUN   TestRunPlayer_VotePhase_DescToVoteTransition
+    player_test.go:1058: test server on 127.0.0.1:58087, room code: deP6OMdT
+panic: test timed out after 10m0s
+	running tests:
+		TestRunPlayer_VotePhase_DescToVoteTransition (9m26s)
+
+goroutine 255 [running]:
+testing.(*M).startAlarm.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2802 +0x2c4
+created by time.goFunc
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/time/sleep.go:215 +0x38
+
+goroutine 1 [chan receive, 9 minutes]:
+testing.(*T).Run(0x170b060f0008, {0x1002fde99?, 0x170b060a4b18?}, 0x1004bfd60)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x3bc
+testing.runTests.func1(0x170b060f0008)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2585 +0x38
+testing.tRunner(0x170b060f0008, 0x170b060a4c48)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+testing.runTests({0x1002f8f29, 0x1f}, {0x1002fe74a, 0x2e}, 0x170b060b80d8, {0x1004ee500, 0x56, 0x56}, {0x802b3f6858035664?, 0x1002f27e3?, ...})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2583 +0x3f0
+testing.(*M).Run(0x170b060a8280)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
+main.main()
+	_testmain.go:216 +0x80
+
+goroutine 195 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x102888c00, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b061aef80?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b061aef80)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b061aef80)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b061b03c0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b061b03c0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b060e82d0)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 166
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 209 [select, 9 minutes]:
+net.(*pipe).read(0x170b06411b00, {0x170b06395006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b06395006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b062f1100)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 208
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 253 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.RunPlayer({0x1004c1ec0, 0x170b063927b0}, {0x1004c1ee0, 0x170b06094460}, 0x70?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go:171 +0x88c
+github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_VotePhase_DescToVoteTransition(0x170b064b6248)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:1104 +0x164
+testing.tRunner(0x170b064b6248, 0x1004bfd60)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+created by testing.(*T).Run in goroutine 1
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2101 +0x3a8
+
+goroutine 169 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 168
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 196 [select, 9 minutes]:
+net.(*pipe).read(0x170b061aee00, {0x170b06402006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b06402006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b06176280)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 166
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 157 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b0628bb90}, {0x170b06182f08?, 0x170b060e2b00?}, 0x170b06182ef0, 0x170b060e81b0, {0x170b0623f678?, 0x1001d4be8?, 0x0?}, 0x170b06164410)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b0628bb90}, {0x129278008, 0x170b062f0a00}, {0x170b06292a08, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 155
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 90 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x1292bc600, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b062f0f00?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b062f0f00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b062f0f00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b062c4380)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b062c4380)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b0621a1b0)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 205
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 156 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 155
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 212 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 211
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 143 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x102889400, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b06339300?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b06339300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b06339300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b0601a300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b0601a300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b060e81b0)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 157
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 166 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b0619cf60}, {0x170b06183f08?, 0x170b060e2be0?}, 0x170b06183ef0, 0x170b060e82d0, {0x0?, 0x0?, 0x0?}, 0x170b061646b0)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b0619cf60}, {0x129278008, 0x170b061aee00}, {0x170b06180658, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 164
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 144 [select, 9 minutes]:
+net.(*pipe).read(0x170b062f0a00, {0x170b06172006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b06172006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b06166700)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 157
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 213 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b06392db0}, {0x170b06187f08?, 0x170b06194800?}, 0x170b06187ef0, 0x170b061c0240, {0x170b062a0e10?, 0x0?, 0x0?}, 0x170b0618e8c0)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b06392db0}, {0x129278008, 0x170b0639ec00}, {0x170b06292e70, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 211
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 165 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 164
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 160 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x12927e800, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b061af680?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b061af680)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b061af680)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b061b04c0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b061b04c0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b062c0360)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 208
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 199 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x1292bcc00, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b062f0d00?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b062f0d00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b062f0d00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b062c4340)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b062c4340)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b060e8360)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 170
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 170 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b0619d320}, {0x170b060a7f08?, 0x170b060e2cc0?}, 0x170b060a7ef0, 0x170b060e8360, {0x0?, 0x0?, 0x0?}, 0x170b061648d0)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b0619d320}, {0x129278008, 0x170b061af180}, {0x170b06180740, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 168
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 200 [select, 9 minutes]:
+net.(*pipe).read(0x170b061af180, {0x170b0640e006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b0640e006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b06177d00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 170
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 241 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x102894000, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b0626b500?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b0626b500)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b0626b500)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b06222240)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b06222240)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b061c0240)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 213
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 204 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 203
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 205 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b06175cb0}, {0x170b06322f08?, 0x170b06234420?}, 0x170b06322ef0, 0x170b0621a1b0, {0x170b0603be10?, 0x0?, 0x0?}, 0x170b06208750)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b06175cb0}, {0x129278008, 0x170b06411900}, {0x170b0609fb40, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 203
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 91 [select, 9 minutes]:
+net.(*pipe).read(0x170b06411900, {0x170b06267006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b06267006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b0625d900)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 205
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 207 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 206
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 208 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b06175e90}, {0x170b06329f08?, 0x170b06288980?}, 0x170b06329ef0, 0x170b062c0360, {0x0?, 0x0?, 0x0?}, 0x170b06286c20)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b06175e90}, {0x129278008, 0x170b06411b00}, {0x170b0609fbe0, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 206
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 227 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x102893800, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b0626b700?, 0x10021454c?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x170b0626b700)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x170b0626b700)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*TCPListener).accept(0x170b06222300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock_posix.go:159 +0x24
+net.(*TCPListener).Accept(0x170b06222300)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/tcpsock.go:387 +0x2c
+github.com/smallnest/doubletake/server.(*Server).Start(0x170b060e8510)
+	/Users/smallnest/ai/DoubleTake/server/server.go:101 +0x1e4
+created by github.com/smallnest/doubletake/cmd/doubletake.RunJudge in goroutine 219
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:176 +0x258
+
+goroutine 242 [select, 9 minutes]:
+net.(*pipe).read(0x170b0639ec00, {0x170b061f7006, 0xffa, 0x1002c53d0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x6?, {0x170b061f7006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b061af880)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 213
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 218 [chan receive, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1052 +0xd4
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 217
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1048 +0x198
+
+goroutine 219 [select, 9 minutes]:
+github.com/smallnest/doubletake/cmd/doubletake.waitingPhase({0x1004c1f00, 0x170b063931d0}, {0x170b06327f08?, 0x170b060e2fa0?}, 0x170b06327ef0, 0x170b060e8510, {0x0?, 0x0?, 0x0?}, 0x170b06164d20)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:247 +0x9c
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1004c1f00, 0x170b063931d0}, {0x129278008, 0x170b0639f000}, {0x170b06293070, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:197 +0x40c
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 217
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1059 +0x218
+
+goroutine 228 [select, 9 minutes]:
+net.(*pipe).read(0x170b0639f000, {0x170b06429006, 0xffa, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:159 +0xe4
+net.(*pipe).Read(0x0?, {0x170b06429006?, 0x0?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/pipe.go:142 +0x20
+bufio.(*Scanner).Scan(0x170b06411e80)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.newStdinSource.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:235 +0x7c
+created by github.com/smallnest/doubletake/cmd/doubletake.newStdinSource in goroutine 219
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:233 +0x9c
+
+goroutine 341 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x102889200, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b0639e480?, 0x170b063e9042?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x170b0639e480, {0x170b063e9042, 0xfbe, 0xfbe})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x170b0639e480, {0x170b063e9042?, 0x2?, 0x170b06094540?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x170b060820d8, {0x170b063e9042?, 0x20?, 0x100477fa0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x170b061edf08)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/client.(*Client).receiveLoop(0x170b063927e0)
+	/Users/smallnest/ai/DoubleTake/client/client.go:73 +0x90
+created by github.com/smallnest/doubletake/client.(*Client).Connect in goroutine 253
+	/Users/smallnest/ai/DoubleTake/client/client.go:35 +0x108
+
+goroutine 254 [IO wait, 9 minutes]:
+internal/poll.runtime_pollWait(0x12927ea00, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x170b0639e500?, 0x170b064c101b?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x170b0639e500, {0x170b064c101b, 0xfe5, 0xfe5})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x170b0639e500, {0x170b064c101b?, 0x0?, 0x100212d30?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x170b061b4028, {0x170b064c101b?, 0x170b06164660?, 0x100000076?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x170b06188ed8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_VotePhase_DescToVoteTransition.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:1090 +0x4c8
+created by github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_VotePhase_DescToVoteTransition in goroutine 253
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:1062 +0xd0
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	600.924s
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+=== RUN   TestEncodeRoomCode_InvalidInput/port_out_of_range
+=== RUN   TestEncodeRoomCode_InvalidInput/non-numeric_port
+--- PASS: TestEncodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/no_port (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/invalid_IP (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/port_out_of_range (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/non-numeric_port (0.00s)
+=== RUN   TestDecodeRoomCode_InvalidInput
+=== RUN   TestDecodeRoomCode_InvalidInput/empty
+=== RUN   TestDecodeRoomCode_InvalidInput/invalid_char
+=== RUN   TestDecodeRoomCode_InvalidInput/special_char
+=== RUN   TestDecodeRoomCode_InvalidInput/newline
+--- PASS: TestDecodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/invalid_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/special_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/newline (0.00s)
+=== RUN   TestEncodeRoomCode_ShortOutput
+--- PASS: TestEncodeRoomCode_ShortOutput (0.00s)
+=== RUN   TestNewDescRound
+--- PASS: TestNewDescRound (0.00s)
+=== RUN   TestCurrentSpeaker
+--- PASS: TestCurrentSpeaker (0.00s)
+=== RUN   TestCurrentSpeaker_AllDone
+--- PASS: TestCurrentSpeaker_AllDone (0.00s)
+=== RUN   TestRecordDesc_NormalFlow
+--- PASS: TestRecordDesc_NormalFlow (0.00s)
+=== RUN   TestRecordDesc_EmptyDescription
+=== RUN   TestRecordDesc_EmptyDescription/empty_string
+=== RUN   TestRecordDesc_EmptyDescription/spaces_only
+=== RUN   TestRecordDesc_EmptyDescription/tabs_only
+=== RUN   TestRecordDesc_EmptyDescription/newline_only
+=== RUN   TestRecordDesc_EmptyDescription/mixed_whitespace
+--- PASS: TestRecordDesc_EmptyDescription (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/empty_string (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/spaces_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/tabs_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/newline_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/mixed_whitespace (0.00s)
+=== RUN   TestRecordDesc_NotYourTurn
+--- PASS: TestRecordDesc_NotYourTurn (0.00s)
+=== RUN   TestAllDone_EmptyPlayers
+--- PASS: TestAllDone_EmptyPlayers (0.00s)
+=== RUN   TestAllDone_OnePlayer
+--- PASS: TestAllDone_OnePlayer (0.00s)
+=== RUN   TestDescRound_RecordsAllDescriptions
+--- PASS: TestDescRound_RecordsAllDescriptions (0.00s)
+=== RUN   TestRecordDesc_AllowsWhitespaceInContent
+--- PASS: TestRecordDesc_AllowsWhitespaceInContent (0.00s)
+=== RUN   TestGetLocalIP
+--- PASS: TestGetLocalIP (0.00s)
+=== RUN   TestGetExternalIP
+--- PASS: TestGetExternalIP (0.01s)
+=== RUN   TestGenerateRoomPassword_Format
+--- PASS: TestGenerateRoomPassword_Format (0.00s)
+=== RUN   TestGenerateRoomPassword_Randomness
+--- PASS: TestGenerateRoomPassword_Randomness (0.00s)
+=== RUN   TestEncode
+=== RUN   TestEncode/with_payload
+=== RUN   TestEncode/empty_payload
+--- PASS: TestEncode (0.00s)
+    --- PASS: TestEncode/with_payload (0.00s)
+    --- PASS: TestEncode/empty_payload (0.00s)
+=== RUN   TestDecode
+=== RUN   TestDecode/valid_message
+=== RUN   TestDecode/pipe_in_payload
+=== RUN   TestDecode/empty_payload
+=== RUN   TestDecode/empty_string
+=== RUN   TestDecode/newline_only
+=== RUN   TestDecode/no_separator
+--- PASS: TestDecode (0.00s)
+    --- PASS: TestDecode/valid_message (0.00s)
+    --- PASS: TestDecode/pipe_in_payload (0.00s)
+    --- PASS: TestDecode/empty_payload (0.00s)
+    --- PASS: TestDecode/empty_string (0.00s)
+    --- PASS: TestDecode/newline_only (0.00s)
+    --- PASS: TestDecode/no_separator (0.00s)
+=== RUN   TestRole_String
+=== RUN   TestRole_String/Civilian
+=== RUN   TestRole_String/Undercover
+=== RUN   TestRole_String/Blank
+=== RUN   TestRole_String/Unknown
+--- PASS: TestRole_String (0.00s)
+    --- PASS: TestRole_String/Civilian (0.00s)
+    --- PASS: TestRole_String/Undercover (0.00s)
+    --- PASS: TestRole_String/Blank (0.00s)
+    --- PASS: TestRole_String/Unknown (0.00s)
+=== RUN   TestAssignRoles_Success
+--- PASS: TestAssignRoles_Success (0.00s)
+=== RUN   TestAssignRoles_FourPlayers
+--- PASS: TestAssignRoles_FourPlayers (0.00s)
+=== RUN   TestAssignRoles_TenPlayers
+--- PASS: TestAssignRoles_TenPlayers (0.00s)
+=== RUN   TestAssignRoles_AllCivilianBoundary
+--- PASS: TestAssignRoles_AllCivilianBoundary (0.00s)
+=== RUN   TestAssignRoles_Shuffled
+--- PASS: TestAssignRoles_Shuffled (0.00s)
+=== RUN   TestAssignRoles_NoUndercover
+--- PASS: TestAssignRoles_NoUndercover (0.00s)
+=== RUN   TestAssignRoles_Errors
+=== RUN   TestAssignRoles_Errors/empty_names
+=== RUN   TestAssignRoles_Errors/nil_names
+=== RUN   TestAssignRoles_Errors/empty_name_in_list
+=== RUN   TestAssignRoles_Errors/negative_undercover
+=== RUN   TestAssignRoles_Errors/negative_blank
+=== RUN   TestAssignRoles_Errors/U+B_equals_C_exactly
+=== RUN   TestAssignRoles_Errors/undercover+blank_equals_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_exceeds_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_>=_civilian
+--- PASS: TestAssignRoles_Errors (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/nil_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_name_in_list (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_undercover (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_blank (0.00s)
+    --- PASS: TestAssignRoles_Errors/U+B_equals_C_exactly (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_equals_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_exceeds_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_>=_civilian (0.00s)
+=== RUN   TestAssignWords_AllRoles
+--- PASS: TestAssignWords_AllRoles (0.00s)
+=== RUN   TestAssignWords_OnlyCivilians
+--- PASS: TestAssignWords_OnlyCivilians (0.00s)
+=== RUN   TestAssignWords_EmptyPlayers
+--- PASS: TestAssignWords_EmptyPlayers (0.00s)
+=== RUN   TestAssignWords_BlankRole
+--- PASS: TestAssignWords_BlankRole (0.00s)
+=== RUN   TestNewVoteRound
+--- PASS: TestNewVoteRound (0.00s)
+=== RUN   TestNewVoteRound_Errors
+=== RUN   TestNewVoteRound_Errors/empty_name
+=== RUN   TestNewVoteRound_Errors/whitespace_name
+=== RUN   TestNewVoteRound_Errors/duplicate_name
+--- PASS: TestNewVoteRound_Errors (0.00s)
+    --- PASS: TestNewVoteRound_Errors/empty_name (0.00s)
+    --- PASS: TestNewVoteRound_Errors/whitespace_name (0.00s)
+    --- PASS: TestNewVoteRound_Errors/duplicate_name (0.00s)
+=== RUN   TestCurrentVoter
+--- PASS: TestCurrentVoter (0.00s)
+=== RUN   TestCurrentVoter_AllDone
+--- PASS: TestCurrentVoter_AllDone (0.00s)
+=== RUN   TestRecordVote_NormalFlow
+--- PASS: TestRecordVote_NormalFlow (0.00s)
+=== RUN   TestRecordVote_EmptyTarget
+=== RUN   TestRecordVote_EmptyTarget/empty_string
+=== RUN   TestRecordVote_EmptyTarget/spaces_only
+=== RUN   TestRecordVote_EmptyTarget/tabs_only
+--- PASS: TestRecordVote_EmptyTarget (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/empty_string (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/spaces_only (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/tabs_only (0.00s)
+=== RUN   TestRecordVote_NotYourTurn
+--- PASS: TestRecordVote_NotYourTurn (0.00s)
+=== RUN   TestRecordVote_VoteSelf
+--- PASS: TestRecordVote_VoteSelf (0.00s)
+=== RUN   TestRecordVote_VoteEliminated
+--- PASS: TestRecordVote_VoteEliminated (0.00s)
+=== RUN   TestRecordVote_VoteUnknown
+--- PASS: TestRecordVote_VoteUnknown (0.00s)
+=== RUN   TestAllDone_ZeroPlayers
+--- PASS: TestAllDone_ZeroPlayers (0.00s)
+=== RUN   TestAllDone_OnePlayer_VoteRound
+--- PASS: TestAllDone_OnePlayer_VoteRound (0.00s)
+=== RUN   TestTally
+--- PASS: TestTally (0.00s)
+=== RUN   TestTally_Empty
+--- PASS: TestTally_Empty (0.00s)
+=== RUN   TestFindEliminated_ClearWinner
+--- PASS: TestFindEliminated_ClearWinner (0.00s)
+=== RUN   TestFindEliminated_Tie
+--- PASS: TestFindEliminated_Tie (0.00s)
+=== RUN   TestFindEliminated_AllTie
+--- PASS: TestFindEliminated_AllTie (0.00s)
+=== RUN   TestFindEliminated_NoVotes
+--- PASS: TestFindEliminated_NoVotes (0.00s)
+=== RUN   TestVoteRound_FullRound_Integration
+--- PASS: TestVoteRound_FullRound_Integration (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	(cached)
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 11:02:01 server listening on :57797
+2026/04/29 11:02:01 player connected: 127.0.0.1:57801
+2026/04/29 11:02:01 player disconnected: 127.0.0.1:57801
+2026/04/29 11:02:01 player connected: 127.0.0.1:57802
+2026/04/29 11:02:01 server stopped
+2026/04/29 11:02:01 player disconnected: 127.0.0.1:57802
+--- PASS: TestStartAndAccept (0.07s)
+=== RUN   TestStop
+2026/04/29 11:02:01 server listening on :57803
+2026/04/29 11:02:01 player connected: 127.0.0.1:57805
+2026/04/29 11:02:01 player disconnected: 127.0.0.1:57805
+2026/04/29 11:02:01 player connected: 127.0.0.1:57806
+2026/04/29 11:02:02 server stopped
+--- PASS: TestStop (0.06s)
+=== RUN   TestStopIdempotent
+2026/04/29 11:02:02 connection error from 127.0.0.1:57806: read tcp 127.0.0.1:57803->127.0.0.1:57806: use of closed network connection
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57806
+2026/04/29 11:02:02 server listening on :57807
+2026/04/29 11:02:02 player connected: 127.0.0.1:57809
+2026/04/29 11:02:02 server stopped
+--- PASS: TestStopIdempotent (0.01s)
+2026/04/29 11:02:02 connection error from 127.0.0.1:57809: read tcp 127.0.0.1:57807->127.0.0.1:57809: use of closed network connection
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57809
+=== RUN   TestHandleConnMessages
+2026/04/29 11:02:02 server listening on :57810
+2026/04/29 11:02:02 player connected: 127.0.0.1:57812
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57812
+2026/04/29 11:02:02 player connected: 127.0.0.1:57813
+2026/04/29 11:02:02 received from 127.0.0.1:57813: JOIN player1
+2026/04/29 11:02:02 player 127.0.0.1:57813 joined as player1
+2026/04/29 11:02:02 decode error from 127.0.0.1:57813: invalid message format
+2026/04/29 11:02:02 received from 127.0.0.1:57813: READY 
+2026/04/29 11:02:02 connection error from 127.0.0.1:57813: read tcp 127.0.0.1:57810->127.0.0.1:57813: read: connection reset by peer
+2026/04/29 11:02:02 server stopped
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57813
+--- PASS: TestHandleConnMessages (0.07s)
+=== RUN   TestClientDisconnect
+2026/04/29 11:02:02 server listening on :57814
+2026/04/29 11:02:02 player connected: 127.0.0.1:57816
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57816
+2026/04/29 11:02:02 player connected: 127.0.0.1:57817
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57817
+2026/04/29 11:02:02 server stopped
+--- PASS: TestClientDisconnect (0.17s)
+=== RUN   TestBroadcast
+2026/04/29 11:02:02 server listening on :57818
+2026/04/29 11:02:02 player connected: 127.0.0.1:57820
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57820
+2026/04/29 11:02:02 player connected: 127.0.0.1:57821
+2026/04/29 11:02:02 player connected: 127.0.0.1:57822
+2026/04/29 11:02:02 player connected: 127.0.0.1:57823
+2026/04/29 11:02:02 server stopped
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57821
+--- PASS: TestBroadcast (0.07s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57823
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57822
+=== RUN   TestSend
+2026/04/29 11:02:02 server listening on :57824
+2026/04/29 11:02:02 player connected: 127.0.0.1:57826
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57826
+2026/04/29 11:02:02 player connected: 127.0.0.1:57827
+2026/04/29 11:02:02 server stopped
+--- PASS: TestSend (0.07s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57827
+=== RUN   TestSendToPlayer_Success
+2026/04/29 11:02:02 server listening on :57828
+2026/04/29 11:02:02 player connected: 127.0.0.1:57830
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57830
+2026/04/29 11:02:02 player connected: 127.0.0.1:57831
+2026/04/29 11:02:02 received from 127.0.0.1:57831: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57831 joined as Alice
+2026/04/29 11:02:02 server stopped
+--- PASS: TestSendToPlayer_Success (0.01s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57831
+=== RUN   TestSendToPlayer_NotFound
+2026/04/29 11:02:02 server listening on :57832
+2026/04/29 11:02:02 player connected: 127.0.0.1:57834
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57834
+2026/04/29 11:02:02 player connected: 127.0.0.1:57835
+2026/04/29 11:02:02 received from 127.0.0.1:57835: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57835 joined as Alice
+2026/04/29 11:02:02 server stopped
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57835
+--- PASS: TestSendToPlayer_NotFound (0.01s)
+=== RUN   TestSendToPlayer_OnlyTargetReceives
+2026/04/29 11:02:02 server listening on :57836
+2026/04/29 11:02:02 player connected: 127.0.0.1:57838
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57838
+2026/04/29 11:02:02 player connected: 127.0.0.1:57839
+2026/04/29 11:02:02 player connected: 127.0.0.1:57840
+2026/04/29 11:02:02 received from 127.0.0.1:57839: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57839 joined as Alice
+2026/04/29 11:02:02 received from 127.0.0.1:57840: JOIN Bob
+2026/04/29 11:02:02 player 127.0.0.1:57840 joined as Bob
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57840
+2026/04/29 11:02:02 server stopped
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57839
+--- PASS: TestSendToPlayer_OnlyTargetReceives (0.22s)
+=== RUN   TestMultipleClients
+2026/04/29 11:02:02 server listening on :57841
+2026/04/29 11:02:02 player connected: 127.0.0.1:57843
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57843
+2026/04/29 11:02:02 player connected: 127.0.0.1:57844
+2026/04/29 11:02:02 player connected: 127.0.0.1:57845
+2026/04/29 11:02:02 player connected: 127.0.0.1:57846
+2026/04/29 11:02:02 player connected: 127.0.0.1:57847
+2026/04/29 11:02:02 player connected: 127.0.0.1:57848
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57844
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57846
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57845
+2026/04/29 11:02:02 server stopped
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57848
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57847
+--- PASS: TestMultipleClients (0.22s)
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 11:02:02 server listening on :57849
+2026/04/29 11:02:02 player connected: 127.0.0.1:57851
+2026/04/29 11:02:02 player connected: 127.0.0.1:57852
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57851
+2026/04/29 11:02:02 decode error from 127.0.0.1:57852: invalid message format
+2026/04/29 11:02:02 decode error from 127.0.0.1:57852: invalid message format
+2026/04/29 11:02:02 received from 127.0.0.1:57852:  |
+2026/04/29 11:02:02 decode error from 127.0.0.1:57852: invalid message format
+2026/04/29 11:02:02 decode error from 127.0.0.1:57852: invalid message format
+2026/04/29 11:02:02 received from 127.0.0.1:57852: JOIN test
+2026/04/29 11:02:02 player 127.0.0.1:57852 joined as test
+2026/04/29 11:02:02 connection error from 127.0.0.1:57852: read tcp 127.0.0.1:57849->127.0.0.1:57852: read: connection reset by peer
+2026/04/29 11:02:02 server stopped
+--- PASS: TestInvalidMessageNoPanic (0.06s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57852
+=== RUN   TestJoinSuccess
+2026/04/29 11:02:02 server listening on :57853
+2026/04/29 11:02:02 player connected: 127.0.0.1:57855
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57855
+2026/04/29 11:02:02 player connected: 127.0.0.1:57856
+2026/04/29 11:02:02 received from 127.0.0.1:57856: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57856 joined as Alice
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57856
+2026/04/29 11:02:02 server stopped
+--- PASS: TestJoinSuccess (0.01s)
+=== RUN   TestJoinDuplicateName
+2026/04/29 11:02:02 server listening on :57857
+2026/04/29 11:02:02 player connected: 127.0.0.1:57859
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57859
+2026/04/29 11:02:02 player connected: 127.0.0.1:57860
+2026/04/29 11:02:02 received from 127.0.0.1:57860: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57860 joined as Alice
+2026/04/29 11:02:02 player connected: 127.0.0.1:57861
+2026/04/29 11:02:02 received from 127.0.0.1:57861: JOIN Alice
+2026/04/29 11:02:02 received from 127.0.0.1:57861: JOIN Bob
+2026/04/29 11:02:02 player 127.0.0.1:57861 joined as Bob
+2026/04/29 11:02:02 server stopped
+--- PASS: TestJoinDuplicateName (0.01s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57860
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57861
+=== RUN   TestJoinEmptyName
+2026/04/29 11:02:02 server listening on :57862
+2026/04/29 11:02:02 player connected: 127.0.0.1:57864
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57864
+2026/04/29 11:02:02 player connected: 127.0.0.1:57865
+2026/04/29 11:02:02 received from 127.0.0.1:57865: JOIN 
+2026/04/29 11:02:02 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57865
+=== RUN   TestJoinDisconnectCleanup
+2026/04/29 11:02:02 server listening on :57866
+2026/04/29 11:02:02 player connected: 127.0.0.1:57868
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57868
+2026/04/29 11:02:02 player connected: 127.0.0.1:57869
+2026/04/29 11:02:02 received from 127.0.0.1:57869: JOIN Alice
+2026/04/29 11:02:02 player 127.0.0.1:57869 joined as Alice
+2026/04/29 11:02:02 player disconnected: 127.0.0.1:57869
+2026/04/29 11:02:03 player connected: 127.0.0.1:57870
+2026/04/29 11:02:03 received from 127.0.0.1:57870: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57870 joined as Alice
+2026/04/29 11:02:03 server stopped
+--- PASS: TestJoinDisconnectCleanup (0.12s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57870
+=== RUN   TestPlayerCount
+2026/04/29 11:02:03 server listening on :57871
+2026/04/29 11:02:03 player connected: 127.0.0.1:57873
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57873
+2026/04/29 11:02:03 player connected: 127.0.0.1:57874
+2026/04/29 11:02:03 received from 127.0.0.1:57874: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57874 joined as Alice
+2026/04/29 11:02:03 player connected: 127.0.0.1:57875
+2026/04/29 11:02:03 received from 127.0.0.1:57875: JOIN Bob
+2026/04/29 11:02:03 player 127.0.0.1:57875 joined as Bob
+2026/04/29 11:02:03 server stopped
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57875
+--- PASS: TestPlayerCount (0.01s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57874
+=== RUN   TestPlayerNames
+2026/04/29 11:02:03 server listening on :57876
+2026/04/29 11:02:03 player connected: 127.0.0.1:57878
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57878
+2026/04/29 11:02:03 player connected: 127.0.0.1:57879
+2026/04/29 11:02:03 received from 127.0.0.1:57879: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57879 joined as Alice
+2026/04/29 11:02:03 player connected: 127.0.0.1:57880
+2026/04/29 11:02:03 received from 127.0.0.1:57880: JOIN Bob
+2026/04/29 11:02:03 player 127.0.0.1:57880 joined as Bob
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57879
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPlayerNames (0.01s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57880
+=== RUN   TestOnPlayerJoinEvent
+2026/04/29 11:02:03 server listening on :57881
+2026/04/29 11:02:03 player connected: 127.0.0.1:57883
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57883
+2026/04/29 11:02:03 player connected: 127.0.0.1:57884
+2026/04/29 11:02:03 received from 127.0.0.1:57884: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57884 joined as Alice
+2026/04/29 11:02:03 server stopped
+--- PASS: TestOnPlayerJoinEvent (0.01s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57884
+=== RUN   TestBroadcastToNamedPlayers
+2026/04/29 11:02:03 server listening on :57885
+2026/04/29 11:02:03 player connected: 127.0.0.1:57887
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57887
+2026/04/29 11:02:03 player connected: 127.0.0.1:57888
+2026/04/29 11:02:03 player connected: 127.0.0.1:57889
+2026/04/29 11:02:03 player connected: 127.0.0.1:57890
+2026/04/29 11:02:03 received from 127.0.0.1:57888: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57888 joined as Alice
+2026/04/29 11:02:03 received from 127.0.0.1:57889: JOIN Bob
+2026/04/29 11:02:03 player 127.0.0.1:57889 joined as Bob
+2026/04/29 11:02:03 server stopped
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57890
+--- PASS: TestBroadcastToNamedPlayers (0.27s)
+=== RUN   TestDesc_UnnamedPlayer
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57888
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57889
+2026/04/29 11:02:03 server listening on :57891
+2026/04/29 11:02:03 player connected: 127.0.0.1:57893
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57893
+2026/04/29 11:02:03 player connected: 127.0.0.1:57894
+2026/04/29 11:02:03 received from 127.0.0.1:57894: DESC some description
+2026/04/29 11:02:03 server stopped
+--- PASS: TestDesc_UnnamedPlayer (0.01s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57894
+=== RUN   TestDesc_NamedPlayerForwarded
+2026/04/29 11:02:03 server listening on :57895
+2026/04/29 11:02:03 player connected: 127.0.0.1:57897
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57897
+2026/04/29 11:02:03 player connected: 127.0.0.1:57898
+2026/04/29 11:02:03 received from 127.0.0.1:57898: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57898 joined as Alice
+2026/04/29 11:02:03 received from 127.0.0.1:57898: DESC it is a fruit
+2026/04/29 11:02:03 server stopped
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57898
+--- PASS: TestDesc_NamedPlayerForwarded (0.01s)
+=== RUN   TestVote_UnnamedPlayer
+2026/04/29 11:02:03 server listening on :57899
+2026/04/29 11:02:03 player connected: 127.0.0.1:57901
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57901
+2026/04/29 11:02:03 player connected: 127.0.0.1:57902
+2026/04/29 11:02:03 received from 127.0.0.1:57902: VOTE Bob
+2026/04/29 11:02:03 server stopped
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57902
+--- PASS: TestVote_UnnamedPlayer (0.01s)
+=== RUN   TestVote_NamedPlayerForwarded
+2026/04/29 11:02:03 server listening on :57903
+2026/04/29 11:02:03 player connected: 127.0.0.1:57905
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57905
+2026/04/29 11:02:03 player connected: 127.0.0.1:57906
+2026/04/29 11:02:03 received from 127.0.0.1:57906: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57906 joined as Alice
+2026/04/29 11:02:03 received from 127.0.0.1:57906: VOTE Bob
+2026/04/29 11:02:03 server stopped
+--- PASS: TestVote_NamedPlayerForwarded (0.01s)
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57906
+=== RUN   TestSetPassword
+--- PASS: TestSetPassword (0.00s)
+=== RUN   TestPasswordVerification_CorrectPassword
+2026/04/29 11:02:03 server listening on :57907
+2026/04/29 11:02:03 player connected: 127.0.0.1:57909
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57909 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57909
+2026/04/29 11:02:03 player connected: 127.0.0.1:57910
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57910 authenticated
+2026/04/29 11:02:03 received from 127.0.0.1:57910: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57910 joined as Alice
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_CorrectPassword (0.01s)
+=== RUN   TestPasswordVerification_WrongPassword
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57910
+2026/04/29 11:02:03 server listening on :57911
+2026/04/29 11:02:03 player connected: 127.0.0.1:57913
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57913 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57913
+2026/04/29 11:02:03 player connected: 127.0.0.1:57914
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57914 provided wrong password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57914
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_WrongPassword (0.01s)
+=== RUN   TestPasswordVerification_NoPasswordSet
+2026/04/29 11:02:03 server listening on :57915
+2026/04/29 11:02:03 player connected: 127.0.0.1:57917
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57917
+2026/04/29 11:02:03 player connected: 127.0.0.1:57918
+2026/04/29 11:02:03 received from 127.0.0.1:57918: JOIN Alice
+2026/04/29 11:02:03 player 127.0.0.1:57918 joined as Alice
+2026/04/29 11:02:03 server stopped
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57918
+--- PASS: TestPasswordVerification_NoPasswordSet (0.01s)
+=== RUN   TestPasswordVerification_NonPasswordMessage
+2026/04/29 11:02:03 server listening on :57919
+2026/04/29 11:02:03 player connected: 127.0.0.1:57921
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57921 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57921
+2026/04/29 11:02:03 player connected: 127.0.0.1:57922
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57922 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57922
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_NonPasswordMessage (0.01s)
+=== RUN   TestPasswordVerification_EmptyPassword
+2026/04/29 11:02:03 server listening on :57923
+2026/04/29 11:02:03 player connected: 127.0.0.1:57927
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57927 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57927
+2026/04/29 11:02:03 player connected: 127.0.0.1:57928
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57928 provided wrong password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57928
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_EmptyPassword (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/server	2.954s
+FAIL
+结果: 失败 (exit code: 1)
+
+=== 汇总 ===
+状态: 失败
+## 测试失败 (go test ./... -v)
+
+```
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57921 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57921
+2026/04/29 11:02:03 player connected: 127.0.0.1:57922
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57922 did not send PASSWORD message
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57922
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_NonPasswordMessage (0.01s)
+=== RUN   TestPasswordVerification_EmptyPassword
+2026/04/29 11:02:03 server listening on :57923
+2026/04/29 11:02:03 player connected: 127.0.0.1:57927
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57927 disconnected before sending password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57927
+2026/04/29 11:02:03 player connected: 127.0.0.1:57928
+2026/04/29 11:02:03 password verification: client 127.0.0.1:57928 provided wrong password
+2026/04/29 11:02:03 player disconnected: 127.0.0.1:57928
+2026/04/29 11:02:03 server stopped
+--- PASS: TestPasswordVerification_EmptyPassword (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/server	2.954s
+FAIL
+```
+
+

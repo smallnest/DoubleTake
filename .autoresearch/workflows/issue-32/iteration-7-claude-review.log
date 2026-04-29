@@ -1,0 +1,101 @@
+Now I have all the context. Let me compile the findings.
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #32
+- 标题: 房间连接密码机制 — 裁判创建房间时生成哈希密码
+- 子任务: T-003 - Integrate password display into room creation
+- 迭代次数: 7
+
+---
+
+### 总体评价
+
+**评分: 10/100**
+
+T-003 的四个验收条件**全部未实现**。`cmd/doubletake/judge.go` 的 `RunJudge` 函数完全没有调用 `GetExternalIP()` 或 `GenerateRoomPassword()`，也没有显示密码或存储密码。T-002 的密码生成函数已就绪，但集成工作尚未开始。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: 密码生成和显示完全未实现
+
+**位置**: `cmd/doubletake/judge.go:168-183`
+
+**问题描述**: 
+`RunJudge` 函数在 `srv.Start()` 之后直接显示 "房间已创建，等待 N 名玩家加入..."，没有调用 `GetExternalIP()`、`GenerateRoomPassword()`，也没有显示密码。
+
+**代码片段**:
+```go
+srv := server.NewServer(port, cfg.TotalPlayers)
+go srv.Start()
+defer srv.Stop()
+
+disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
+```
+
+**期望行为** (验收条件):
+1. `server.Start()` 成功后调用 `GetExternalIP()` 获取外部 IP
+2. 调用 `GenerateRoomPassword(ip, port)` 生成密码
+3. 存储密码用于后续客户端验证
+4. 通过 `disp.Info()` 显示格式: `房间已创建！连接密码: <password>\n请告知玩家此密码以连接到房间`
+
+**原因**: 子任务 T-003 的核心要求是将 T-002 实现的密码生成功能集成到裁判流程中。当前代码完全没有这个集成。
+
+---
+
+#### 问题 2: 密码存储机制缺失
+
+**位置**: `server/server.go` 和 `cmd/doubletake/judge.go`
+
+**问题描述**: 
+`Server` 结构体没有 `password` 字段，也没有任何机制存储生成的密码供后续客户端连接时验证。这意味着即使生成了密码，也无法在客户端连接时进行验证。
+
+**原因**: T-003 要求"存储密码用于后续客户端验证"，这需要在 `Server` 结构体中添加密码字段或在 judge 流程中保存密码。
+
+---
+
+#### 问题 3: 验收条件 4 (不破坏现有流程) 无法验证
+
+**位置**: `cmd/doubletake/judge.go`
+
+**问题描述**: 
+由于密码功能完全没有集成，无法验证集成是否破坏了现有的 waiting phase 和游戏流程。虽然当前代码本身没有被改动，但这不是因为集成通过了测试，而是因为集成根本没有发生。
+
+---
+
+### 测试覆盖检查
+
+**位置**: `cmd/doubletake/main_test.go` (预期)
+
+**问题描述**: 
+没有找到针对 `RunJudge` 中密码显示的集成测试。T-002 的单元测试 (`game/network_test.go`) 覆盖了 `GenerateRoomPassword` 的格式和随机性，但没有测试 `RunJudge` 调用密码生成并显示的流程。
+
+---
+
+### 审核结论
+
+- [ ] 通过 - 代码质量达标，可以进入人工审核
+- [x] 需要修改 - 存在必须修复的问题
+- [ ] 阻塞 - 存在严重问题，需要重新设计
+
+**下一步行动**:
+1. 在 `cmd/doubletake/judge.go` 的 `RunJudge` 中，`srv.Start()` 之后添加:
+   - 调用 `game.GetExternalIP()` 获取外部 IP
+   - 调用 `game.GenerateRoomPassword(ip, port)` 生成密码
+   - 通过 `disp.Info()` 显示密码（格式: `房间已创建！连接密码: <password>\n请告知玩家此密码以连接到房间`）
+2. 在 `Server` 结构体中添加 `password` 字段，或在 `RunJudge` 中保存密码供后续验证
+3. 添加集成测试验证密码显示流程
+4. 确保集成不破坏现有的 waiting phase 和游戏流程
+
+---
+
+## Learnings
+
+- **模式**: T-002 的 `GenerateRoomPassword` 和 `GetExternalIP` 函数实现完整且测试通过，可直接调用。`port` 参数在 `RunJudge` 中已以 `string` 形式存在（`strconv.Itoa(port)` 转换后传入），可直接传给 `GenerateRoomPassword`。
+- **踩坑**: 前次迭代 T-002 审核时曾误判"函数完全未实现"，实际代码已存在。本次 T-003 审核确认 `RunJudge` 确实未做任何集成改动，与 T-002 的实现状态一致（函数就绪但未被调用）。
+- **经验**: 审核子任务时应区分"底层函数未实现"和"集成未完成"两种情况。T-002 是底层函数，T-003 是集成层，两者职责不同。

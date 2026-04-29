@@ -133,3 +133,50 @@ func TestNewDisplayNilWriter(t *testing.T) {
 		t.Fatal("NewDisplay(nil, false) returned nil")
 	}
 }
+
+func TestShowGameResult(t *testing.T) {
+	var buf bytes.Buffer
+	d := NewDisplay(&buf, false)
+	d.ShowGameResult("平民", []PlayerResult{
+		{Name: "Alice", Role: "平民", Alive: true},
+		{Name: "Bob", Role: "卧底", Alive: false},
+	}, "苹果", "香蕉")
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("ShowGameResult() returned %d lines, want 5", len(lines))
+	}
+
+	expected := []string{
+		"[DATA] [node-00] 游戏结束 — 平民 胜利",
+		"[DATA] [node-00]   Alice [平民] 存活",
+		"[DATA] [node-00]   Bob [卧底] 已淘汰",
+		"[DATA] [node-00] 平民词语: 苹果",
+		"[DATA] [node-00] 卧底词语: 香蕉",
+	}
+	for i, want := range expected {
+		if lines[i] != want {
+			t.Errorf("line[%d] = %q, want %q", i, lines[i], want)
+		}
+	}
+}
+
+func TestShowGameResultStealth(t *testing.T) {
+	var buf bytes.Buffer
+	d := NewDisplay(&buf, true)
+	d.ShowGameResult("卧底", []PlayerResult{
+		{Name: "Alice", Role: "平民", Alive: false},
+		{Name: "Bob", Role: "卧底", Alive: true},
+	}, "苹果", "香蕉")
+
+	output := buf.String()
+	if strings.Contains(output, "[DATA]") {
+		t.Errorf("stealth mode should not contain [DATA], got: %s", output)
+	}
+	if !strings.Contains(output, "游戏结束 — 卧底 胜利") {
+		t.Errorf("expected winner label in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Alice [平民] 已淘汰") {
+		t.Errorf("expected player result in output, got: %s", output)
+	}
+}

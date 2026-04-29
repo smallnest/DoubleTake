@@ -1,0 +1,233 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m# [0mTodos
+[ ] Read relevant source files (player.go, display.go, game types)
+[ ] Check test files for T-003
+[ ] Compile and vet check
+[ ] Produce review report with scoring
+[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead client/display.go
+[0m→ [0mRead game/game.go
+[0m
+[0m# [0mTodos
+[x] Read relevant source files (player.go, display.go, game types)
+[ ] Check test files for T-003
+[ ] Compile and vet check
+[ ] Produce review report with scoring
+[0m
+[0m✱ [0mGrep "ShowGameResult|handleWinMsg|MsgWin|WIN"[90m 5 matches[0m
+[0m→ [0mRead client/display_test.go[90m [offset=120][0m
+[0m✱ [0mGlob "**/player_test.go"[90m 0 matches[0m
+[0m✱ [0mGlob "**/cmd/doubletake/*_test.go"[90m 0 matches[0m
+[0m✱ [0mGlob "**/cmd/doubletake/*.go"[90m 0 matches[0m
+[0m✱ [0mGlob "**/*_test.go"[90m 10 matches[0m
+[0m✱ [0mGlob "**/main.go"[90m 0 matches[0m
+[0m→ [0mRead cmd/doubletake
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./... 2>&1
+(no output)
+[0m
+Now let me try to compile and run vet to verify the code passes quality checks.
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -run "Win|ShowGameResult" -v 2>&1
+=== RUN   TestShowGameResult
+--- PASS: TestShowGameResult (0.00s)
+=== RUN   TestShowGameResultStealth
+--- PASS: TestShowGameResultStealth (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/client	2.225s
+=== RUN   TestGameLoop_WinBroadcastOnCivilianWin
+2026/04/29 13:29:53 server listening on :51077
+2026/04/29 13:29:53 player connected: 127.0.0.1:51081
+2026/04/29 13:29:53 player disconnected: 127.0.0.1:51081
+2026/04/29 13:29:53 player connected: 127.0.0.1:51082
+2026/04/29 13:29:53 received from 127.0.0.1:51082: JOIN P0
+2026/04/29 13:29:53 player 127.0.0.1:51082 joined as P0
+2026/04/29 13:29:53 player connected: 127.0.0.1:51084
+2026/04/29 13:29:53 player connected: 127.0.0.1:51083
+2026/04/29 13:29:53 received from 127.0.0.1:51083: JOIN P1
+2026/04/29 13:29:53 player 127.0.0.1:51083 joined as P1
+2026/04/29 13:29:53 received from 127.0.0.1:51084: JOIN P2
+2026/04/29 13:29:53 player 127.0.0.1:51084 joined as P2
+2026/04/29 13:29:53 player connected: 127.0.0.1:51085
+2026/04/29 13:29:53 received from 127.0.0.1:51085: JOIN P3
+2026/04/29 13:29:53 player 127.0.0.1:51085 joined as P3
+2026/04/29 13:29:53 received from 127.0.0.1:51082: DESC desc from P0
+2026/04/29 13:29:53 received from 127.0.0.1:51085: DESC desc from P3
+2026/04/29 13:29:53 received from 127.0.0.1:51083: DESC desc from P1
+2026/04/29 13:29:53 received from 127.0.0.1:51084: DESC desc from P2
+2026/04/29 13:29:53 received from 127.0.0.1:51082: VOTE P3
+2026/04/29 13:29:53 received from 127.0.0.1:51085: VOTE P0
+2026/04/29 13:29:53 received from 127.0.0.1:51083: VOTE P0
+2026/04/29 13:29:53 received from 127.0.0.1:51084: VOTE P0
+2026/04/29 13:29:53 connection error from 127.0.0.1:51082: read tcp 127.0.0.1:51077->127.0.0.1:51082: use of closed network connection
+2026/04/29 13:29:53 player disconnected: 127.0.0.1:51082
+2026/04/29 13:29:53 connection error from 127.0.0.1:51084: read tcp 127.0.0.1:51077->127.0.0.1:51084: use of closed network connection
+2026/04/29 13:29:53 player disconnected: 127.0.0.1:51084
+2026/04/29 13:29:53 connection error from 127.0.0.1:51083: read tcp 127.0.0.1:51077->127.0.0.1:51083: use of closed network connection
+2026/04/29 13:29:53 player disconnected: 127.0.0.1:51083
+2026/04/29 13:29:53 connection error from 127.0.0.1:51085: read tcp 127.0.0.1:51077->127.0.0.1:51085: use of closed network connection
+2026/04/29 13:29:53 player disconnected: 127.0.0.1:51085
+2026/04/29 13:29:53 server stopped
+--- PASS: TestGameLoop_WinBroadcastOnCivilianWin (0.05s)
+=== RUN   TestBuildWinPayload
+--- PASS: TestBuildWinPayload (0.00s)
+=== RUN   TestRunPlayer_ReceivesWin_CivilianWins
+    player_test.go:1106: test server on 127.0.0.1:51086, room code: deP6OKoY
+--- PASS: TestRunPlayer_ReceivesWin_CivilianWins (0.00s)
+=== RUN   TestRunPlayer_ReceivesWin_UndercoverWins
+    player_test.go:1161: test server on 127.0.0.1:51088, room code: deP6OKoa
+--- PASS: TestRunPlayer_ReceivesWin_UndercoverWins (0.00s)
+=== RUN   TestRunPlayer_ReceivesWin_Stealth
+    player_test.go:1209: test server on 127.0.0.1:51090, room code: deP6OKoc
+--- PASS: TestRunPlayer_ReceivesWin_Stealth (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	1.397s
+=== RUN   TestCheckWinCondition
+=== RUN   TestCheckWinCondition/undercover_eliminated_-_civilian_wins
+=== RUN   TestCheckWinCondition/undercover_outnumbers_civilians_-_undercover_wins
+=== RUN   TestCheckWinCondition/undercover_equals_civilians_-_undercover_wins
+=== RUN   TestCheckWinCondition/undercover_alive_fewer_than_civilians_-_continue
+=== RUN   TestCheckWinCondition/all_civilians_-_civilian_wins
+=== RUN   TestCheckWinCondition/no_players_-_civilian_wins
+=== RUN   TestCheckWinCondition/blank_counts_as_civilian_-_undercover_eliminated
+=== RUN   TestCheckWinCondition/blank_counts_as_civilian_-_undercover_wins
+=== RUN   TestCheckWinCondition/all_dead_except_undercover_-_undercover_wins
+=== RUN   TestCheckWinCondition/single_undercover_alive_single_civilian_alive_-_undercover_wins
+--- PASS: TestCheckWinCondition (0.00s)
+    --- PASS: TestCheckWinCondition/undercover_eliminated_-_civilian_wins (0.00s)
+    --- PASS: TestCheckWinCondition/undercover_outnumbers_civilians_-_undercover_wins (0.00s)
+    --- PASS: TestCheckWinCondition/undercover_equals_civilians_-_undercover_wins (0.00s)
+    --- PASS: TestCheckWinCondition/undercover_alive_fewer_than_civilians_-_continue (0.00s)
+    --- PASS: TestCheckWinCondition/all_civilians_-_civilian_wins (0.00s)
+    --- PASS: TestCheckWinCondition/no_players_-_civilian_wins (0.00s)
+    --- PASS: TestCheckWinCondition/blank_counts_as_civilian_-_undercover_eliminated (0.00s)
+    --- PASS: TestCheckWinCondition/blank_counts_as_civilian_-_undercover_wins (0.00s)
+    --- PASS: TestCheckWinCondition/all_dead_except_undercover_-_undercover_wins (0.00s)
+    --- PASS: TestCheckWinCondition/single_undercover_alive_single_civilian_alive_-_undercover_wins (0.00s)
+=== RUN   TestFindEliminated_ClearWinner
+--- PASS: TestFindEliminated_ClearWinner (0.00s)
+=== RUN   TestFindTiedPlayers_ClearWinner
+--- PASS: TestFindTiedPlayers_ClearWinner (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	0.903s
+testing: warning: no tests to run
+PASS
+ok  	github.com/smallnest/doubletake/server	1.788s [no tests to run]
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... 2>&1
+ok  	github.com/smallnest/doubletake/client	0.771s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	29.578s
+ok  	github.com/smallnest/doubletake/game	(cached)
+ok  	github.com/smallnest/doubletake/server	(cached)
+[0m
+[0m# [0mTodos
+[x] Read relevant source files (player.go, display.go, game types)
+[x] Check test files for T-003
+[x] Compile and vet check
+[ ] Produce review report with scoring
+[0m
+[0m✱ [0mGrep "MsgWin"[90m 1 match[0m
+Let me verify the protocol definitions and also check if there are any other WIN-related considerations.
+[0m✱ [0mGrep "buildWinPayload"[90m 0 matches[0m
+[0m
+[0m# [0mTodos
+[x] Read relevant source files (player.go, display.go, game types)
+[x] Check test files for T-003
+[x] Compile and vet check
+[x] Produce review report with scoring
+[0m
+## 审核报告
+
+### Issue
+- 编号: #15
+- 迭代次数: 8
+- 子任务: T-003 - 玩家端处理 WIN 消息并用伪装格式显示结果
+- 实现者自检: ✅ 编译通过, ✅ go vet 无错误, ✅ 全部测试通过, ✅ 测试覆盖
+
+### 总体评价
+**评分: 94/100**
+
+实现达标，代码质量优秀，可直接进入人工审核。
+
+### 各维度得分
+
+| 维度 | 权重 | 得分 | 加权 |
+|------|------|------|------|
+| 正确性 | 35% | 95 | 33.25 |
+| 测试质量 | 25% | 85 | 21.25 |
+| 代码质量 | 20% | 95 | 19.00 |
+| 安全性 | 10% | 100 | 10.00 |
+| 性能 | 10% | 100 | 10.00 |
+| **总分** | **100%** | | **93.50 → 94** |
+
+### 正确性 (95/100)
+
+所有验收条件均满足：
+- ✅ `handleWinMsg` 用 `SplitN(payload, "|", 4)` 正确解析 WIN payload（`winner|playerStates|civilianWord|undercoverWord`）
+- ✅ `winner` 和 `roleName` 通过 `roleDisplayNames` 映射为中文（平民/卧底/白板）
+- ✅ `name:Role:alive` 格式用 `SplitN(state, ":", 3)` 正确解析，`alive=="1"` 映射为存活/已淘汰
+- ✅ `ShowGameResult` 使用 `disp.Data("00", ...)` 伪装格式输出
+- ✅ `handleMessage` 返回 `0` → 消息循环退出 → `RunPlayer` 返回 0（正常退出）
+- ✅ Stealth 模式下 `[DATA]` 前缀自动隐藏
+
+轻微问题：
+1. `handleWinMsg` 中 playerState 解析失败的 `continue` 静默跳过，无警告输出
+2. 仅在集成测试中覆盖，`handleWinMsg` 自身没有独立单元测试
+
+### 测试质量 (85/100)
+
+测试覆盖：
+- ✅ `TestShowGameResult`（display_test.go:137）— 正常模式 5 行输出精确匹配
+- ✅ `TestShowGameResultStealth`（display_test.go:164）— stealth 模式无 `[DATA]` 前缀
+- ✅ `TestRunPlayer_ReceivesWin_CivilianWins`（player_test.go:1105）— 平民胜端到端，验证全部显示要素
+- ✅ `TestRunPlayer_ReceivesWin_UndercoverWins`（player_test.go:1160）— 卧底胜端到端
+- ✅ `TestRunPlayer_ReceivesWin_Stealth`（player_test.go:1208）— stealth 模式端到端
+- ✅ 全部三个 WIN 集成测试验证 exit code 0
+
+缺失的测试边界：
+- ❌ 无 `handleWinMsg` 独立单元测试（malformed payload 分支 `len(parts)<4` 未覆盖）
+- ❌ 无 malformed playerState（`len(sp)<3` 导致 `continue`）的测试
+- ❌ 无 Blank 角色出现在 WIN 结果中的测试
+- ❌ 无特殊字符（名字含 `:` 或 `|`）的测试 — 不影响当前实现但无防护
+
+### 代码质量 (95/100)
+
+- ✅ 遵循 `handleXxxMsg` 辅助函数模式，命名一致
+- ✅ 职责分离清晰：解析在 `handleWinMsg`，展示在 `ShowGameResult`
+- ✅ `PlayerResult` 结构体命名规范、类型明确
+- ✅ `roleDisplayNames` 映射复用一致
+- ✅ fallback 处理（`fmt.Sprintf("WIN %s", payload)`）与现有消息处理器（`handleRoundMsg`、`handleDescMsg` 等）风格一致
+
+### 安全性 (100/100)
+
+- 无注入风险：所有输出经 `fmt.Sprintf` 格式化后写入 `io.Writer`
+- 无敏感信息泄露
+- 无外部依赖调用
+
+### 性能 (100/100)
+
+- O(n) 遍历玩家列表，无冗余分配
+- `SplitN` 限制分割次数避免额外解析
+
+### 审核结论
+
+- ✅ **通过** — 可直接进入人工审核
+
+### 建议（可选改进）
+
+1. 为 `handleWinMsg` 添加直接单元测试，覆盖 malformed payload/playerState 分支
+2. `handleWinMsg` 中 malformed playerState 可考虑 `disp.Data("00", ...)` 警告而非静默跳过
+
+---
+
+## Learnings
+
+- **确认**: T-003 实现完整且正确，三个集成测试覆盖了平民胜、卧底胜、stealth 模式三个核心场景
+- **确认**: `handleWinMsg` 的 `SplitN(payload, "|", 4)` 与服务端 `buildWinPayload` 的格式 `winner|playerStates|civilianWord|undercoverWord` 一致
+- **模式确认**: `handleMessage` 返回 `0` 对应 `RunPlayer` 正常退出（exit code 0），与已有协议一致

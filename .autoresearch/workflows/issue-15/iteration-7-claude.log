@@ -1,0 +1,33 @@
+All done. Here's a summary of the changes:
+
+## Changes Made
+
+### 1. `client/display.go`
+- Added `PlayerResult` struct (Name, Role, Alive)
+- Added `ShowGameResult` method that displays game results in disguised format (`[DATA] [node-XX]` prefix, stealth-aware)
+
+### 2. `cmd/doubletake/player.go`
+- Changed `handleMessage` return type from `bool` to `int` (-1=continue, 0=exit success, 1=exit error)
+- Added `case game.MsgWin:` branch calling `handleWinMsg` then returning `0`
+- Added `handleWinMsg` function that parses WIN payload (`SplitN(payload, "|", 4)`) and calls `disp.ShowGameResult`
+- Updated both callers in `RunPlayer` to use the new `int` return convention
+
+### 3. `client/display_test.go`
+- `TestShowGameResult` — verifies 5-line output format with correct prefixes
+- `TestShowGameResultStealth` — verifies stealth mode hides `[DATA]` tags
+
+### 4. `cmd/doubletake/player_test.go`
+- `TestRunPlayer_ReceivesWin_CivilianWins` — civilian win scenario, exit code 0
+- `TestRunPlayer_ReceivesWin_UndercoverWins` — undercover win scenario, exit code 0
+- `TestRunPlayer_ReceivesWin_Stealth` — stealth mode WIN display
+
+### 5. CLAUDE.md updates
+- `cmd/doubletake/CLAUDE.md` — added "玩家端 WIN 消息处理约定" section
+- `client/CLAUDE.md` — added `ShowGameResult` and `PlayerResult` documentation
+
+## Learnings
+
+- **模式**: `handleMessage` 返回 `int` 三态（-1/0/1）比 `bool` 更灵活，能区分正常退出和错误退出的不同退出码
+- **模式**: WIN payload 使用 `SplitN(payload, "|", 4)` 分割4段，playerStates 再用 `SplitN(state, ":", 3)` 解析每人的 name:role:alive
+- **模式**: `roleDisplayNames` map 同时用于 winner 标签和每个玩家的角色显示，确保中文一致性
+- **经验**: `handleMessage` 从 `bool` 改为 `int` 时，调用方需从 `!handleMessage(...)` 改为 `code := handleMessage(...); code >= 0` 判断，避免语义错误

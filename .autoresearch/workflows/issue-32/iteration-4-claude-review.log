@@ -1,0 +1,101 @@
+## 审核报告
+
+### Issue
+- 编号: #32
+- 子任务: T-002 - Create room password generation function
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+`GenerateRoomPassword` 函数**完全未实现**。当前 `game/network.go` 仅包含 `GetLocalIP()` 和 `GetExternalIP()` 两个函数，没有任何密码生成逻辑。
+
+---
+
+### 阻塞问题
+
+#### 问题: 函数完全未实现
+
+**位置**: `game/network.go`
+
+**问题描述**:
+T-002 要求在 `game/network.go` 中实现 `GenerateRoomPassword(ip, port string) (string, error)` 函数，但该函数不存在。
+
+**验收条件缺失**:
+
+| 验收条件 | 状态 |
+|----------|------|
+| GenerateRoomPassword 使用 crypto/rand 生成安全随机数 | ❌ 未实现 |
+| Hash 计算为 SHA256(ip + port + randomNumber) | ❌ 未实现 |
+| 返回 32 字符的十六进制字符串（前 16 字节） | ❌ 未实现 |
+| 单元测试验证输出格式和随机性 | ❌ 未实现 |
+| 两次调用产生不同密码（随机性测试） | ❌ 未实现 |
+
+**建议实现**:
+```go
+import (
+    "crypto/rand"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+)
+
+// GenerateRoomPassword generates a cryptographically secure room password.
+// It concatenates ip, port, and a random 16-byte number, then hashes with SHA256.
+func GenerateRoomPassword(ip, port string) (string, error) {
+    randomBytes := make([]byte, 16)
+    if _, err := rand.Read(randomBytes); err != nil {
+        return "", fmt.Errorf("failed to generate random bytes: %w", err)
+    }
+    
+    data := []byte(ip + port)
+    data = append(data, randomBytes...)
+    
+    hash := sha256.Sum256(data)
+    // Return first 16 bytes (16 bytes = 32 hex chars)
+    return hex.EncodeToString(hash[:16]), nil
+}
+```
+
+**需要的测试**:
+```go
+func TestGenerateRoomPassword_Format(t *testing.T) {
+    pwd, err := GenerateRoomPassword("192.168.1.1", "8080")
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if len(pwd) != 32 {
+        t.Fatalf("expected 32 hex chars, got %d", len(pwd))
+    }
+    if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(pwd) {
+        t.Fatalf("invalid hex format: %s", pwd)
+    }
+}
+
+func TestGenerateRoomPassword_Randomness(t *testing.T) {
+    pwd1, _ := GenerateRoomPassword("192.168.1.1", "8080")
+    pwd2, _ := GenerateRoomPassword("192.168.1.1", "8080")
+    if pwd1 == pwd2 {
+        t.Fatal("two calls produced same password")
+    }
+}
+
+func TestGenerateRoomPassword_Error(t *testing.T) {
+    // Test error handling when rand.Read fails (hard to trigger in tests)
+    // Could use dependency injection for testing
+}
+```
+
+---
+
+### 审核结论
+
+- [ ] 通过 - 代码质量达标，可以进入人工审核
+- [x] 阻塞 - 存在严重问题，需要重新实现
+- [ ] 需要修改 - 存在必须修复的问题
+
+**下一步行动**:
+请实现 `GenerateRoomPassword` 函数及其单元测试，确保符合所有验收条件。

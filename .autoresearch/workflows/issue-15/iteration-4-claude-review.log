@@ -1,0 +1,178 @@
+Now I have a complete picture of the codebase. Let me compile the review report.
+
+## 审核报告
+
+### Issue
+- 编号: #15
+- 标题: 胜负判定 — 游戏结束条件检查
+- 子任务: T-002 - 在投票淘汰后集成胜负判定并广播 WIN 消息
+- 迭代次数: 3 (本子任务首次审核)
+
+---
+
+### 总体评价
+
+**评分: 0/100**
+
+T-002 子任务**完全未实现**。`RunJudge` 函数中没有任何胜负判定逻辑，没有游戏循环，没有 WIN 消息构造和广播。当前代码只运行单轮描述+投票后直接返回，不满足验收条件中的任何一项。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: RunJudge 缺少游戏循环
+
+**位置**: `cmd/doubletake/judge.go:198-212`
+
+**问题描述**:
+`RunJudge` 当前只运行一轮描述+投票就返回，没有游戏主循环。按照游戏规则，投票淘汰后需要检查胜负条件，若游戏未结束则进入下一轮。
+
+**代码片段**:
+```go
+// 当前代码（无循环，只跑一轮）
+descResult := descriptionPhase(disp, srv, 1, names)
+if descResult == nil {
+    return cfg
+}
+_ = descResult
+
+voteResult := votingPhase(disp, srv, 1, names, players)
+if voteResult == nil {
+    return cfg
+}
+_ = voteResult
+
+return cfg
+```
+
+**建议修复**:
+需要添加游戏主循环，包含：
+1. 轮次号递增
+2. 每轮描述+投票
+3. 投票后调用 `CheckWinCondition`
+4. 游戏结束广播 WIN 并退出
+5. 游戏未结束更新存活玩家列表进入下一轮
+
+---
+
+#### 问题 2: 未调用 CheckWinCondition
+
+**位置**: `cmd/doubletake/judge.go:206-212`
+
+**问题描述**:
+`votingPhase` 返回 `voteResult` 后（包含被淘汰者），代码未调用 `game.CheckWinCondition` 检查胜负。验收条件明确要求"votingPhase/pkPhase 后调用 CheckWinCondition"。
+
+**建议修复**:
+在投票结果出来后，立即调用：
+```go
+winner, gameOver := game.CheckWinCondition(players)
+if gameOver {
+    // 构造并广播 WIN 消息
+    // ...
+    return cfg
+}
+```
+
+---
+
+#### 问题 3: 未构造和广播 WIN 消息
+
+**位置**: `cmd/doubletake/judge.go` (缺失代码)
+
+**问题描述**:
+`MsgWin` 常量已在 `protocol.go:40` 定义，但 `judge.go` 中从未使用。验收条件要求 WIN payload 格式为 `"winner|player1:Role:alive,player2:Role:alive,...|civilianWord|undercoverWord"`，当前无任何构造逻辑。
+
+**建议实现**:
+```go
+// 构造 WIN payload
+var playerStates []string
+for _, p := range players {
+    alive := "0"
+    if p.Alive {
+        alive = "1"
+    }
+    playerStates = append(playerStates, fmt.Sprintf("%s:%s:%s", p.Name, p.Role, alive))
+}
+winPayload := fmt.Sprintf("%s|%s|%s|%s", winner, strings.Join(playerStates, ","), civilianWord, undercoverWord)
+srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
+```
+
+---
+
+#### 问题 4: voteResult 中 Eliminated 未被使用
+
+**位置**: `cmd/doubletake/judge.go:206-212`
+
+**问题描述**:
+`votingPhase` 返回的 `voteResult.Eliminated`（被淘汰者名字）被赋值给 `_` 后丢弃。虽然 `votingPhase` 内部已标记 `p.Alive = false`，但主循环无法感知淘汰事件以触发胜负检查。
+
+**建议修复**:
+使用 `voteResult.Eliminated` 判断是否有人被淘汰，再调用 `CheckWinCondition`。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 5: 缺少 WIN 消息广播的集成测试
+
+**位置**: `cmd/doubletake/judge_test.go`
+
+**问题描述**:
+当前测试覆盖了描述、投票、PK 阶段，但没有测试 WIN 消息广播和游戏结束场景。验收条件要求"游戏结束时广播 WIN 消息后不再进入下一轮"，这需要集成测试验证。
+
+**建议增加**:
+- 测试游戏结束时收到 WIN 消息
+- 测试 WIN payload 格式正确
+- 测试游戏结束后不再有后续轮次消息
+
+---
+
+#### 问题 6: 缺少多轮游戏循环测试
+
+**位置**: `cmd/doubletake/judge_test.go`
+
+**问题描述**:
+验收条件要求"游戏未结束时正常进入下一轮描述+投票"，当前没有测试验证多轮游戏流程。
+
+---
+
+### 建议改进 (可选)
+
+- `buildWinPayload` 可以提取为独立函数，便于单元测试
+- 轮次号管理可以封装为结构体，避免主循环中手动维护
+
+---
+
+### 验收条件逐项检查
+
+| 验收条件 | 状态 | 说明 |
+|---------|------|------|
+| votingPhase/pkPhase 后调用 CheckWinCondition | ❌ 未满足 | 无任何调用 |
+| WIN 消息 payload 包含胜负方、所有玩家角色和存活状态、双方词语 | ❌ 未满足 | 无 WIN 消息构造 |
+| 游戏结束时广播 WIN 消息后不再进入下一轮 | ❌ 未满足 | 无游戏循环和退出逻辑 |
+| 游戏未结束时正常进入下一轮描述+投票 | ❌ 未满足 | 无游戏循环 |
+| 编译通过，go vet 无错误 | ✅ 满足 | `go vet ./...` 无输出 |
+
+---
+
+### 审核结论
+
+- [x] **需要修改** - T-002 子任务完全未实现
+
+**下一步行动**:
+需要实现 `RunJudge` 的游戏主循环，包含：
+1. `for` 循环管理多轮游戏（轮次号从 1 递增）
+2. 每轮调用 `descriptionPhase` + `votingPhase`
+3. 投票后调用 `game.CheckWinCondition(players)`
+4. `gameOver=true` 时构造 WIN payload 并广播，然后 `return cfg`
+5. `gameOver=false` 时更新存活玩家列表，进入下一轮
+6. 添加对应的集成测试
+
+---
+
+## Learnings
+
+- **模式**: `game` 包的公共函数遵循 `CheckXxx` 命名风格，返回值使用命名返回值增强可读性
+- **确认**: `MsgWin` 常量已在 `protocol.go` 定义，可直接使用
+- **确认**: `game/CLAUDE.md` 已准确记录 CheckWinCondition 约定和 WIN payload 格式要求
+- **踩坑**: `votingPhase` 内部已标记 `p.Alive = false`，但返回的 `Eliminated` 在主循环中被丢弃，导致无法触发胜负检查

@@ -1,0 +1,107 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead server
+[0m→ [0mRead game
+[0m→ [0mRead server/server.go
+[0m→ [0mRead game/network.go
+[0m→ [0mRead game/network_test.go
+[0m✱ [0mGlob "**/judge*test*"[90m 0 matches[0m
+[0m✱ [0mGlob "**/main_test*"[90m 0 matches[0m
+Now let me examine the existing tests and the judge integration test to see what's covered:
+[0m→ [0mRead cmd/doubletake
+[0m✱ [0mGrep "password"[90m in . · 6 matches[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead cmd/doubletake/main_test.go
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build -o /dev/null ./cmd/doubletake/ 2>&1
+(no output)
+[0m
+Now let me run the tests to verify everything passes:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -timeout 60s 2>&1
+ok  	github.com/smallnest/doubletake/client	0.601s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	26.788s
+ok  	github.com/smallnest/doubletake/game	1.503s
+ok  	github.com/smallnest/doubletake/server	2.535s
+[0m
+现在让我运行特定的密码显示测试：
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./cmd/doubletake/ -run "TestRun_JudgeDisplaysPassword|TestRun_ValidRoleJudge" -v -count=1 -timeout 30s 2>&1
+=== RUN   TestRun_ValidRoleJudge
+2026/04/29 10:08:40 server listening on :8127
+2026/04/29 10:08:41 server stopped
+--- PASS: TestRun_ValidRoleJudge (0.01s)
+=== RUN   TestRun_JudgeDisplaysPassword
+2026/04/29 10:08:41 server listening on :8127
+2026/04/29 10:08:41 server stopped
+--- PASS: TestRun_JudgeDisplaysPassword (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.400s
+[0m
+## 审核报告
+
+### Issue
+- 编号: #32
+- 子任务: T-003 - Integrate password display into room creation
+- 迭代次数: 用户提供的跨迭代记录显示至少已有 8 次迭代
+
+### 总体评价
+**评分: 94/100**
+
+### 严重问题 (必须修复)
+无
+
+### 一般问题 (建议修复)
+无
+
+### 建议改进 (可选)
+1. **`GetExternalIP` 失败路径缺少独立测试**：当外部 IP 解析失败时回退到 `127.0.0.1`，目前仅在 `TestRun_JudgeDisplaysPassword` 间接覆盖（正常路径）。建议增加 `TestGenerateRoomPassword_FallbackToLocalIP` 或类似 mock 测试覆盖 `GetExternalIP` 返回 error 的场景，确保回退后的密码仍能正常生成和展示。
+
+2. **`GenerateRoomPassword` 失败路径未覆盖**：`crypto/rand.Read` 理论上可能失败（如 OS 熵池耗尽），但当前无测试覆盖该 error 分支。可通过 `TestGenerateRoomPassword_Error` 验证 `disp.Warn` 被调用。
+
+3. **集成测试未验证密码存储**：端到端测试 `TestRun_JudgeDisplaysPassword` 验证了输出格式，但未直接验证 `srv.Password()` 返回的密码与展示的密码一致。可在 `startJudgeForTest` 中暴露 Server 实例以便断言。
+
+### 验收条件逐项审核
+
+| # | 条件 | 状态 | 说明 |
+|---|------|------|------|
+| 1 | 密码以指定格式展示 | ✅ | `disp.Info("0000", fmt.Sprintf("房间已创建！连接密码: %s\n请告知玩家此密码以连接到房间", pwd))` |
+| 2 | IP 使用外网 IP（非 127.0.0.1） | ✅ | 优先 `GetExternalIP()`，失败时 fallback 到 `127.0.0.1` 并 warn |
+| 3 | 密码存储供后续验证 | ✅ | `srv.SetPassword(pwd)`，Server 中 `password` 字段由 mutex 保护 |
+| 4 | 不破坏现有流程 | ✅ | 密码逻辑插在 `server.Start()` 和 `waitingPhase()` 之间，不干扰后续阶段 |
+
+### 代码实现评析
+
+`RunJudge` (judge.go:179-191)：
+- `GetExternalIP()` → `GenerateRoomPassword(ip, port)` → `srv.SetPassword(pwd)` → `disp.Info(...)` 流程清晰
+- 错误处理采用 fallback 而非阻塞（`GetExternalIP` 失败时用 `127.0.0.1`，`GenerateRoomPassword` 失败时跳过密码展示）
+- 密码生成使用 `crypto/rand` + SHA256 ⟶ 安全随机 + 不可逆哈希
+- 与已有 CLAUDE.md 中描述的 RunJudge 流程完全一致
+
+### 各维度评分
+
+| 维度 | 权重 | 得分 | 理由 |
+|------|------|------|------|
+| 正确性 | 35% | 95 | 完全满足需求，边界处理合理（fallback + warn），不破坏现有流程 |
+| 测试质量 | 25% | 88 | 核心场景覆盖（`TestRun_JudgeDisplaysPassword`、`TestGenerateRoomPassword_*`、`TestGetExternalIP`），但错误路径（fallback 和 hash 失败）无独立测试 |
+| 代码质量 | 20% | 95 | 命名清晰、结构一致、遵循项目规范，使用现有 API |
+| 安全性 | 10% | 95 | `crypto/rand` + SHA256，无敏感信息泄露，无注入风险 |
+| 性能 | 10% | 100 | 一次 hostname 查询 + 一次 SHA256，启动时一次性开销，无性能问题 |
+| **总分** | **100%** | **94** | **优秀，≥85 达标** |
+
+### 自检验证
+
+- [x] 编译通过（`go build` 无错误）
+- [x] 全部测试通过（`go test ./...` 4 个包全部 OK）
+- [x] 密码展示端到端测试通过
+
+### 审核结论
+- [x] **通过** — 评分 94/100，无需修改即可进入人工审核阶段
+
+---
+
+## Learnings
+
+- **模式**: `RunJudge` 函数中密码集成流程已完全实现：`go srv.Start()` 后在主 goroutine 中顺序执行 `GetExternalIP()` → `GenerateRoomPassword(ip, port)` → `srv.SetPassword(pwd)` → `disp.Info(...)`，所有逻辑在 `waitingPhase` 之前完成，不干扰后续阶段。
+- **踩坑**: `TestRun_JudgeDisplaysPassword` 使用默认端口 8127（非 0 端口分配），但测试能在孤立环境中通过，因默认端口在该场景未被占用。若在并行测试环境中可能出现冲突风险，但目前项目测试未发现此问题。
+- **经验**: 集成测试 `startJudgeForTestWithStdinRaw` 通过 `net.Pipe()` 和 `safeBuffer` 实现了线程安全的 stdin 模拟和输出捕获。T-003 集成到 `RunJudge` 后，这些现有的测试基础设施可以直接验证密码展示功能，无需额外 setup。

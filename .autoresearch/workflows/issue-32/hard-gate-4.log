@@ -1,0 +1,1216 @@
+=== 硬门禁检查 (迭代 4) ===
+时间: 2026-04-29 09:43:24
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+
+结果: 通过
+
+--- 测试 ---
+命令: go test ./... -v
+=== RUN   TestNewClient
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestConnectSuccess
+--- PASS: TestConnectSuccess (0.00s)
+=== RUN   TestConnectFailure
+--- PASS: TestConnectFailure (0.00s)
+=== RUN   TestSendNotConnected
+--- PASS: TestSendNotConnected (0.00s)
+=== RUN   TestSendAndReceive
+--- PASS: TestSendAndReceive (0.00s)
+=== RUN   TestReceiveFromServer
+--- PASS: TestReceiveFromServer (0.00s)
+=== RUN   TestDisconnect
+--- PASS: TestDisconnect (0.00s)
+=== RUN   TestServerDisconnectDetectsEOF
+--- PASS: TestServerDisconnectDetectsEOF (0.00s)
+=== RUN   TestMultipleMessages
+--- PASS: TestMultipleMessages (0.00s)
+=== RUN   TestInvalidMessagesSkipped
+--- PASS: TestInvalidMessagesSkipped (0.00s)
+=== RUN   TestPrintStartup
+--- PASS: TestPrintStartup (0.00s)
+=== RUN   TestInfo
+--- PASS: TestInfo (0.00s)
+=== RUN   TestInfoStealth
+--- PASS: TestInfoStealth (0.00s)
+=== RUN   TestWarn
+--- PASS: TestWarn (0.00s)
+=== RUN   TestWarnStealth
+--- PASS: TestWarnStealth (0.00s)
+=== RUN   TestData
+--- PASS: TestData (0.00s)
+=== RUN   TestDataStealth
+--- PASS: TestDataStealth (0.00s)
+=== RUN   TestListPlayers
+--- PASS: TestListPlayers (0.00s)
+=== RUN   TestListPlayersEmpty
+--- PASS: TestListPlayersEmpty (0.00s)
+=== RUN   TestNewDisplayNilWriter
+--- PASS: TestNewDisplayNilWriter (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/client	0.467s
+=== RUN   TestValidateConfig_Valid
+=== RUN   TestValidateConfig_Valid/minimum_4_players_1_undercover
+=== RUN   TestValidateConfig_Valid/5_players_2_undercovers
+=== RUN   TestValidateConfig_Valid/6_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_Valid/8_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_Valid/10_players_3_undercovers
+=== RUN   TestValidateConfig_Valid/10_players_2_undercovers_2_blanks
+=== RUN   TestValidateConfig_Valid/7_players_1_undercover_2_blanks
+=== RUN   TestValidateConfig_Valid/9_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_Valid (0.00s)
+    --- PASS: TestValidateConfig_Valid/minimum_4_players_1_undercover (0.00s)
+    --- PASS: TestValidateConfig_Valid/5_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/6_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/8_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_2_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/7_players_1_undercover_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/9_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestValidateConfig_TotalOutOfRange
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_3
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_1
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_0
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_11
+=== RUN   TestValidateConfig_TotalOutOfRange/too_many_15
+--- PASS: TestValidateConfig_TotalOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_3 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_1 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_few_0 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_11 (0.00s)
+    --- PASS: TestValidateConfig_TotalOutOfRange/too_many_15 (0.00s)
+=== RUN   TestValidateConfig_UndercoverOutOfRange
+=== RUN   TestValidateConfig_UndercoverOutOfRange/zero_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/negative_undercovers
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4
+=== RUN   TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5
+--- PASS: TestValidateConfig_UndercoverOutOfRange (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/zero_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/negative_undercovers (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_4 (0.00s)
+    --- PASS: TestValidateConfig_UndercoverOutOfRange/too_many_undercovers_5 (0.00s)
+=== RUN   TestValidateConfig_NegativeBlanks
+--- PASS: TestValidateConfig_NegativeBlanks (0.00s)
+=== RUN   TestValidateConfig_TooManySpecialRoles
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers
+=== RUN   TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks
+=== RUN   TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_TooManySpecialRoles (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/5_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/8_players_3_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/10_players_3_undercovers_3_blanks (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/4_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_TooManySpecialRoles/6_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestCollectConfig_ValidInput
+--- PASS: TestCollectConfig_ValidInput (0.00s)
+=== RUN   TestCollectConfig_InvalidTotalThenValid
+--- PASS: TestCollectConfig_InvalidTotalThenValid (0.00s)
+=== RUN   TestCollectConfig_InvalidUndercoverThenValid
+--- PASS: TestCollectConfig_InvalidUndercoverThenValid (0.00s)
+=== RUN   TestCollectConfig_NegativeBlanksThenValid
+--- PASS: TestCollectConfig_NegativeBlanksThenValid (0.00s)
+=== RUN   TestCollectConfig_TooManySpecialRolesThenValid
+--- PASS: TestCollectConfig_TooManySpecialRolesThenValid (0.00s)
+=== RUN   TestCollectConfig_MultipleRetries
+--- PASS: TestCollectConfig_MultipleRetries (0.00s)
+=== RUN   TestCollectConfig_BoundaryMaxPlayers
+--- PASS: TestCollectConfig_BoundaryMaxPlayers (0.00s)
+=== RUN   TestCollectConfig_BoundaryMinPlayers
+--- PASS: TestCollectConfig_BoundaryMinPlayers (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidTotal
+--- PASS: TestCollectConfig_WarnsOnInvalidTotal (0.00s)
+=== RUN   TestCollectConfig_WarnsOnInvalidUndercover
+--- PASS: TestCollectConfig_WarnsOnInvalidUndercover (0.00s)
+=== RUN   TestCollectConfig_WarnsOnNegativeBlanks
+--- PASS: TestCollectConfig_WarnsOnNegativeBlanks (0.00s)
+=== RUN   TestCollectConfig_WarnsOnTooManySpecialRoles
+--- PASS: TestCollectConfig_WarnsOnTooManySpecialRoles (0.00s)
+=== RUN   TestReadInt_ValidInput
+--- PASS: TestReadInt_ValidInput (0.00s)
+=== RUN   TestReadInt_TrimsWhitespace
+--- PASS: TestReadInt_TrimsWhitespace (0.00s)
+=== RUN   TestReadInt_InvalidInput
+--- PASS: TestReadInt_InvalidInput (0.00s)
+=== RUN   TestReadInt_EmptyInput
+--- PASS: TestReadInt_EmptyInput (0.00s)
+=== RUN   TestCollectConfig_NonNumericInput
+--- PASS: TestCollectConfig_NonNumericInput (0.00s)
+=== RUN   TestCollectConfig_ZeroBlanksAllowed
+--- PASS: TestCollectConfig_ZeroBlanksAllowed (0.00s)
+=== RUN   TestCollectConfig_LargeValidGame
+--- PASS: TestCollectConfig_LargeValidGame (0.00s)
+=== RUN   TestWaitingPhase_PlayerJoinNotification
+2026/04/29 09:43:26 server listening on :51867
+2026/04/29 09:43:26 player connected: 127.0.0.1:51871
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51871
+2026/04/29 09:43:26 player connected: 127.0.0.1:51872
+2026/04/29 09:43:26 received from 127.0.0.1:51872: JOIN Alice
+2026/04/29 09:43:26 player 127.0.0.1:51872 joined as Alice
+2026/04/29 09:43:26 connection error from 127.0.0.1:51872: read tcp 127.0.0.1:51867->127.0.0.1:51872: read: connection reset by peer
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51872
+2026/04/29 09:43:26 server stopped
+--- PASS: TestWaitingPhase_PlayerJoinNotification (0.04s)
+=== RUN   TestWaitingPhase_AllPlayersJoined
+2026/04/29 09:43:26 server listening on :51873
+2026/04/29 09:43:26 player connected: 127.0.0.1:51875
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51875
+2026/04/29 09:43:26 player connected: 127.0.0.1:51876
+2026/04/29 09:43:26 received from 127.0.0.1:51876: JOIN Alice
+2026/04/29 09:43:26 player 127.0.0.1:51876 joined as Alice
+2026/04/29 09:43:26 player connected: 127.0.0.1:51877
+2026/04/29 09:43:26 received from 127.0.0.1:51877: JOIN Bob
+2026/04/29 09:43:26 player 127.0.0.1:51877 joined as Bob
+2026/04/29 09:43:26 player connected: 127.0.0.1:51878
+2026/04/29 09:43:26 received from 127.0.0.1:51878: JOIN Charlie
+2026/04/29 09:43:26 player 127.0.0.1:51878 joined as Charlie
+2026/04/29 09:43:26 player connected: 127.0.0.1:51879
+2026/04/29 09:43:26 received from 127.0.0.1:51879: JOIN Dave
+2026/04/29 09:43:26 player 127.0.0.1:51879 joined as Dave
+2026/04/29 09:43:26 connection error from 127.0.0.1:51879: read tcp 127.0.0.1:51873->127.0.0.1:51879: read: connection reset by peer
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51879
+2026/04/29 09:43:26 connection error from 127.0.0.1:51876: read tcp 127.0.0.1:51873->127.0.0.1:51876: read: connection reset by peer
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51876
+2026/04/29 09:43:26 connection error from 127.0.0.1:51878: read tcp 127.0.0.1:51873->127.0.0.1:51878: read: connection reset by peer
+2026/04/29 09:43:26 connection error from 127.0.0.1:51877: read tcp 127.0.0.1:51873->127.0.0.1:51877: read: connection reset by peer
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51877: write tcp 127.0.0.1:51873->127.0.0.1:51877: write: broken pipe
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51878: write tcp 127.0.0.1:51873->127.0.0.1:51878: write: broken pipe
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51877: write tcp 127.0.0.1:51873->127.0.0.1:51877: write: broken pipe
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51878: write tcp 127.0.0.1:51873->127.0.0.1:51878: write: broken pipe
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51877: write tcp 127.0.0.1:51873->127.0.0.1:51877: write: broken pipe
+2026/04/29 09:43:26 broadcast write error to 127.0.0.1:51878: write tcp 127.0.0.1:51873->127.0.0.1:51878: write: broken pipe
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51878
+2026/04/29 09:43:26 player disconnected: 127.0.0.1:51877
+--- PASS: TestWaitingPhase_AllPlayersJoined (2.04s)
+=== RUN   TestWaitingPhase_StartWithFewerThan4
+2026/04/29 09:43:28 server listening on :51977
+2026/04/29 09:43:28 player connected: 127.0.0.1:51987
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51987
+2026/04/29 09:43:28 player connected: 127.0.0.1:51988
+2026/04/29 09:43:28 received from 127.0.0.1:51988: JOIN A
+2026/04/29 09:43:28 player 127.0.0.1:51988 joined as A
+2026/04/29 09:43:28 player connected: 127.0.0.1:51989
+2026/04/29 09:43:28 received from 127.0.0.1:51989: JOIN B
+2026/04/29 09:43:28 player connected: 127.0.0.1:51990
+2026/04/29 09:43:28 received from 127.0.0.1:51990: JOIN C
+2026/04/29 09:43:28 player 127.0.0.1:51990 joined as C
+2026/04/29 09:43:28 player 127.0.0.1:51989 joined as B
+2026/04/29 09:43:28 connection error from 127.0.0.1:51990: read tcp 127.0.0.1:51977->127.0.0.1:51990: read: connection reset by peer
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51990
+2026/04/29 09:43:28 connection error from 127.0.0.1:51989: read tcp 127.0.0.1:51977->127.0.0.1:51989: read: connection reset by peer
+2026/04/29 09:43:28 connection error from 127.0.0.1:51988: read tcp 127.0.0.1:51977->127.0.0.1:51988: read: connection reset by peer
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51989
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51988
+--- PASS: TestWaitingPhase_StartWithFewerThan4 (0.07s)
+=== RUN   TestWaitingPhase_StartWithConfirmation
+2026/04/29 09:43:28 server listening on :51997
+2026/04/29 09:43:28 player connected: 127.0.0.1:51999
+2026/04/29 09:43:28 player connected: 127.0.0.1:52000
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51999
+2026/04/29 09:43:28 received from 127.0.0.1:52000: JOIN A
+2026/04/29 09:43:28 player 127.0.0.1:52000 joined as A
+2026/04/29 09:43:28 player connected: 127.0.0.1:52001
+2026/04/29 09:43:28 received from 127.0.0.1:52001: JOIN B
+2026/04/29 09:43:28 player 127.0.0.1:52001 joined as B
+2026/04/29 09:43:28 player connected: 127.0.0.1:52002
+2026/04/29 09:43:28 received from 127.0.0.1:52002: JOIN C
+2026/04/29 09:43:28 player 127.0.0.1:52002 joined as C
+2026/04/29 09:43:28 player connected: 127.0.0.1:52003
+2026/04/29 09:43:28 received from 127.0.0.1:52003: JOIN D
+2026/04/29 09:43:28 player 127.0.0.1:52003 joined as D
+2026/04/29 09:43:28 connection error from 127.0.0.1:52003: read tcp 127.0.0.1:51997->127.0.0.1:52003: read: connection reset by peer
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:52003
+2026/04/29 09:43:28 connection error from 127.0.0.1:52000: read tcp 127.0.0.1:51997->127.0.0.1:52000: read: connection reset by peer
+2026/04/29 09:43:28 connection error from 127.0.0.1:52001: read tcp 127.0.0.1:51997->127.0.0.1:52001: read: connection reset by peer
+2026/04/29 09:43:28 connection error from 127.0.0.1:52002: read tcp 127.0.0.1:51997->127.0.0.1:52002: read: connection reset by peer
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52001: write tcp 127.0.0.1:51997->127.0.0.1:52001: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52000: write tcp 127.0.0.1:51997->127.0.0.1:52000: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52002: write tcp 127.0.0.1:51997->127.0.0.1:52002: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52001: write tcp 127.0.0.1:51997->127.0.0.1:52001: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52000: write tcp 127.0.0.1:51997->127.0.0.1:52000: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52002: write tcp 127.0.0.1:51997->127.0.0.1:52002: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52001: write tcp 127.0.0.1:51997->127.0.0.1:52001: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52000: write tcp 127.0.0.1:51997->127.0.0.1:52000: write: broken pipe
+2026/04/29 09:43:28 broadcast write error to 127.0.0.1:52002: write tcp 127.0.0.1:51997->127.0.0.1:52002: write: broken pipe
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:52000
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:52001
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:52002
+--- PASS: TestWaitingPhase_StartWithConfirmation (2.09s)
+=== RUN   TestWaitingPhase_StartConfirmed
+2026/04/29 09:43:30 server listening on :52004
+2026/04/29 09:43:30 player connected: 127.0.0.1:52006
+2026/04/29 09:43:30 player connected: 127.0.0.1:52007
+2026/04/29 09:43:30 player disconnected: 127.0.0.1:52006
+2026/04/29 09:43:30 received from 127.0.0.1:52007: JOIN A
+2026/04/29 09:43:30 player 127.0.0.1:52007 joined as A
+2026/04/29 09:43:30 player connected: 127.0.0.1:52008
+2026/04/29 09:43:30 received from 127.0.0.1:52008: JOIN B
+2026/04/29 09:43:30 player connected: 127.0.0.1:52009
+2026/04/29 09:43:30 received from 127.0.0.1:52009: JOIN C
+2026/04/29 09:43:30 player 127.0.0.1:52008 joined as B
+2026/04/29 09:43:30 player 127.0.0.1:52009 joined as C
+2026/04/29 09:43:30 player connected: 127.0.0.1:52010
+2026/04/29 09:43:30 received from 127.0.0.1:52010: JOIN D
+2026/04/29 09:43:30 player 127.0.0.1:52010 joined as D
+2026/04/29 09:43:30 player disconnected: 127.0.0.1:52007
+2026/04/29 09:43:30 player disconnected: 127.0.0.1:52008
+2026/04/29 09:43:30 player disconnected: 127.0.0.1:52009
+2026/04/29 09:43:30 player disconnected: 127.0.0.1:52010
+--- PASS: TestWaitingPhase_StartConfirmed (2.05s)
+=== RUN   TestWaitingPhase_WithBlankPlayer
+2026/04/29 09:43:32 server listening on :52011
+2026/04/29 09:43:32 player connected: 127.0.0.1:52013
+2026/04/29 09:43:32 player connected: 127.0.0.1:52014
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52013
+2026/04/29 09:43:32 received from 127.0.0.1:52014: JOIN A
+2026/04/29 09:43:32 player 127.0.0.1:52014 joined as A
+2026/04/29 09:43:32 player connected: 127.0.0.1:52015
+2026/04/29 09:43:32 received from 127.0.0.1:52015: JOIN B
+2026/04/29 09:43:32 player 127.0.0.1:52015 joined as B
+2026/04/29 09:43:32 player connected: 127.0.0.1:52017
+2026/04/29 09:43:32 player connected: 127.0.0.1:52016
+2026/04/29 09:43:32 received from 127.0.0.1:52016: JOIN C
+2026/04/29 09:43:32 player 127.0.0.1:52016 joined as C
+2026/04/29 09:43:32 received from 127.0.0.1:52017: JOIN D
+2026/04/29 09:43:32 player 127.0.0.1:52017 joined as D
+2026/04/29 09:43:32 player connected: 127.0.0.1:52018
+2026/04/29 09:43:32 received from 127.0.0.1:52018: JOIN E
+2026/04/29 09:43:32 player 127.0.0.1:52018 joined as E
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52018
+2026/04/29 09:43:32 connection error from 127.0.0.1:52017: read tcp 127.0.0.1:52011->127.0.0.1:52017: read: connection reset by peer
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52017
+2026/04/29 09:43:32 connection error from 127.0.0.1:52016: read tcp 127.0.0.1:52011->127.0.0.1:52016: read: connection reset by peer
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52016
+2026/04/29 09:43:32 connection error from 127.0.0.1:52015: read tcp 127.0.0.1:52011->127.0.0.1:52015: read: connection reset by peer
+2026/04/29 09:43:32 connection error from 127.0.0.1:52014: read tcp 127.0.0.1:52011->127.0.0.1:52014: read: connection reset by peer
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52015
+2026/04/29 09:43:32 player disconnected: 127.0.0.1:52014
+--- PASS: TestWaitingPhase_WithBlankPlayer (2.05s)
+=== RUN   TestWaitingPhase_SameWordRetry
+2026/04/29 09:43:34 server listening on :52019
+2026/04/29 09:43:34 player connected: 127.0.0.1:52022
+2026/04/29 09:43:34 received from 127.0.0.1:52022: JOIN A
+2026/04/29 09:43:34 player connected: 127.0.0.1:52021
+2026/04/29 09:43:34 player 127.0.0.1:52022 joined as A
+2026/04/29 09:43:34 player disconnected: 127.0.0.1:52021
+2026/04/29 09:43:34 player connected: 127.0.0.1:52023
+2026/04/29 09:43:34 received from 127.0.0.1:52023: JOIN B
+2026/04/29 09:43:34 player 127.0.0.1:52023 joined as B
+2026/04/29 09:43:34 player connected: 127.0.0.1:52024
+2026/04/29 09:43:34 received from 127.0.0.1:52024: JOIN C
+2026/04/29 09:43:34 player 127.0.0.1:52024 joined as C
+2026/04/29 09:43:34 player connected: 127.0.0.1:52025
+2026/04/29 09:43:34 received from 127.0.0.1:52025: JOIN D
+2026/04/29 09:43:34 player 127.0.0.1:52025 joined as D
+2026/04/29 09:43:34 connection error from 127.0.0.1:52025: read tcp 127.0.0.1:52019->127.0.0.1:52025: read: connection reset by peer
+2026/04/29 09:43:34 player disconnected: 127.0.0.1:52025
+2026/04/29 09:43:34 connection error from 127.0.0.1:52023: read tcp 127.0.0.1:52019->127.0.0.1:52023: read: connection reset by peer
+2026/04/29 09:43:34 connection error from 127.0.0.1:52022: read tcp 127.0.0.1:52019->127.0.0.1:52022: read: connection reset by peer
+2026/04/29 09:43:34 player disconnected: 127.0.0.1:52023
+2026/04/29 09:43:34 connection error from 127.0.0.1:52024: read tcp 127.0.0.1:52019->127.0.0.1:52024: read: connection reset by peer
+2026/04/29 09:43:34 player disconnected: 127.0.0.1:52024
+2026/04/29 09:43:34 player disconnected: 127.0.0.1:52022
+--- PASS: TestWaitingPhase_SameWordRetry (2.07s)
+=== RUN   TestWaitingPhase_EndToEnd
+2026/04/29 09:43:36 server listening on :52026
+2026/04/29 09:43:36 player connected: 127.0.0.1:52028
+2026/04/29 09:43:36 player connected: 127.0.0.1:52029
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52028
+2026/04/29 09:43:36 received from 127.0.0.1:52029: JOIN Alice
+2026/04/29 09:43:36 player 127.0.0.1:52029 joined as Alice
+2026/04/29 09:43:36 player connected: 127.0.0.1:52030
+2026/04/29 09:43:36 received from 127.0.0.1:52030: JOIN Bob
+2026/04/29 09:43:36 player 127.0.0.1:52030 joined as Bob
+2026/04/29 09:43:36 player connected: 127.0.0.1:52031
+2026/04/29 09:43:36 received from 127.0.0.1:52031: JOIN Carol
+2026/04/29 09:43:36 player 127.0.0.1:52031 joined as Carol
+2026/04/29 09:43:36 player connected: 127.0.0.1:52032
+2026/04/29 09:43:36 received from 127.0.0.1:52032: JOIN Dave
+2026/04/29 09:43:36 player 127.0.0.1:52032 joined as Dave
+2026/04/29 09:43:36 player connected: 127.0.0.1:52033
+2026/04/29 09:43:36 received from 127.0.0.1:52033: JOIN Eve
+2026/04/29 09:43:36 player 127.0.0.1:52033 joined as Eve
+2026/04/29 09:43:36 player connected: 127.0.0.1:52034
+2026/04/29 09:43:36 received from 127.0.0.1:52034: JOIN Frank
+2026/04/29 09:43:36 player 127.0.0.1:52034 joined as Frank
+2026/04/29 09:43:36 connection error from 127.0.0.1:52034: read tcp 127.0.0.1:52026->127.0.0.1:52034: read: connection reset by peer
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52034
+2026/04/29 09:43:36 connection error from 127.0.0.1:52033: read tcp 127.0.0.1:52026->127.0.0.1:52033: read: connection reset by peer
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52033
+2026/04/29 09:43:36 connection error from 127.0.0.1:52031: read tcp 127.0.0.1:52026->127.0.0.1:52031: read: connection reset by peer
+2026/04/29 09:43:36 connection error from 127.0.0.1:52032: read tcp 127.0.0.1:52026->127.0.0.1:52032: read: connection reset by peer
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52031
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52032
+2026/04/29 09:43:36 connection error from 127.0.0.1:52029: read tcp 127.0.0.1:52026->127.0.0.1:52029: read: connection reset by peer
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52029
+2026/04/29 09:43:36 connection error from 127.0.0.1:52030: read tcp 127.0.0.1:52026->127.0.0.1:52030: read: connection reset by peer
+2026/04/29 09:43:36 player disconnected: 127.0.0.1:52030
+--- PASS: TestWaitingPhase_EndToEnd (2.05s)
+=== RUN   TestWaitingPhase_StartWithPartialConfirmation
+2026/04/29 09:43:38 server listening on :52035
+2026/04/29 09:43:38 player connected: 127.0.0.1:52037
+2026/04/29 09:43:38 player disconnected: 127.0.0.1:52037
+2026/04/29 09:43:38 player connected: 127.0.0.1:52038
+2026/04/29 09:43:38 received from 127.0.0.1:52038: JOIN A
+2026/04/29 09:43:38 player 127.0.0.1:52038 joined as A
+2026/04/29 09:43:38 player connected: 127.0.0.1:52039
+2026/04/29 09:43:38 received from 127.0.0.1:52039: JOIN B
+2026/04/29 09:43:38 player 127.0.0.1:52039 joined as B
+2026/04/29 09:43:38 player connected: 127.0.0.1:52040
+2026/04/29 09:43:38 received from 127.0.0.1:52040: JOIN C
+2026/04/29 09:43:38 player 127.0.0.1:52040 joined as C
+2026/04/29 09:43:38 player connected: 127.0.0.1:52041
+2026/04/29 09:43:38 received from 127.0.0.1:52041: JOIN D
+2026/04/29 09:43:38 player 127.0.0.1:52041 joined as D
+2026/04/29 09:43:38 player connected: 127.0.0.1:52042
+2026/04/29 09:43:38 received from 127.0.0.1:52042: JOIN E
+2026/04/29 09:43:38 player 127.0.0.1:52042 joined as E
+2026/04/29 09:43:39 connection error from 127.0.0.1:52042: read tcp 127.0.0.1:52035->127.0.0.1:52042: read: connection reset by peer
+2026/04/29 09:43:39 player disconnected: 127.0.0.1:52042
+2026/04/29 09:43:39 connection error from 127.0.0.1:52040: read tcp 127.0.0.1:52035->127.0.0.1:52040: read: connection reset by peer
+2026/04/29 09:43:39 player disconnected: 127.0.0.1:52040
+2026/04/29 09:43:39 connection error from 127.0.0.1:52041: read tcp 127.0.0.1:52035->127.0.0.1:52041: read: connection reset by peer
+2026/04/29 09:43:39 player disconnected: 127.0.0.1:52041
+2026/04/29 09:43:39 connection error from 127.0.0.1:52039: read tcp 127.0.0.1:52035->127.0.0.1:52039: read: connection reset by peer
+2026/04/29 09:43:39 player disconnected: 127.0.0.1:52039
+2026/04/29 09:43:39 connection error from 127.0.0.1:52038: read tcp 127.0.0.1:52035->127.0.0.1:52038: read: connection reset by peer
+2026/04/29 09:43:39 player disconnected: 127.0.0.1:52038
+--- PASS: TestWaitingPhase_StartWithPartialConfirmation (2.09s)
+=== RUN   TestCollectWords_Valid
+--- PASS: TestCollectWords_Valid (0.00s)
+=== RUN   TestCollectWords_SameWordsRetry
+--- PASS: TestCollectWords_SameWordsRetry (0.00s)
+=== RUN   TestCollectWords_EmptyWordRetry
+--- PASS: TestCollectWords_EmptyWordRetry (0.00s)
+=== RUN   TestCollectWords_EOF
+--- PASS: TestCollectWords_EOF (0.00s)
+=== RUN   TestDescriptionPhase_NormalFlow
+2026/04/29 09:43:41 server listening on :52043
+2026/04/29 09:43:41 player connected: 127.0.0.1:52047
+2026/04/29 09:43:41 player connected: 127.0.0.1:52045
+2026/04/29 09:43:41 player disconnected: 127.0.0.1:52045
+2026/04/29 09:43:41 player connected: 127.0.0.1:52046
+2026/04/29 09:43:41 received from 127.0.0.1:52046: JOIN P0
+2026/04/29 09:43:41 player 127.0.0.1:52046 joined as P0
+2026/04/29 09:43:41 received from 127.0.0.1:52047: JOIN P1
+2026/04/29 09:43:41 player 127.0.0.1:52047 joined as P1
+2026/04/29 09:43:41 player connected: 127.0.0.1:52048
+2026/04/29 09:43:41 received from 127.0.0.1:52048: JOIN P2
+2026/04/29 09:43:41 player 127.0.0.1:52048 joined as P2
+2026/04/29 09:43:41 player connected: 127.0.0.1:52049
+2026/04/29 09:43:41 received from 127.0.0.1:52049: JOIN P3
+2026/04/29 09:43:41 player 127.0.0.1:52049 joined as P3
+    judge_test.go:1240: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 0: msg2=READY|
+    judge_test.go:1240: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 1: msg2=READY|
+    judge_test.go:1240: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1240: conn 2: msg2=READY|
+    judge_test.go:1240: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1240: conn 3: msg2=READY|
+    judge_test.go:1243: setup complete, reading messages
+2026/04/29 09:43:41 received from 127.0.0.1:52046: DESC description from P0
+2026/04/29 09:43:41 received from 127.0.0.1:52047: DESC description from P1
+2026/04/29 09:43:41 received from 127.0.0.1:52048: DESC description from P2
+2026/04/29 09:43:41 received from 127.0.0.1:52049: DESC description from P3
+--- PASS: TestDescriptionPhase_NormalFlow (2.02s)
+=== RUN   TestDescriptionPhase_EmptyDescRejected
+2026/04/29 09:43:43 server listening on :52050
+2026/04/29 09:43:43 player connected: 127.0.0.1:52053
+2026/04/29 09:43:43 player connected: 127.0.0.1:52052
+2026/04/29 09:43:43 received from 127.0.0.1:52053: JOIN P0
+2026/04/29 09:43:43 player 127.0.0.1:52053 joined as P0
+2026/04/29 09:43:43 player disconnected: 127.0.0.1:52052
+2026/04/29 09:43:43 player connected: 127.0.0.1:52054
+2026/04/29 09:43:43 received from 127.0.0.1:52054: JOIN P1
+2026/04/29 09:43:43 player 127.0.0.1:52054 joined as P1
+2026/04/29 09:43:43 player connected: 127.0.0.1:52055
+2026/04/29 09:43:43 received from 127.0.0.1:52055: JOIN P2
+2026/04/29 09:43:43 player 127.0.0.1:52055 joined as P2
+2026/04/29 09:43:43 player connected: 127.0.0.1:52056
+2026/04/29 09:43:43 received from 127.0.0.1:52056: JOIN P3
+2026/04/29 09:43:43 player 127.0.0.1:52056 joined as P3
+    judge_test.go:1305: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 0: msg2=READY|
+    judge_test.go:1305: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 1: msg2=READY|
+    judge_test.go:1305: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1305: conn 2: msg2=READY|
+    judge_test.go:1305: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1305: conn 3: msg2=READY|
+2026/04/29 09:43:43 received from 127.0.0.1:52053: DESC    
+2026/04/29 09:43:43 received from 127.0.0.1:52053: DESC valid description
+--- PASS: TestDescriptionPhase_EmptyDescRejected (2.04s)
+=== RUN   TestDescriptionPhase_NotYourTurn
+2026/04/29 09:43:45 server listening on :52059
+2026/04/29 09:43:45 player connected: 127.0.0.1:52061
+2026/04/29 09:43:45 player disconnected: 127.0.0.1:52061
+2026/04/29 09:43:45 player connected: 127.0.0.1:52062
+2026/04/29 09:43:45 received from 127.0.0.1:52062: JOIN P0
+2026/04/29 09:43:45 player 127.0.0.1:52062 joined as P0
+2026/04/29 09:43:45 player connected: 127.0.0.1:52064
+2026/04/29 09:43:45 player connected: 127.0.0.1:52063
+2026/04/29 09:43:45 received from 127.0.0.1:52063: JOIN P1
+2026/04/29 09:43:45 player 127.0.0.1:52063 joined as P1
+2026/04/29 09:43:45 received from 127.0.0.1:52064: JOIN P2
+2026/04/29 09:43:45 player 127.0.0.1:52064 joined as P2
+2026/04/29 09:43:45 player connected: 127.0.0.1:52065
+2026/04/29 09:43:45 received from 127.0.0.1:52065: JOIN P3
+2026/04/29 09:43:45 player 127.0.0.1:52065 joined as P3
+    judge_test.go:1354: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 0: msg2=READY|
+    judge_test.go:1354: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 1: msg2=READY|
+    judge_test.go:1354: conn 2: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1354: conn 2: msg2=READY|
+    judge_test.go:1354: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1354: conn 3: msg2=READY|
+2026/04/29 09:43:45 received from 127.0.0.1:52063: DESC sneaky description
+--- PASS: TestDescriptionPhase_NotYourTurn (2.05s)
+=== RUN   TestVotingPhase_NormalFlow
+2026/04/29 09:43:47 server listening on :52067
+2026/04/29 09:43:47 player connected: 127.0.0.1:52070
+2026/04/29 09:43:47 player connected: 127.0.0.1:52069
+2026/04/29 09:43:47 received from 127.0.0.1:52070: JOIN P0
+2026/04/29 09:43:47 player 127.0.0.1:52070 joined as P0
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52069
+2026/04/29 09:43:47 player connected: 127.0.0.1:52071
+2026/04/29 09:43:47 received from 127.0.0.1:52071: JOIN P1
+2026/04/29 09:43:47 player 127.0.0.1:52071 joined as P1
+2026/04/29 09:43:47 player connected: 127.0.0.1:52072
+2026/04/29 09:43:47 received from 127.0.0.1:52072: JOIN P2
+2026/04/29 09:43:47 player 127.0.0.1:52072 joined as P2
+2026/04/29 09:43:47 player connected: 127.0.0.1:52073
+2026/04/29 09:43:47 received from 127.0.0.1:52073: JOIN P3
+2026/04/29 09:43:47 player 127.0.0.1:52073 joined as P3
+    judge_test.go:1434: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1434: conn 0: msg2=READY|
+    judge_test.go:1434: conn 1: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1434: conn 1: msg2=READY|
+    judge_test.go:1434: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1434: conn 2: msg2=READY|
+    judge_test.go:1434: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1434: conn 3: msg2=READY|
+2026/04/29 09:43:47 received from 127.0.0.1:52070: DESC hello from P0
+2026/04/29 09:43:47 received from 127.0.0.1:52071: DESC hello from P1
+2026/04/29 09:43:47 received from 127.0.0.1:52072: DESC hello from P2
+2026/04/29 09:43:47 received from 127.0.0.1:52073: DESC hello from P3
+2026/04/29 09:43:47 received from 127.0.0.1:52070: VOTE P1
+2026/04/29 09:43:47 received from 127.0.0.1:52071: VOTE P0
+2026/04/29 09:43:47 received from 127.0.0.1:52072: VOTE P0
+2026/04/29 09:43:47 received from 127.0.0.1:52073: VOTE P0
+2026/04/29 09:43:47 connection error from 127.0.0.1:52070: read tcp 127.0.0.1:52067->127.0.0.1:52070: use of closed network connection
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52070
+2026/04/29 09:43:47 connection error from 127.0.0.1:52071: read tcp 127.0.0.1:52067->127.0.0.1:52071: use of closed network connection
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52071
+2026/04/29 09:43:47 connection error from 127.0.0.1:52072: read tcp 127.0.0.1:52067->127.0.0.1:52072: use of closed network connection
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52072
+2026/04/29 09:43:47 connection error from 127.0.0.1:52073: read tcp 127.0.0.1:52067->127.0.0.1:52073: use of closed network connection
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52073
+2026/04/29 09:43:47 server stopped
+--- PASS: TestVotingPhase_NormalFlow (0.05s)
+=== RUN   TestVotingPhase_ValidationRejectsInvalidVote
+2026/04/29 09:43:47 server listening on :52074
+2026/04/29 09:43:47 player connected: 127.0.0.1:52076
+2026/04/29 09:43:47 player disconnected: 127.0.0.1:52076
+2026/04/29 09:43:47 player connected: 127.0.0.1:52077
+2026/04/29 09:43:47 received from 127.0.0.1:52077: JOIN P0
+2026/04/29 09:43:47 player 127.0.0.1:52077 joined as P0
+2026/04/29 09:43:47 player connected: 127.0.0.1:52078
+2026/04/29 09:43:47 received from 127.0.0.1:52078: JOIN P1
+2026/04/29 09:43:47 player 127.0.0.1:52078 joined as P1
+2026/04/29 09:43:47 player connected: 127.0.0.1:52079
+2026/04/29 09:43:47 received from 127.0.0.1:52079: JOIN P2
+2026/04/29 09:43:47 player 127.0.0.1:52079 joined as P2
+2026/04/29 09:43:47 player connected: 127.0.0.1:52080
+2026/04/29 09:43:47 received from 127.0.0.1:52080: JOIN P3
+2026/04/29 09:43:47 player 127.0.0.1:52080 joined as P3
+    judge_test.go:1505: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1505: conn 0: msg2=READY|
+    judge_test.go:1505: conn 1: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1505: conn 1: msg2=READY|
+    judge_test.go:1505: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1505: conn 2: msg2=READY|
+    judge_test.go:1505: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1505: conn 3: msg2=READY|
+2026/04/29 09:43:47 received from 127.0.0.1:52077: DESC hello from P0
+2026/04/29 09:43:47 received from 127.0.0.1:52078: DESC hello from P1
+2026/04/29 09:43:47 received from 127.0.0.1:52079: DESC hello from P2
+2026/04/29 09:43:47 received from 127.0.0.1:52080: DESC hello from P3
+2026/04/29 09:43:47 received from 127.0.0.1:52077: VOTE    
+2026/04/29 09:43:47 received from 127.0.0.1:52077: VOTE P0
+2026/04/29 09:43:47 received from 127.0.0.1:52077: VOTE P1
+--- PASS: TestVotingPhase_ValidationRejectsInvalidVote (2.05s)
+=== RUN   TestVotingPhase_NotYourTurn
+2026/04/29 09:43:49 server listening on :52081
+2026/04/29 09:43:49 player connected: 127.0.0.1:52083
+2026/04/29 09:43:49 player disconnected: 127.0.0.1:52083
+2026/04/29 09:43:49 player connected: 127.0.0.1:52084
+2026/04/29 09:43:49 received from 127.0.0.1:52084: JOIN P0
+2026/04/29 09:43:49 player 127.0.0.1:52084 joined as P0
+2026/04/29 09:43:49 player connected: 127.0.0.1:52085
+2026/04/29 09:43:49 received from 127.0.0.1:52085: JOIN P1
+2026/04/29 09:43:49 player 127.0.0.1:52085 joined as P1
+2026/04/29 09:43:49 player connected: 127.0.0.1:52086
+2026/04/29 09:43:49 received from 127.0.0.1:52086: JOIN P2
+2026/04/29 09:43:49 player 127.0.0.1:52086 joined as P2
+2026/04/29 09:43:49 player connected: 127.0.0.1:52087
+2026/04/29 09:43:49 received from 127.0.0.1:52087: JOIN P3
+2026/04/29 09:43:49 player 127.0.0.1:52087 joined as P3
+    judge_test.go:1557: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:1557: conn 0: msg2=READY|
+    judge_test.go:1557: conn 1: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1557: conn 1: msg2=READY|
+    judge_test.go:1557: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1557: conn 2: msg2=READY|
+    judge_test.go:1557: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1557: conn 3: msg2=READY|
+2026/04/29 09:43:49 received from 127.0.0.1:52084: DESC hello from P0
+2026/04/29 09:43:49 received from 127.0.0.1:52085: DESC hello from P1
+2026/04/29 09:43:49 received from 127.0.0.1:52086: DESC hello from P2
+2026/04/29 09:43:49 received from 127.0.0.1:52087: DESC hello from P3
+2026/04/29 09:43:49 received from 127.0.0.1:52085: VOTE P0
+--- PASS: TestVotingPhase_NotYourTurn (2.05s)
+=== RUN   TestVotingPhase_ResultBroadcastAndElimination
+2026/04/29 09:43:51 server listening on :52088
+2026/04/29 09:43:51 player connected: 127.0.0.1:52090
+2026/04/29 09:43:51 player disconnected: 127.0.0.1:52090
+2026/04/29 09:43:51 player connected: 127.0.0.1:52091
+2026/04/29 09:43:51 received from 127.0.0.1:52091: JOIN P0
+2026/04/29 09:43:51 player 127.0.0.1:52091 joined as P0
+2026/04/29 09:43:51 player connected: 127.0.0.1:52092
+2026/04/29 09:43:51 received from 127.0.0.1:52092: JOIN P1
+2026/04/29 09:43:51 player 127.0.0.1:52092 joined as P1
+2026/04/29 09:43:51 player connected: 127.0.0.1:52093
+2026/04/29 09:43:51 received from 127.0.0.1:52093: JOIN P2
+2026/04/29 09:43:51 player 127.0.0.1:52093 joined as P2
+2026/04/29 09:43:51 player connected: 127.0.0.1:52094
+2026/04/29 09:43:51 received from 127.0.0.1:52094: JOIN P3
+2026/04/29 09:43:51 player 127.0.0.1:52094 joined as P3
+    judge_test.go:1590: conn 0: msg1=ROLE|Undercover|香蕉
+    judge_test.go:1590: conn 0: msg2=READY|
+    judge_test.go:1590: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:1590: conn 1: msg2=READY|
+    judge_test.go:1590: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:1590: conn 2: msg2=READY|
+    judge_test.go:1590: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:1590: conn 3: msg2=READY|
+2026/04/29 09:43:51 received from 127.0.0.1:52093: DESC hello from P2
+2026/04/29 09:43:51 received from 127.0.0.1:52094: DESC hello from P3
+2026/04/29 09:43:51 received from 127.0.0.1:52091: DESC hello from P0
+2026/04/29 09:43:51 received from 127.0.0.1:52092: DESC hello from P1
+2026/04/29 09:43:51 received from 127.0.0.1:52093: VOTE P3
+2026/04/29 09:43:51 received from 127.0.0.1:52094: VOTE P2
+2026/04/29 09:43:51 received from 127.0.0.1:52091: VOTE P2
+2026/04/29 09:43:51 received from 127.0.0.1:52092: VOTE P2
+2026/04/29 09:43:51 connection error from 127.0.0.1:52091: read tcp 127.0.0.1:52088->127.0.0.1:52091: use of closed network connection
+2026/04/29 09:43:51 player disconnected: 127.0.0.1:52091
+2026/04/29 09:43:51 connection error from 127.0.0.1:52092: read tcp 127.0.0.1:52088->127.0.0.1:52092: use of closed network connection
+2026/04/29 09:43:51 player disconnected: 127.0.0.1:52092
+2026/04/29 09:43:51 connection error from 127.0.0.1:52093: read tcp 127.0.0.1:52088->127.0.0.1:52093: use of closed network connection
+2026/04/29 09:43:51 player disconnected: 127.0.0.1:52093
+2026/04/29 09:43:51 connection error from 127.0.0.1:52094: read tcp 127.0.0.1:52088->127.0.0.1:52094: use of closed network connection
+2026/04/29 09:43:51 player disconnected: 127.0.0.1:52094
+2026/04/29 09:43:51 server stopped
+--- PASS: TestVotingPhase_ResultBroadcastAndElimination (0.05s)
+=== RUN   TestRun_ValidRoleJudge
+2026/04/29 09:43:51 server listening on :8127
+2026/04/29 09:43:51 server stopped
+--- PASS: TestRun_ValidRoleJudge (0.00s)
+=== RUN   TestRun_ValidRolePlayer
+--- PASS: TestRun_ValidRolePlayer (0.00s)
+=== RUN   TestRun_CustomPort
+2026/04/29 09:43:51 server listening on :9000
+2026/04/29 09:43:51 server stopped
+--- PASS: TestRun_CustomPort (0.00s)
+=== RUN   TestRun_DefaultPort
+--- PASS: TestRun_DefaultPort (0.00s)
+=== RUN   TestRun_InvalidRole
+--- PASS: TestRun_InvalidRole (0.00s)
+=== RUN   TestRun_NoArgs
+--- PASS: TestRun_NoArgs (0.00s)
+=== RUN   TestRun_HelpFlag
+--- PASS: TestRun_HelpFlag (0.00s)
+=== RUN   TestRun_ShortHelpFlag
+--- PASS: TestRun_ShortHelpFlag (0.00s)
+=== RUN   TestRun_MissingRoleValue
+--- PASS: TestRun_MissingRoleValue (0.00s)
+=== RUN   TestRun_MissingPortValue
+--- PASS: TestRun_MissingPortValue (0.00s)
+=== RUN   TestRun_InvalidPort
+--- PASS: TestRun_InvalidPort (0.00s)
+=== RUN   TestRun_UnknownOption
+--- PASS: TestRun_UnknownOption (0.00s)
+=== RUN   TestRun_StealthFlag
+--- PASS: TestRun_StealthFlag (0.00s)
+=== RUN   TestRun_NoStealthByDefault
+--- PASS: TestRun_NoStealthByDefault (0.00s)
+=== RUN   TestRun_StealthInHelp
+--- PASS: TestRun_StealthInHelp (0.00s)
+=== RUN   TestRun_StealthWithJudge
+2026/04/29 09:43:51 server listening on :8127
+2026/04/29 09:43:51 server stopped
+--- PASS: TestRun_StealthWithJudge (0.00s)
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyRoomCode
+--- PASS: TestRunPlayer_EmptyRoomCode (0.00s)
+=== RUN   TestRunPlayer_InvalidRoomCode
+--- PASS: TestRunPlayer_InvalidRoomCode (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:78: test server on 127.0.0.1:52096, room code: deP6OL4q
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:117: test server on 127.0.0.1:52098, room code: deP6OL4s
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:152: test server on 127.0.0.1:52100, room code: deP6OL4u
+--- PASS: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:180: test server on 127.0.0.1:52102, room code: deP6OL4w
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:213: test server on 127.0.0.1:52104, room code: deP6OL4y
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Civilian
+    player_test.go:245: test server on 127.0.0.1:52106, room code: deP6OL50
+--- PASS: TestRunPlayer_ReceivesRole_Civilian (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Undercover
+    player_test.go:284: test server on 127.0.0.1:52108, room code: deP6OL52
+--- PASS: TestRunPlayer_ReceivesRole_Undercover (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Blank
+    player_test.go:320: test server on 127.0.0.1:52110, room code: deP6OL54
+--- PASS: TestRunPlayer_ReceivesRole_Blank (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Stealth
+    player_test.go:356: test server on 127.0.0.1:52112, room code: deP6OL56
+--- PASS: TestRunPlayer_ReceivesRole_Stealth (0.00s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:397: test server on 127.0.0.1:52114, room code: deP6OL58
+--- PASS: TestRunPlayer_ReceivesMultipleMessages (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OtherPlayerTurn
+    player_test.go:444: test server on 127.0.0.1:52116, room code: deP6OL5A
+--- PASS: TestRunPlayer_DescPhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OwnTurn
+    player_test.go:508: test server on 127.0.0.1:52118, room code: deP6OL5C
+--- PASS: TestRunPlayer_DescPhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_EmptyDescRetry
+    player_test.go:569: test server on 127.0.0.1:52120, room code: deP6OL5E
+--- PASS: TestRunPlayer_DescPhase_EmptyDescRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ServerErrorRetry
+    player_test.go:627: test server on 127.0.0.1:52122, room code: deP6OL5G
+--- PASS: TestRunPlayer_DescPhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ErrorFatal
+    player_test.go:694: test server on 127.0.0.1:52124, room code: deP6OL5I
+--- PASS: TestRunPlayer_DescPhase_ErrorFatal (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OtherPlayerTurn
+    player_test.go:733: test server on 127.0.0.1:52126, room code: deP6OL5K
+--- PASS: TestRunPlayer_VotePhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OwnTurn
+    player_test.go:792: test server on 127.0.0.1:52128, room code: deP6OL5M
+--- PASS: TestRunPlayer_VotePhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_EmptyTargetRetry
+    player_test.go:853: test server on 127.0.0.1:52130, room code: deP6OL5O
+--- PASS: TestRunPlayer_VotePhase_EmptyTargetRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ServerErrorRetry
+    player_test.go:911: test server on 127.0.0.1:52132, room code: deP6OL5Q
+--- PASS: TestRunPlayer_VotePhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ResultDisplay
+    player_test.go:978: test server on 127.0.0.1:52134, room code: deP6OL5S
+--- PASS: TestRunPlayer_VotePhase_ResultDisplay (0.00s)
+=== RUN   TestRunPlayer_VotePhase_DescToVoteTransition
+    player_test.go:1035: test server on 127.0.0.1:52136, room code: deP6OL5U
+--- PASS: TestRunPlayer_VotePhase_DescToVoteTransition (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	25.672s
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+=== RUN   TestEncodeRoomCode_InvalidInput/port_out_of_range
+=== RUN   TestEncodeRoomCode_InvalidInput/non-numeric_port
+--- PASS: TestEncodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/no_port (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/invalid_IP (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/port_out_of_range (0.00s)
+    --- PASS: TestEncodeRoomCode_InvalidInput/non-numeric_port (0.00s)
+=== RUN   TestDecodeRoomCode_InvalidInput
+=== RUN   TestDecodeRoomCode_InvalidInput/empty
+=== RUN   TestDecodeRoomCode_InvalidInput/invalid_char
+=== RUN   TestDecodeRoomCode_InvalidInput/special_char
+=== RUN   TestDecodeRoomCode_InvalidInput/newline
+--- PASS: TestDecodeRoomCode_InvalidInput (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/empty (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/invalid_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/special_char (0.00s)
+    --- PASS: TestDecodeRoomCode_InvalidInput/newline (0.00s)
+=== RUN   TestEncodeRoomCode_ShortOutput
+--- PASS: TestEncodeRoomCode_ShortOutput (0.00s)
+=== RUN   TestNewDescRound
+--- PASS: TestNewDescRound (0.00s)
+=== RUN   TestCurrentSpeaker
+--- PASS: TestCurrentSpeaker (0.00s)
+=== RUN   TestCurrentSpeaker_AllDone
+--- PASS: TestCurrentSpeaker_AllDone (0.00s)
+=== RUN   TestRecordDesc_NormalFlow
+--- PASS: TestRecordDesc_NormalFlow (0.00s)
+=== RUN   TestRecordDesc_EmptyDescription
+=== RUN   TestRecordDesc_EmptyDescription/empty_string
+=== RUN   TestRecordDesc_EmptyDescription/spaces_only
+=== RUN   TestRecordDesc_EmptyDescription/tabs_only
+=== RUN   TestRecordDesc_EmptyDescription/newline_only
+=== RUN   TestRecordDesc_EmptyDescription/mixed_whitespace
+--- PASS: TestRecordDesc_EmptyDescription (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/empty_string (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/spaces_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/tabs_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/newline_only (0.00s)
+    --- PASS: TestRecordDesc_EmptyDescription/mixed_whitespace (0.00s)
+=== RUN   TestRecordDesc_NotYourTurn
+--- PASS: TestRecordDesc_NotYourTurn (0.00s)
+=== RUN   TestAllDone_EmptyPlayers
+--- PASS: TestAllDone_EmptyPlayers (0.00s)
+=== RUN   TestAllDone_OnePlayer
+--- PASS: TestAllDone_OnePlayer (0.00s)
+=== RUN   TestDescRound_RecordsAllDescriptions
+--- PASS: TestDescRound_RecordsAllDescriptions (0.00s)
+=== RUN   TestRecordDesc_AllowsWhitespaceInContent
+--- PASS: TestRecordDesc_AllowsWhitespaceInContent (0.00s)
+=== RUN   TestGetLocalIP
+--- PASS: TestGetLocalIP (0.00s)
+=== RUN   TestGetExternalIP
+--- PASS: TestGetExternalIP (0.01s)
+=== RUN   TestGenerateRoomPassword_Format
+--- PASS: TestGenerateRoomPassword_Format (0.00s)
+=== RUN   TestGenerateRoomPassword_Randomness
+--- PASS: TestGenerateRoomPassword_Randomness (0.00s)
+=== RUN   TestEncode
+=== RUN   TestEncode/with_payload
+=== RUN   TestEncode/empty_payload
+--- PASS: TestEncode (0.00s)
+    --- PASS: TestEncode/with_payload (0.00s)
+    --- PASS: TestEncode/empty_payload (0.00s)
+=== RUN   TestDecode
+=== RUN   TestDecode/valid_message
+=== RUN   TestDecode/pipe_in_payload
+=== RUN   TestDecode/empty_payload
+=== RUN   TestDecode/empty_string
+=== RUN   TestDecode/newline_only
+=== RUN   TestDecode/no_separator
+--- PASS: TestDecode (0.00s)
+    --- PASS: TestDecode/valid_message (0.00s)
+    --- PASS: TestDecode/pipe_in_payload (0.00s)
+    --- PASS: TestDecode/empty_payload (0.00s)
+    --- PASS: TestDecode/empty_string (0.00s)
+    --- PASS: TestDecode/newline_only (0.00s)
+    --- PASS: TestDecode/no_separator (0.00s)
+=== RUN   TestRole_String
+=== RUN   TestRole_String/Civilian
+=== RUN   TestRole_String/Undercover
+=== RUN   TestRole_String/Blank
+=== RUN   TestRole_String/Unknown
+--- PASS: TestRole_String (0.00s)
+    --- PASS: TestRole_String/Civilian (0.00s)
+    --- PASS: TestRole_String/Undercover (0.00s)
+    --- PASS: TestRole_String/Blank (0.00s)
+    --- PASS: TestRole_String/Unknown (0.00s)
+=== RUN   TestAssignRoles_Success
+--- PASS: TestAssignRoles_Success (0.00s)
+=== RUN   TestAssignRoles_FourPlayers
+--- PASS: TestAssignRoles_FourPlayers (0.00s)
+=== RUN   TestAssignRoles_TenPlayers
+--- PASS: TestAssignRoles_TenPlayers (0.00s)
+=== RUN   TestAssignRoles_AllCivilianBoundary
+--- PASS: TestAssignRoles_AllCivilianBoundary (0.00s)
+=== RUN   TestAssignRoles_Shuffled
+--- PASS: TestAssignRoles_Shuffled (0.00s)
+=== RUN   TestAssignRoles_NoUndercover
+--- PASS: TestAssignRoles_NoUndercover (0.00s)
+=== RUN   TestAssignRoles_Errors
+=== RUN   TestAssignRoles_Errors/empty_names
+=== RUN   TestAssignRoles_Errors/nil_names
+=== RUN   TestAssignRoles_Errors/empty_name_in_list
+=== RUN   TestAssignRoles_Errors/negative_undercover
+=== RUN   TestAssignRoles_Errors/negative_blank
+=== RUN   TestAssignRoles_Errors/U+B_equals_C_exactly
+=== RUN   TestAssignRoles_Errors/undercover+blank_equals_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_exceeds_total
+=== RUN   TestAssignRoles_Errors/undercover+blank_>=_civilian
+--- PASS: TestAssignRoles_Errors (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/nil_names (0.00s)
+    --- PASS: TestAssignRoles_Errors/empty_name_in_list (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_undercover (0.00s)
+    --- PASS: TestAssignRoles_Errors/negative_blank (0.00s)
+    --- PASS: TestAssignRoles_Errors/U+B_equals_C_exactly (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_equals_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_exceeds_total (0.00s)
+    --- PASS: TestAssignRoles_Errors/undercover+blank_>=_civilian (0.00s)
+=== RUN   TestAssignWords_AllRoles
+--- PASS: TestAssignWords_AllRoles (0.00s)
+=== RUN   TestAssignWords_OnlyCivilians
+--- PASS: TestAssignWords_OnlyCivilians (0.00s)
+=== RUN   TestAssignWords_EmptyPlayers
+--- PASS: TestAssignWords_EmptyPlayers (0.00s)
+=== RUN   TestAssignWords_BlankRole
+--- PASS: TestAssignWords_BlankRole (0.00s)
+=== RUN   TestNewVoteRound
+--- PASS: TestNewVoteRound (0.00s)
+=== RUN   TestNewVoteRound_Errors
+=== RUN   TestNewVoteRound_Errors/empty_name
+=== RUN   TestNewVoteRound_Errors/whitespace_name
+=== RUN   TestNewVoteRound_Errors/duplicate_name
+--- PASS: TestNewVoteRound_Errors (0.00s)
+    --- PASS: TestNewVoteRound_Errors/empty_name (0.00s)
+    --- PASS: TestNewVoteRound_Errors/whitespace_name (0.00s)
+    --- PASS: TestNewVoteRound_Errors/duplicate_name (0.00s)
+=== RUN   TestCurrentVoter
+--- PASS: TestCurrentVoter (0.00s)
+=== RUN   TestCurrentVoter_AllDone
+--- PASS: TestCurrentVoter_AllDone (0.00s)
+=== RUN   TestRecordVote_NormalFlow
+--- PASS: TestRecordVote_NormalFlow (0.00s)
+=== RUN   TestRecordVote_EmptyTarget
+=== RUN   TestRecordVote_EmptyTarget/empty_string
+=== RUN   TestRecordVote_EmptyTarget/spaces_only
+=== RUN   TestRecordVote_EmptyTarget/tabs_only
+--- PASS: TestRecordVote_EmptyTarget (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/empty_string (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/spaces_only (0.00s)
+    --- PASS: TestRecordVote_EmptyTarget/tabs_only (0.00s)
+=== RUN   TestRecordVote_NotYourTurn
+--- PASS: TestRecordVote_NotYourTurn (0.00s)
+=== RUN   TestRecordVote_VoteSelf
+--- PASS: TestRecordVote_VoteSelf (0.00s)
+=== RUN   TestRecordVote_VoteEliminated
+--- PASS: TestRecordVote_VoteEliminated (0.00s)
+=== RUN   TestRecordVote_VoteUnknown
+--- PASS: TestRecordVote_VoteUnknown (0.00s)
+=== RUN   TestAllDone_ZeroPlayers
+--- PASS: TestAllDone_ZeroPlayers (0.00s)
+=== RUN   TestAllDone_OnePlayer_VoteRound
+--- PASS: TestAllDone_OnePlayer_VoteRound (0.00s)
+=== RUN   TestTally
+--- PASS: TestTally (0.00s)
+=== RUN   TestTally_Empty
+--- PASS: TestTally_Empty (0.00s)
+=== RUN   TestFindEliminated_ClearWinner
+--- PASS: TestFindEliminated_ClearWinner (0.00s)
+=== RUN   TestFindEliminated_Tie
+--- PASS: TestFindEliminated_Tie (0.00s)
+=== RUN   TestFindEliminated_AllTie
+--- PASS: TestFindEliminated_AllTie (0.00s)
+=== RUN   TestFindEliminated_NoVotes
+--- PASS: TestFindEliminated_NoVotes (0.00s)
+=== RUN   TestVoteRound_FullRound_Integration
+--- PASS: TestVoteRound_FullRound_Integration (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	1.026s
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/29 09:43:27 server listening on :51880
+2026/04/29 09:43:27 player connected: 127.0.0.1:51884
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51884
+2026/04/29 09:43:27 player connected: 127.0.0.1:51885
+2026/04/29 09:43:27 server stopped
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51885
+--- PASS: TestStartAndAccept (0.06s)
+=== RUN   TestStop
+2026/04/29 09:43:27 server listening on :51886
+2026/04/29 09:43:27 player connected: 127.0.0.1:51888
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51888
+2026/04/29 09:43:27 player connected: 127.0.0.1:51889
+2026/04/29 09:43:27 connection error from 127.0.0.1:51889: read tcp 127.0.0.1:51886->127.0.0.1:51889: use of closed network connection
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51889
+2026/04/29 09:43:27 server stopped
+--- PASS: TestStop (0.06s)
+=== RUN   TestStopIdempotent
+2026/04/29 09:43:27 server listening on :51890
+2026/04/29 09:43:27 server stopped
+--- PASS: TestStopIdempotent (0.01s)
+=== RUN   TestHandleConnMessages
+2026/04/29 09:43:27 server listening on :51893
+2026/04/29 09:43:27 player connected: 127.0.0.1:51896
+2026/04/29 09:43:27 received from 127.0.0.1:51896: JOIN player1
+2026/04/29 09:43:27 player 127.0.0.1:51896 joined as player1
+2026/04/29 09:43:27 decode error from 127.0.0.1:51896: invalid message format
+2026/04/29 09:43:27 received from 127.0.0.1:51896: READY 
+2026/04/29 09:43:27 player connected: 127.0.0.1:51895
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51895
+2026/04/29 09:43:27 connection error from 127.0.0.1:51896: read tcp 127.0.0.1:51893->127.0.0.1:51896: read: connection reset by peer
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51896
+2026/04/29 09:43:27 server stopped
+--- PASS: TestHandleConnMessages (0.06s)
+=== RUN   TestClientDisconnect
+2026/04/29 09:43:27 server listening on :51899
+2026/04/29 09:43:27 player connected: 127.0.0.1:51901
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51901
+2026/04/29 09:43:27 player connected: 127.0.0.1:51902
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51902
+2026/04/29 09:43:27 server stopped
+--- PASS: TestClientDisconnect (0.16s)
+=== RUN   TestBroadcast
+2026/04/29 09:43:27 server listening on :51903
+2026/04/29 09:43:27 player connected: 127.0.0.1:51905
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51905
+2026/04/29 09:43:27 player connected: 127.0.0.1:51906
+2026/04/29 09:43:27 player connected: 127.0.0.1:51907
+2026/04/29 09:43:27 player connected: 127.0.0.1:51908
+2026/04/29 09:43:27 server stopped
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51907
+--- PASS: TestBroadcast (0.06s)
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51906
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51908
+=== RUN   TestSend
+2026/04/29 09:43:27 server listening on :51909
+2026/04/29 09:43:27 player connected: 127.0.0.1:51912
+2026/04/29 09:43:27 player connected: 127.0.0.1:51911
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51911
+2026/04/29 09:43:27 server stopped
+--- PASS: TestSend (0.06s)
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51912
+=== RUN   TestSendToPlayer_Success
+2026/04/29 09:43:27 server listening on :51913
+2026/04/29 09:43:27 player connected: 127.0.0.1:51915
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51915
+2026/04/29 09:43:27 player connected: 127.0.0.1:51916
+2026/04/29 09:43:27 received from 127.0.0.1:51916: JOIN Alice
+2026/04/29 09:43:27 player 127.0.0.1:51916 joined as Alice
+2026/04/29 09:43:27 server stopped
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51916
+--- PASS: TestSendToPlayer_Success (0.01s)
+=== RUN   TestSendToPlayer_NotFound
+2026/04/29 09:43:27 server listening on :51917
+2026/04/29 09:43:27 player connected: 127.0.0.1:51919
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51919
+2026/04/29 09:43:27 player connected: 127.0.0.1:51920
+2026/04/29 09:43:27 received from 127.0.0.1:51920: JOIN Alice
+2026/04/29 09:43:27 player 127.0.0.1:51920 joined as Alice
+2026/04/29 09:43:27 server stopped
+--- PASS: TestSendToPlayer_NotFound (0.01s)
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51920
+=== RUN   TestSendToPlayer_OnlyTargetReceives
+2026/04/29 09:43:27 server listening on :51921
+2026/04/29 09:43:27 player connected: 127.0.0.1:51923
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51923
+2026/04/29 09:43:27 player connected: 127.0.0.1:51924
+2026/04/29 09:43:27 player connected: 127.0.0.1:51925
+2026/04/29 09:43:27 received from 127.0.0.1:51924: JOIN Alice
+2026/04/29 09:43:27 player 127.0.0.1:51924 joined as Alice
+2026/04/29 09:43:27 received from 127.0.0.1:51925: JOIN Bob
+2026/04/29 09:43:27 player 127.0.0.1:51925 joined as Bob
+2026/04/29 09:43:27 server stopped
+--- PASS: TestSendToPlayer_OnlyTargetReceives (0.21s)
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51924
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51925
+=== RUN   TestMultipleClients
+2026/04/29 09:43:27 server listening on :51926
+2026/04/29 09:43:27 player connected: 127.0.0.1:51927
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51927
+2026/04/29 09:43:27 player connected: 127.0.0.1:51928
+2026/04/29 09:43:27 player connected: 127.0.0.1:51929
+2026/04/29 09:43:27 player connected: 127.0.0.1:51930
+2026/04/29 09:43:27 player connected: 127.0.0.1:51931
+2026/04/29 09:43:27 player connected: 127.0.0.1:51932
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51929
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51928
+2026/04/29 09:43:27 player disconnected: 127.0.0.1:51930
+2026/04/29 09:43:28 server stopped
+--- PASS: TestMultipleClients (0.20s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51931
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51932
+=== RUN   TestInvalidMessageNoPanic
+2026/04/29 09:43:28 server listening on :51933
+2026/04/29 09:43:28 player connected: 127.0.0.1:51935
+2026/04/29 09:43:28 player connected: 127.0.0.1:51936
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51935
+2026/04/29 09:43:28 decode error from 127.0.0.1:51936: invalid message format
+2026/04/29 09:43:28 decode error from 127.0.0.1:51936: invalid message format
+2026/04/29 09:43:28 received from 127.0.0.1:51936:  |
+2026/04/29 09:43:28 decode error from 127.0.0.1:51936: invalid message format
+2026/04/29 09:43:28 decode error from 127.0.0.1:51936: invalid message format
+2026/04/29 09:43:28 received from 127.0.0.1:51936: JOIN test
+2026/04/29 09:43:28 player 127.0.0.1:51936 joined as test
+2026/04/29 09:43:28 connection error from 127.0.0.1:51936: read tcp 127.0.0.1:51933->127.0.0.1:51936: read: connection reset by peer
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51936
+--- PASS: TestInvalidMessageNoPanic (0.06s)
+=== RUN   TestJoinSuccess
+2026/04/29 09:43:28 server listening on :51937
+2026/04/29 09:43:28 player connected: 127.0.0.1:51939
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51939
+2026/04/29 09:43:28 player connected: 127.0.0.1:51940
+2026/04/29 09:43:28 received from 127.0.0.1:51940: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51940 joined as Alice
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51940
+--- PASS: TestJoinSuccess (0.01s)
+=== RUN   TestJoinDuplicateName
+2026/04/29 09:43:28 server listening on :51941
+2026/04/29 09:43:28 player connected: 127.0.0.1:51943
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51943
+2026/04/29 09:43:28 player connected: 127.0.0.1:51944
+2026/04/29 09:43:28 received from 127.0.0.1:51944: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51944 joined as Alice
+2026/04/29 09:43:28 player connected: 127.0.0.1:51945
+2026/04/29 09:43:28 received from 127.0.0.1:51945: JOIN Alice
+2026/04/29 09:43:28 received from 127.0.0.1:51945: JOIN Bob
+2026/04/29 09:43:28 player 127.0.0.1:51945 joined as Bob
+2026/04/29 09:43:28 server stopped
+--- PASS: TestJoinDuplicateName (0.01s)
+=== RUN   TestJoinEmptyName
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51944
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51945
+2026/04/29 09:43:28 server listening on :51946
+2026/04/29 09:43:28 player connected: 127.0.0.1:51948
+2026/04/29 09:43:28 player connected: 127.0.0.1:51949
+2026/04/29 09:43:28 received from 127.0.0.1:51949: JOIN 
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51948
+2026/04/29 09:43:28 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+=== RUN   TestJoinDisconnectCleanup
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51949
+2026/04/29 09:43:28 server listening on :51950
+2026/04/29 09:43:28 player connected: 127.0.0.1:51953
+2026/04/29 09:43:28 player connected: 127.0.0.1:51952
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51952
+2026/04/29 09:43:28 received from 127.0.0.1:51953: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51953 joined as Alice
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51953
+2026/04/29 09:43:28 player connected: 127.0.0.1:51954
+2026/04/29 09:43:28 received from 127.0.0.1:51954: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51954 joined as Alice
+2026/04/29 09:43:28 server stopped
+--- PASS: TestJoinDisconnectCleanup (0.11s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51954
+=== RUN   TestPlayerCount
+2026/04/29 09:43:28 server listening on :51955
+2026/04/29 09:43:28 player connected: 127.0.0.1:51957
+2026/04/29 09:43:28 player connected: 127.0.0.1:51958
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51957
+2026/04/29 09:43:28 received from 127.0.0.1:51958: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51958 joined as Alice
+2026/04/29 09:43:28 player connected: 127.0.0.1:51959
+2026/04/29 09:43:28 received from 127.0.0.1:51959: JOIN Bob
+2026/04/29 09:43:28 player 127.0.0.1:51959 joined as Bob
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51959
+--- PASS: TestPlayerCount (0.01s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51958
+=== RUN   TestPlayerNames
+2026/04/29 09:43:28 server listening on :51960
+2026/04/29 09:43:28 player connected: 127.0.0.1:51963
+2026/04/29 09:43:28 received from 127.0.0.1:51963: JOIN Alice
+2026/04/29 09:43:28 player connected: 127.0.0.1:51962
+2026/04/29 09:43:28 player 127.0.0.1:51963 joined as Alice
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51962
+2026/04/29 09:43:28 player connected: 127.0.0.1:51964
+2026/04/29 09:43:28 received from 127.0.0.1:51964: JOIN Bob
+2026/04/29 09:43:28 player 127.0.0.1:51964 joined as Bob
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51963
+--- PASS: TestPlayerNames (0.01s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51964
+=== RUN   TestOnPlayerJoinEvent
+2026/04/29 09:43:28 server listening on :51965
+2026/04/29 09:43:28 player connected: 127.0.0.1:51967
+2026/04/29 09:43:28 player connected: 127.0.0.1:51968
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51967
+2026/04/29 09:43:28 received from 127.0.0.1:51968: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51968 joined as Alice
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51968
+--- PASS: TestOnPlayerJoinEvent (0.01s)
+=== RUN   TestBroadcastToNamedPlayers
+2026/04/29 09:43:28 server listening on :51969
+2026/04/29 09:43:28 player connected: 127.0.0.1:51971
+2026/04/29 09:43:28 player connected: 127.0.0.1:51972
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51971
+2026/04/29 09:43:28 player connected: 127.0.0.1:51973
+2026/04/29 09:43:28 player connected: 127.0.0.1:51974
+2026/04/29 09:43:28 received from 127.0.0.1:51972: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51972 joined as Alice
+2026/04/29 09:43:28 received from 127.0.0.1:51973: JOIN Bob
+2026/04/29 09:43:28 player 127.0.0.1:51973 joined as Bob
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51972
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51973
+--- PASS: TestBroadcastToNamedPlayers (0.26s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51974
+=== RUN   TestDesc_UnnamedPlayer
+2026/04/29 09:43:28 server listening on :51975
+2026/04/29 09:43:28 player connected: 127.0.0.1:51979
+2026/04/29 09:43:28 player connected: 127.0.0.1:51980
+2026/04/29 09:43:28 received from 127.0.0.1:51980: DESC some description
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51979
+2026/04/29 09:43:28 server stopped
+--- PASS: TestDesc_UnnamedPlayer (0.02s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51980
+=== RUN   TestDesc_NamedPlayerForwarded
+2026/04/29 09:43:28 server listening on :51981
+2026/04/29 09:43:28 player connected: 127.0.0.1:51983
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51983
+2026/04/29 09:43:28 player connected: 127.0.0.1:51984
+2026/04/29 09:43:28 received from 127.0.0.1:51984: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51984 joined as Alice
+2026/04/29 09:43:28 received from 127.0.0.1:51984: DESC it is a fruit
+2026/04/29 09:43:28 server stopped
+--- PASS: TestDesc_NamedPlayerForwarded (0.01s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51984
+=== RUN   TestVote_UnnamedPlayer
+2026/04/29 09:43:28 server listening on :51985
+2026/04/29 09:43:28 player connected: 127.0.0.1:51991
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51991
+2026/04/29 09:43:28 player connected: 127.0.0.1:51992
+2026/04/29 09:43:28 received from 127.0.0.1:51992: VOTE Bob
+2026/04/29 09:43:28 server stopped
+--- PASS: TestVote_UnnamedPlayer (0.01s)
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51992
+=== RUN   TestVote_NamedPlayerForwarded
+2026/04/29 09:43:28 server listening on :51993
+2026/04/29 09:43:28 player connected: 127.0.0.1:51995
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51995
+2026/04/29 09:43:28 player connected: 127.0.0.1:51996
+2026/04/29 09:43:28 received from 127.0.0.1:51996: JOIN Alice
+2026/04/29 09:43:28 player 127.0.0.1:51996 joined as Alice
+2026/04/29 09:43:28 received from 127.0.0.1:51996: VOTE Bob
+2026/04/29 09:43:28 server stopped
+2026/04/29 09:43:28 player disconnected: 127.0.0.1:51996
+--- PASS: TestVote_NamedPlayerForwarded (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/server	2.961s
+结果: 通过
+
+=== 汇总 ===
+状态: 全部通过

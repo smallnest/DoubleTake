@@ -1,0 +1,131 @@
+## 审核报告
+
+### Issue
+- 编号: #32
+- 标题: feat: 房间连接密码机制 — 裁判创建房间时生成哈希密码
+- 子任务: T-004 - Add client password input and server verification
+- 迭代次数: 9
+
+---
+
+### 总体评价
+
+**评分: 30/100**
+
+T-004 的核心验收条件（客户端密码输入 + 服务端验证流程）**完全未实现**。当前仅完成了基础设施层（`SetPassword`/`Password` 存储方法、`RunJudge` 中生成密码并展示），但子任务要求的客户端密码提示、PASSWORD 消息类型、服务端验证逻辑均缺失。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: 客户端密码输入流程完全缺失
+
+**位置**: `cmd/doubletake/player.go:44-66`
+
+**问题描述**:
+`RunPlayer` 函数在房间码输入后直接进入名字输入阶段，完全没有密码输入提示。验收条件明确要求"After room code input, add password input prompt"。
+
+**当前代码**:
+```go
+// player.go:49-66
+roomCode := strings.TrimSpace(scanner.Text())
+// ... decode room code ...
+cc := client.NewClient()
+if err := cc.Connect(addr); err != nil { ... }
+// 直接进入名字输入，无密码提示
+disp.Info("0000", "input player name")
+fmt.Fprint(out, "  name: ")
+```
+
+**需要修复**: 在连接成功后、输入名字之前，增加密码输入提示，并将密码发送到服务端进行验证。
+
+---
+
+#### 问题 2: 协议中缺少 PASSWORD 消息类型
+
+**位置**: `game/protocol.go:31-53`
+
+**问题描述**:
+验收条件要求"Add PASSWORD message type to game/protocol.go if needed"。当前 `protocol.go` 中没有 `MsgPassword` 常量，无法在客户端和服务端之间传递密码验证消息。
+
+**需要修复**: 添加 `MsgPassword = "PASSWORD"` 常量。
+
+---
+
+#### 问题 3: 服务端密码验证逻辑完全缺失
+
+**位置**: `server/server.go:144-171` (`handleConn`)
+
+**问题描述**:
+`handleConn` 在接收到连接后直接进入消息循环处理 `JOIN`/`DESC`/`VOTE`，完全没有密码验证步骤。虽然 `Server` 结构体有 `password` 字段和 `SetPassword`/`Password` 方法（T-003），但 `handleConn` 从未使用密码来验证客户端连接。
+
+**当前代码**:
+```go
+func (s *Server) handleConn(conn net.Conn) {
+    player := &Player{Conn: conn}
+    s.register(player)
+    defer s.unregister(player)
+    scanner := bufio.NewScanner(conn)
+    for scanner.Scan() {
+        line := scanner.Text()
+        msg, err := game.Decode(line)
+        // ... 直接处理消息，无密码验证
+```
+
+**需要修复**: 在 `handleConn` 中，注册连接后、处理 JOIN 之前，等待并验证 PASSWORD 消息。密码错误时发送 ERROR 并断开连接。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 4: 语言混杂 — 中英文提示不一致
+
+**位置**: `cmd/doubletake/player.go:44-53` vs `cmd/doubletake/judge.go:190`
+
+**问题描述**:
+- Judge 端 (`judge.go:190`): 使用中文 `连接密码`、`请告知玩家此密码以连接到房间`
+- Player 端 (`player.go:44-53`): 使用英文 `input room code`、`room code cannot be empty`、`input player name`
+
+项目整体使用中文作为用户交互语言（如 `名字不能为空`、`请先加入游戏`），player 端的英文提示与项目风格不一致。
+
+**建议修复**: 统一为中文提示：`请输入房间码`、`房间码不能为空`、`请输入连接密码`、`请输入你的名字`。
+
+---
+
+#### 问题 5: 缺少密码验证的测试
+
+**位置**: `server/server_test.go`、`cmd/doubletake/main_test.go`
+
+**问题描述**:
+当前测试仅覆盖了 `SetPassword`/`Password` 的存储功能（`TestSetPassword`）和密码展示（`TestRun_JudgeDisplaysPassword`），但完全没有测试密码验证流程（正确密码通过、错误密码拒绝、无密码时跳过验证等）。
+
+---
+
+### 建议改进 (可选)
+
+- 考虑密码验证超时机制，避免客户端不发送 PASSWORD 时无限等待
+- 考虑在 `Server.Stop()` 时清理 `password` 字段（当前影响不大，因内存会随 GC 回收）
+
+---
+
+### 审核结论
+
+- [ ] 通过 - 代码质量达标，可以进入人工审核
+- [x] 需要修改 - 存在必须修复的问题
+- [ ] 阻塞 - 存在严重问题，需要重新设计
+
+**下一步行动**:
+请实现以下内容：
+1. 在 `game/protocol.go` 添加 `MsgPassword = "PASSWORD"` 常量
+2. 在 `cmd/doubletake/player.go` 的 `RunPlayer` 中，连接成功后、名字输入前，增加密码输入提示，并发送 `PASSWORD|password` 消息到服务端
+3. 在 `server/server.go` 的 `handleConn` 中，在处理 JOIN 之前等待 PASSWORD 消息，验证密码：正确则发送确认消息继续流程，错误则发送 ERROR 并断开连接
+4. 统一 player 端提示为中文
+5. 添加密码验证的集成测试（正确密码、错误密码、无密码场景）
+
+---
+
+## Learnings
+
+- **模式**: T-004 的实现遵循了"先基础设施后集成"的模式——`SetPassword`/`Password` 方法已就绪（T-002/T-003），但客户端和服务端的集成验证流程是本次子任务的核心，尚未开始。
+- **踩坑**: 子任务描述中的验收条件需要逐条核对，不能仅凭"密码已生成并展示"就认为子任务完成。T-004 的重点是"验证流程"而非"密码生成"。
+- **经验**: 审核时应区分"基础设施就绪"和"功能流程完成"两种状态。`SetPassword`/`Password` 是基础设施，客户端密码输入+服务端验证才是完整的功能流程。

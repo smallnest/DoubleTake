@@ -38,6 +38,9 @@
 - `Prompt()` 从 `os.Stdin` 读取（不经过 `io.Writer`），因为需要真实终端交互
 - 所有输出函数使用 `fmt.Fprintf(d.out, ...)` 写入，不直接 `fmt.Println`
 - 所有带标识前缀的输出函数（Info, Warn, Data）都根据 stealth 字段切换输出格式
+- `PlayerResult` 结构体（Name, Role, Alive）用于 `ShowGameResult` 的参数
+- `ShowGameResult(winnerLabel, results, civilianWord, undercoverWord)` 以伪装格式显示游戏结果：标题行、每个玩家状态行、双方词语行
+- `ShowGameResult` 测试覆盖正常模式和 stealth 模式
 
 ## 测试约定
 - 使用 `startTestServer` 辅助函数创建临时 TCP 服务器

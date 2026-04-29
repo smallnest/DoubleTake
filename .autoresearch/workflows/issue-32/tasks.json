@@ -1,0 +1,64 @@
+{
+  "issueNumber": 32,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "Create external IP detection utility",
+      "description": "Add GetExternalIP() function in game/network.go that:\n1. First tries to resolve the hostname via net.LookupHost to get IP\n2. Falls back to GetLocalIP() (existing LAN IP) if hostname lookup fails or returns loopback\n3. Returns error only if neither method works\n4. Avoids 127.0.0.1 as对外连接地址",
+      "acceptanceCriteria": [
+        "GetExternalIP() returns a usable external IP (not 127.0.0.1)",
+        "GetExternalIP() prefers hostname IP over LAN IP when hostname resolves to non-loopback",
+        "GetExternalIP() falls back to GetLocalIP() when hostname lookup fails",
+        "Function has unit tests covering hostname resolution success and failure cases"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "Create room password generation function",
+      "description": "Add GenerateRoomPassword(ip, port string) (string, error) in game/network.go:\n1. Uses crypto/rand to generate 16-byte cryptographically secure random number\n2. Concatenates ip + port + random bytes\n3. Computes SHA256 hash\n4. Returns hex-encoded hash string (first 16 bytes for readability)\n5. Returns error if crypto/rand fails",
+      "acceptanceCriteria": [
+        "GenerateRoomPassword uses crypto/rand for secure random number generation",
+        "Hash is computed as SHA256(ip + port + randomNumber)",
+        "Function returns a readable hex string (32 chars from first 16 bytes of hash)",
+        "Function has unit tests verifying output format and randomness",
+        "No two calls produce the same password (randomness test)"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "Integrate password display into room creation",
+      "description": "Modify cmd/doubletake/judge.go RunJudge() function:\n1. After server.Start() succeeds, call GetExternalIP() to get usable IP\n2. Generate room password using GenerateRoomPassword(ip, port)\n3. Store the password in Server struct or close over it for later verification\n4. Display password via disp.Info() in the format:\n   '房间已创建！连接密码: <password>\n   请告知玩家此密码以连接到房间'",
+      "acceptanceCriteria": [
+        "When room is created, the password is displayed to the referee in the specified format",
+        "The IP used for password generation is the external IP (not 127.0.0.1)",
+        "The password is stored for later client verification",
+        "Integration does not break existing waiting phase and game flow"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-004",
+      "title": "Add client password input and server verification",
+      "description": "Add password verification to the connection flow:\n1. In player.go: After room code input, add password input prompt\n2. Send password to server after TCP connection (new PASSWORD message type or send before JOIN)\n3. In server: Store password hash when room is created, verify client password after connect\n4. On success: proceed with normal JOIN flow\n5. On failure: disconnect with error message\n6. Add PASSWORD message type to game/protocol.go if needed\n7. Modify client display to show 'room code' and 'password' prompts clearly",
+      "acceptanceCriteria": [
+        "Player is prompted to enter password after room code",
+        "Password is sent to server for verification after TCP connection",
+        "Server validates password and accepts/rejects connection accordingly",
+        "Invalid password results in clear error message to player",
+        "Valid password allows player to proceed to name input phase",
+        "New PASSWORD message type added to protocol if not reusing existing mechanism"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}

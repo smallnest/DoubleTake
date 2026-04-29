@@ -135,3 +135,28 @@ func (v *VoteRound) FindEliminated() (string, bool) {
 	}
 	return topPlayer, false
 }
+
+// FindTiedPlayers returns the names of all players tied for the most votes.
+// Returns nil if there are no votes or no tie.
+func (v *VoteRound) FindTiedPlayers() []string {
+	tally := v.Tally()
+	if len(tally) == 0 {
+		return nil
+	}
+	var maxVotes int
+	for _, count := range tally {
+		if count > maxVotes {
+			maxVotes = count
+		}
+	}
+	var tied []string
+	for name, count := range tally {
+		if count == maxVotes {
+			tied = append(tied, name)
+		}
+	}
+	if len(tied) < 2 {
+		return nil
+	}
+	return tied
+}

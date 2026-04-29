@@ -1,0 +1,29 @@
+All tests pass. Here's a summary of the implementation:
+
+## Changes Made
+
+### `cmd/doubletake/judge.go`
+1. **Game loop** in `RunJudge`: Replaced single-round execution with `for roundNum := 1; ; roundNum++` loop
+2. **CheckWinCondition integration**: Called after each `votingPhase` returns, using `game.CheckWinCondition(players)`
+3. **WIN message broadcast**: On game over, constructs payload via `buildWinPayload` and broadcasts `game.MsgWin`
+4. **Helper functions**:
+   - `getAlivePlayers(players)` — extracts names of alive players
+   - `buildWinPayload(winner, players, civilianWord, undercoverWord)` — constructs `"winner|playerStates|civilianWord|undercoverWord"` format
+
+### `cmd/doubletake/judge_test.go`
+Added 3 integration tests:
+- **`TestGameLoop_WinBroadcastOnCivilianWin`** — Verifies WIN message format when undercover is eliminated
+- **`TestGameLoop_GameContinuesToNextRound`** — Verifies game continues with ROUND|2 when civilian is eliminated
+- **`TestBuildWinPayload`** — Unit test for payload format with specific player states
+
+### `cmd/doubletake/CLAUDE.md`
+Added documentation for game loop patterns and test conventions.
+
+## Verification Criteria
+| Criterion | Status |
+|-----------|--------|
+| votingPhase 后调用 CheckWinCondition | ✅ |
+| WIN payload 包含胜负方、玩家角色和存活状态、双方词语 | ✅ |
+| 游戏结束时广播 WIN 后不再进入下一轮 | ✅ |
+| 游戏未结束时正常进入下一轮 | ✅ |
+| 编译通过，go vet 无错误 | ✅ |

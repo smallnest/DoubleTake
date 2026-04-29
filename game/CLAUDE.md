@@ -10,8 +10,9 @@
 - `protocol_test.go`: Encode/Decode 单元测试
 - `base62.go`: 房间密码编解码（EncodeRoomCode/DecodeRoomCode），将 IP:port 编码为 base62 短字符串
 - `base62_test.go`: 房间密码编解码单元测试
-- `game.go`: 描述环节状态管理（DescRound 结构体及相关方法）
+- `game.go`: 描述环节状态管理（DescRound 结构体及相关方法）、胜负判定（CheckWinCondition 函数）
 - `vote.go`: 投票环节状态管理（VoteRound 结构体及相关方法）
+- `pk.go`: PK 环节状态管理（PKRound 结构体及相关方法），平票时触发
 - `network.go`: 网络工具函数（GetLocalIP），获取本机非 loopback IPv4 地址
 - `network_test.go`: 网络工具函数单元测试
 - `role.go`: 角色定义（Role 类型、Player 结构体）和角色分配（AssignRoles 函数）
@@ -74,3 +75,20 @@
 - 错误变量 `ErrVoteSelf`、`ErrVoteEliminated`、`ErrVoteUnknown`、`ErrVoteEmpty` 定义在 `vote.go` 中；`ErrNotYourTurn` 定义在 `game.go` 中为 DescRound 和 VoteRound 共用
 - `vote_test.go` 覆盖：构造函数校验（空名/重复名）、正常投票流程、所有校验错误路径、平票场景、边界（0人、1人）、完整轮次集成测试
 - 注意避免与 `game_test.go` 中已有测试函数同名（如 `TestAllDone_OnePlayer` 需加后缀 `_VoteRound`）
+
+## 胜负判定约定
+- `CheckWinCondition(players []*Player) (winner Role, gameOver bool)` 在每轮淘汰后调用
+- Blank 玩家归入平民阵营（与 Civilian 一起计数）
+- 判定优先级：卧底全灭→平民胜利 > 卧底存活>=平民存活→卧底胜利 > 游戏继续
+- 0 人场景：无卧底存活 → 返回 (Civilian, true)
+- `game_test.go` 中 `TestCheckWinCondition` 使用表格驱动测试，覆盖 10 个场景
+
+## PK 环节约定
+- `PKRound` 管理平票 PK 阶段的状态：PK 轮次号、平票玩家列表、描述阶段（`DescRound`）、投票阶段
+- `NewPKRound(pkNum int, tied []string, alivePlayers []string)` 校验：至少 2 人平票、无空名、无重复、平票玩家必须存活
+- PK 分两个阶段：描述阶段（`Phase="desc"`，仅平票玩家发言）→ 投票阶段（`Phase="vote"`，所有存活玩家投票）
+- 描述阶段复用 `DescRound`，发言者列表为平票玩家（非全部存活玩家）
+- 投票阶段投票目标只能是平票玩家之一（`ErrVoteNotTied`），不能投非平票玩家或自己
+- `TiedSet`（`map[string]bool`）用于快速校验投票目标是否为平票玩家
+- `FindEliminated()` 仅统计平票玩家的得票，返回得票最高者；仍平票返回空字符串和 `tie=true`
+- `pk_test.go` 覆盖：构造函数校验、描述阶段流程、投票阶段流程（含各类校验错误）、计票和平票判定、完整 PK 集成测试

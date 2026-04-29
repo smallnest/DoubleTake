@@ -67,6 +67,27 @@ func (d *Display) Data(nodeID, msg string) {
 	fmt.Fprintf(d.out, "[DATA] [node-%s] %s\n", nodeID, msg)
 }
 
+// PlayerResult holds a single player's game result for display.
+type PlayerResult struct {
+	Name  string
+	Role  string // Chinese display label, e.g. "平民"
+	Alive bool
+}
+
+// ShowGameResult displays the final game result in disguised format.
+func (d *Display) ShowGameResult(winnerLabel string, results []PlayerResult, civilianWord, undercoverWord string) {
+	d.Data("00", fmt.Sprintf("游戏结束 — %s 胜利", winnerLabel))
+	for _, r := range results {
+		status := "存活"
+		if !r.Alive {
+			status = "已淘汰"
+		}
+		d.Data("00", fmt.Sprintf("  %s [%s] %s", r.Name, r.Role, status))
+	}
+	d.Data("00", fmt.Sprintf("平民词语: %s", civilianWord))
+	d.Data("00", fmt.Sprintf("卧底词语: %s", undercoverWord))
+}
+
 // ListPlayers lists connected players in a grep-like output format.
 func (d *Display) ListPlayers(players []string) {
 	for i, p := range players {

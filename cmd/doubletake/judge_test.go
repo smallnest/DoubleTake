@@ -1634,3 +1634,656 @@ func TestVotingPhase_ResultBroadcastAndElimination(t *testing.T) {
 		}
 	}
 }
+
+// --- PK phase integration tests ---
+
+// doVoting is a test helper that drives the voting phase given a vote mapping.
+// It reads VOTE+TURN from all conns, sends votes in order, reads TURN for subsequent
+// voters, and reads the RESULT broadcast. Returns the RESULT message from conns[0].
+func doVoting(t *testing.T, conns []net.Conn, voters []string, votes map[string]string) game.Message {
+	t.Helper()
+
+	// Read VOTE + TURN from all connections.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	for vi, voter := range voters {
+		voterConn := findConnByName(conns, voter)
+		fmt.Fprintf(voterConn, "VOTE|%s\n", votes[voter])
+
+		if vi < len(voters)-1 {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn) // TURN for next voter
+			}
+		}
+	}
+
+	// Read RESULT from all connections.
+	resultMsg := readMsgFromConn(t, conns[0])
+	if resultMsg.Type != game.MsgResult {
+		t.Fatalf("expected RESULT, got %s: %s", resultMsg.Type, resultMsg.Payload)
+	}
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i]) // RESULT
+	}
+	return resultMsg
+}
+
+func TestPKPhase_TieTriggersPK(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	resultMsg := doVoting(t, conns, voters, votes)
+
+	// Verify tie in RESULT.
+	if !strings.Contains(resultMsg.Payload, voters[0]+":2") {
+		t.Errorf("RESULT should contain %s:2, got %q", voters[0], resultMsg.Payload)
+	}
+	if !strings.Contains(resultMsg.Payload, voters[1]+":2") {
+		t.Errorf("RESULT should contain %s:2, got %q", voters[1], resultMsg.Payload)
+	}
+
+	// All connections should receive PK_START.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKStart {
+			t.Fatalf("conn %d: expected PK_START, got %s: %s", i, msg.Type, msg.Payload)
+		}
+		// PK_START payload: "1|P0,P1" (or P1,P0)
+		if !strings.Contains(msg.Payload, voters[0]) || !strings.Contains(msg.Payload, voters[1]) {
+			t.Errorf("PK_START should contain both tied players, got %q", msg.Payload)
+		}
+	}
+}
+
+func TestPKPhase_FullFlow(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	doVoting(t, conns, voters, votes)
+
+	// Read PK_START from all connections.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKStart {
+			t.Fatalf("expected PK_START, got %s", msg.Type)
+		}
+	}
+
+	// Read TURN for first PK speaker from all connections.
+	var firstSpeaker string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	// Identify tied players from PK_START (firstSpeaker is one of them).
+	// The other tied player is the one who's not firstSpeaker.
+	var otherTied string
+	if firstSpeaker == voters[0] {
+		otherTied = voters[1]
+	} else {
+		otherTied = voters[0]
+	}
+
+	// First tied player describes.
+	firstConn := findConnByName(conns, firstSpeaker)
+	fmt.Fprintf(firstConn, "DESC|PK desc from %s\n", firstSpeaker)
+
+	// All connections receive DESC broadcast.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive TURN for second tied player.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("expected TURN, got %s: %s", msg.Type, msg.Payload)
+		}
+		if msg.Payload != otherTied {
+			t.Errorf("expected TURN for %s, got %s", otherTied, msg.Payload)
+		}
+	}
+
+	// Second tied player describes.
+	otherConn := findConnByName(conns, otherTied)
+	fmt.Fprintf(otherConn, "DESC|PK desc from %s\n", otherTied)
+
+	// All connections receive DESC broadcast.
+	for _, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgDesc {
+			t.Fatalf("expected DESC, got %s: %s", msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive PK_VOTE.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgPKVote {
+			t.Fatalf("conn %d: expected PK_VOTE, got %s: %s", i, msg.Type, msg.Payload)
+		}
+	}
+
+	// All connections receive TURN for first PK voter.
+	var firstPKVoter string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, msg.Type)
+		}
+		if i == 0 {
+			firstPKVoter = msg.Payload
+		}
+	}
+
+	// Vote in PK: discover voter order from TURN messages.
+	// Everyone votes for firstSpeaker (one of the tied players) to ensure clear
+	// elimination, but that tied player votes for otherTied (can't vote for self).
+	// We use firstPKVoter (from TURN) to start, not firstSpeaker (from desc order).
+	numPKVoters := len(voters)
+	nextVoter := firstPKVoter
+	for i := 0; i < numPKVoters; i++ {
+		voterConn := findConnByName(conns, nextVoter)
+		var target string
+		if nextVoter == firstSpeaker {
+			target = otherTied
+		} else {
+			target = firstSpeaker
+		}
+		fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+
+		if i < numPKVoters-1 {
+			// Read TURN for next voter from all connections.
+			turnMsg := readMsgFromConn(t, conns[0])
+			if turnMsg.Type != game.MsgTurn {
+				t.Fatalf("expected TURN for next PK voter, got %s: %s", turnMsg.Type, turnMsg.Payload)
+			}
+			nextVoter = turnMsg.Payload
+			for j := 1; j < len(conns); j++ {
+				readMsgFromConn(t, conns[j])
+			}
+		}
+	}
+
+	// Read PK RESULT from all connections.
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgResult {
+			t.Fatalf("conn %d: expected RESULT, got %s: %s", i, msg.Type, msg.Payload)
+		}
+		// firstSpeaker should have 3 votes (from all except themselves).
+		if !strings.Contains(msg.Payload, firstSpeaker+":3") {
+			t.Errorf("conn %d: RESULT should show %s:3, got %q", i, firstSpeaker, msg.Payload)
+		}
+	}
+}
+
+func TestPKPhase_InvalidVoteForNonTiedPlayer(t *testing.T) {
+	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+	defer cleanup()
+
+	// Create a tie: P0→P1, P1→P0, P2→P0, P3→P1 → P0:2, P1:2
+	votes := map[string]string{
+		voters[0]: voters[1],
+		voters[1]: voters[0],
+		voters[2]: voters[0],
+		voters[3]: voters[1],
+	}
+	doVoting(t, conns, voters, votes)
+
+	// Read PK_START.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // PK_START
+	}
+
+	// Read TURN for first PK speaker.
+	var firstSpeaker string
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstSpeaker = msg.Payload
+		}
+	}
+
+	var otherTied string
+	if firstSpeaker == voters[0] {
+		otherTied = voters[1]
+	} else {
+		otherTied = voters[0]
+	}
+
+	// Both tied players describe.
+	firstConn := findConnByName(conns, firstSpeaker)
+	fmt.Fprintf(firstConn, "DESC|desc1\n")
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // DESC
+	}
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	otherConn := findConnByName(conns, otherTied)
+	fmt.Fprintf(otherConn, "DESC|desc2\n")
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // DESC
+	}
+
+	// Read PK_VOTE + TURN from all.
+	var firstPKVoter string
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // PK_VOTE
+		msg := readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			firstPKVoter = msg.Payload
+		}
+	}
+
+	// First PK voter tries to vote for a non-tied player.
+	// Find a non-tied player who is NOT the firstPKVoter (to avoid self-vote check).
+	var nonTiedTarget string
+	for _, v := range voters {
+		if v != firstSpeaker && v != otherTied && v != firstPKVoter {
+			nonTiedTarget = v
+			break
+		}
+	}
+	if nonTiedTarget == "" {
+		t.Fatal("could not find a non-tied target different from firstPKVoter")
+	}
+	firstVoterConn := findConnByName(conns, firstPKVoter)
+
+	// Try voting for a non-tied player — should get ERROR.
+	fmt.Fprintf(firstVoterConn, "VOTE|%s\n", nonTiedTarget)
+	msg := readMsgFromConn(t, firstVoterConn)
+	if msg.Type != game.MsgError {
+		t.Fatalf("expected ERROR for non-tied vote, got %s: %s", msg.Type, msg.Payload)
+	}
+	if !strings.Contains(msg.Payload, "tied players") {
+		t.Errorf("error should mention tied players, got: %q", msg.Payload)
+	}
+}
+
+// --- Game loop and WIN message integration tests ---
+
+// setupGameLoopTest is a test helper that sets up a game through the ready phase
+// and returns the player connections, speaker order, and cleanup function.
+// After this returns, all connections have consumed JOIN, ROLE, and READY messages,
+// and are ready for the first ROUND message.
+func setupGameLoopTest(t *testing.T, numPlayers int) ([]net.Conn, []string, func()) {
+	t.Helper()
+
+	configInput := fmt.Sprintf("%d\n1\n0\n", numPlayers)
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, configInput)
+
+	names := make([]string, numPlayers)
+	for i := 0; i < numPlayers; i++ {
+		names[i] = fmt.Sprintf("P%d", i)
+	}
+
+	conns := make([]net.Conn, numPlayers)
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 2*time.Second)
+
+	// Consume JOIN confirmation from each connection.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn)
+	}
+
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Consume ROLE + READY from each connection.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // ROLE
+		readMsgFromConn(t, conn) // READY
+	}
+
+	waitForOutput(t, out, "游戏开始！", 2*time.Second)
+
+	// Read ROUND + TURN from all connections to learn speaker order.
+	var speakers []string
+	for i, conn := range conns {
+		roundMsg := readMsgFromConn(t, conn)
+		if roundMsg.Type != game.MsgRound {
+			t.Fatalf("conn %d: expected ROUND, got %s", i, roundMsg.Type)
+		}
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		if len(roundParts) < 2 {
+			t.Fatalf("malformed ROUND payload: %q", roundMsg.Payload)
+		}
+		if i == 0 {
+			speakers = strings.Split(roundParts[1], ",")
+		}
+
+		turnMsg := readMsgFromConn(t, conn)
+		if turnMsg.Type != game.MsgTurn {
+			t.Fatalf("conn %d: expected TURN, got %s", i, turnMsg.Type)
+		}
+	}
+
+	return conns, speakers, cleanup
+}
+
+// doDescription drives the description phase: each speaker describes in order.
+func doDescription(t *testing.T, conns []net.Conn, speakers []string) {
+	t.Helper()
+	for si, speaker := range speakers {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc from %s\n", speaker)
+
+		// All players receive DESC broadcast.
+		for _, conn := range conns {
+			msg := readMsgFromConn(t, conn)
+			if msg.Type != game.MsgDesc {
+				t.Fatalf("expected DESC, got %s: %s", msg.Type, msg.Payload)
+			}
+		}
+
+		// After DESC, TURN for next speaker (unless last).
+		if si < len(speakers)-1 {
+			for _, conn := range conns {
+				msg := readMsgFromConn(t, conn)
+				if msg.Type != game.MsgTurn {
+					t.Fatalf("expected TURN, got %s: %s", msg.Type, msg.Payload)
+				}
+			}
+		}
+	}
+}
+
+// doVotingForElimination drives the voting phase targeting a specific player for elimination.
+// target is the player to be eliminated (gets majority votes).
+// Returns the RESULT message from conns[0].
+func doVotingForElimination(t *testing.T, conns []net.Conn, voters []string, target string) game.Message {
+	t.Helper()
+
+	// Read VOTE + TURN from all connections.
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // VOTE
+		readMsgFromConn(t, conn) // TURN
+	}
+
+	for vi, voter := range voters {
+		voterConn := findConnByName(conns, voter)
+		if voter == target {
+			// Target votes for someone else (can't vote for self).
+			other := voters[0]
+			if other == target {
+				other = voters[1]
+			}
+			fmt.Fprintf(voterConn, "VOTE|%s\n", other)
+		} else {
+			fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+		}
+
+		if vi < len(voters)-1 {
+			for _, conn := range conns {
+				readMsgFromConn(t, conn) // TURN for next voter
+			}
+		}
+	}
+
+	// Read RESULT from all connections.
+	resultMsg := readMsgFromConn(t, conns[0])
+	if resultMsg.Type != game.MsgResult {
+		t.Fatalf("expected RESULT, got %s: %s", resultMsg.Type, resultMsg.Payload)
+	}
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i])
+	}
+	return resultMsg
+}
+
+func TestGameLoop_WinBroadcastOnCivilianWin(t *testing.T) {
+	conns, speakers, cleanup := setupGameLoopTest(t, 4)
+	defer cleanup()
+
+	// Round 1: all describe.
+	doDescription(t, conns, speakers)
+
+	// Round 1: vote out the undercover. With 1U, eliminating the U should end the game.
+	// We don't know which player is the undercover, but we can vote out speakers[0]
+	// and check if the game ends. If it doesn't end, we continue.
+	// For a deterministic test, let's vote out speakers[0].
+	eliminated := speakers[0]
+	doVotingForElimination(t, conns, speakers, eliminated)
+
+	// After voting, all connections should receive either:
+	// - WIN message (if undercover was eliminated)
+	// - ROUND message (if game continues to next round)
+	msg := readMsgFromConn(t, conns[0])
+
+	if msg.Type == game.MsgWin {
+		// Undercover was eliminated — civilians win.
+		// Verify WIN payload format: "winner|playerStates|civilianWord|undercoverWord"
+		parts := strings.SplitN(msg.Payload, "|", 4)
+		if len(parts) < 4 {
+			t.Fatalf("WIN payload should have 4 parts, got %d: %q", len(parts), msg.Payload)
+		}
+		if parts[0] != "Civilian" {
+			t.Errorf("winner should be Civilian, got %q", parts[0])
+		}
+		if parts[2] != "苹果" {
+			t.Errorf("civilian word should be 苹果, got %q", parts[2])
+		}
+		if parts[3] != "香蕉" {
+			t.Errorf("undercover word should be 香蕉, got %q", parts[3])
+		}
+		// Verify player states contain all 4 players.
+		states := strings.Split(parts[1], ",")
+		if len(states) != 4 {
+			t.Errorf("expected 4 player states, got %d: %q", len(states), parts[1])
+		}
+		// Eliminated player should have alive=0.
+		for _, state := range states {
+			stateParts := strings.Split(state, ":")
+			if len(stateParts) != 3 {
+				t.Errorf("invalid player state format: %q", state)
+				continue
+			}
+			name, role, alive := stateParts[0], stateParts[1], stateParts[2]
+			if name == eliminated && alive != "0" {
+				t.Errorf("eliminated player %s should have alive=0, got %q", eliminated, alive)
+			}
+			if role != "Civilian" && role != "Undercover" && role != "Blank" {
+				t.Errorf("unexpected role in state: %q", role)
+			}
+		}
+
+		// Verify remaining connections also receive WIN.
+		for i := 1; i < len(conns); i++ {
+			winMsg := readMsgFromConn(t, conns[i])
+			if winMsg.Type != game.MsgWin {
+				t.Errorf("conn %d: expected WIN, got %s: %s", i, winMsg.Type, winMsg.Payload)
+			}
+		}
+	} else if msg.Type == game.MsgRound {
+		// Game continues — we eliminated a civilian.
+		// Verify it's round 2.
+		roundParts := strings.SplitN(msg.Payload, "|", 2)
+		if len(roundParts) < 2 {
+			t.Fatalf("malformed ROUND payload: %q", msg.Payload)
+		}
+		if roundParts[0] != "2" {
+			t.Errorf("expected round 2, got %q", roundParts[0])
+		}
+
+		// Verify remaining connections also get ROUND.
+		for i := 1; i < len(conns); i++ {
+			roundMsg := readMsgFromConn(t, conns[i])
+			if roundMsg.Type != game.MsgRound {
+				t.Errorf("conn %d: expected ROUND, got %s", i, roundMsg.Type)
+			}
+		}
+	} else {
+		t.Fatalf("expected WIN or ROUND after voting, got %s: %s", msg.Type, msg.Payload)
+	}
+}
+
+func TestGameLoop_GameContinuesToNextRound(t *testing.T) {
+	conns, speakers, cleanup := setupGameLoopTest(t, 5)
+	defer cleanup()
+
+	// Round 1: all describe.
+	doDescription(t, conns, speakers)
+
+	// Round 1: vote out speakers[0]. With 5 players (1U), game should continue
+	// unless we happened to eliminate the undercover.
+	doVotingForElimination(t, conns, speakers, speakers[0])
+
+	// Read the next message — could be WIN or ROUND.
+	msg := readMsgFromConn(t, conns[0])
+
+	if msg.Type == game.MsgWin {
+		// We happened to eliminate the undercover. Verify WIN and return.
+		if !strings.Contains(msg.Payload, "Civilian") {
+			t.Errorf("WIN should show Civilian as winner, got %q", msg.Payload)
+		}
+		return
+	}
+
+	// Game continues to round 2.
+	if msg.Type != game.MsgRound {
+		t.Fatalf("expected ROUND for round 2, got %s: %s", msg.Type, msg.Payload)
+	}
+	roundParts := strings.SplitN(msg.Payload, "|", 2)
+	if roundParts[0] != "2" {
+		t.Errorf("expected round 2, got %q", roundParts[0])
+	}
+
+	// Consume TURN from all connections.
+	for i, conn := range conns {
+		readMsgFromConn(t, conn) // TURN
+		if i == 0 {
+			// Also consume ROUND+TURN from conns[0] (already read ROUND above).
+		}
+	}
+	// Consume ROUND+TURN from remaining connections.
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i]) // ROUND
+		readMsgFromConn(t, conns[i]) // TURN
+	}
+
+	// Round 2: speakers are the 4 alive players.
+	// Read new speaker order from ROUND message (already consumed above for conns[0]).
+	newSpeakers := strings.Split(roundParts[1], ",")
+
+	// Round 2: all describe.
+	doDescription(t, conns, newSpeakers)
+
+	// Round 2: vote out the first speaker.
+	doVotingForElimination(t, conns, newSpeakers, newSpeakers[0])
+
+	// After round 2, check if game ends or continues.
+	msg = readMsgFromConn(t, conns[0])
+	if msg.Type == game.MsgWin {
+		// Game ended. Verify WIN payload.
+		parts := strings.SplitN(msg.Payload, "|", 4)
+		if len(parts) < 4 {
+			t.Fatalf("WIN payload should have 4 parts, got %d", len(parts))
+		}
+		// Winner could be Civilian or Undercover depending on who was eliminated.
+		if parts[0] != "Civilian" && parts[0] != "Undercover" {
+			t.Errorf("unexpected winner: %q", parts[0])
+		}
+	} else if msg.Type == game.MsgRound {
+		// Game continues to round 3. Verify round number.
+		roundParts := strings.SplitN(msg.Payload, "|", 2)
+		if roundParts[0] != "3" {
+			t.Errorf("expected round 3, got %q", roundParts[0])
+		}
+	} else {
+		t.Fatalf("expected WIN or ROUND after round 2, got %s: %s", msg.Type, msg.Payload)
+	}
+}
+
+func TestBuildWinPayload(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true},
+		{Name: "Bob", Role: game.Undercover, Alive: false},
+		{Name: "Charlie", Role: game.Civilian, Alive: true},
+		{Name: "Dave", Role: game.Blank, Alive: true},
+	}
+
+	payload := buildWinPayload(game.Civilian, players, "苹果", "香蕉")
+
+	parts := strings.SplitN(payload, "|", 4)
+	if len(parts) != 4 {
+		t.Fatalf("expected 4 parts, got %d", len(parts))
+	}
+
+	if parts[0] != "Civilian" {
+		t.Errorf("winner = %q, want Civilian", parts[0])
+	}
+
+	states := strings.Split(parts[1], ",")
+	if len(states) != 4 {
+		t.Fatalf("expected 4 player states, got %d", len(states))
+	}
+
+	expectedStates := map[string]string{
+		"Alice":   "Civilian:1",
+		"Bob":     "Undercover:0",
+		"Charlie": "Civilian:1",
+		"Dave":    "Blank:1",
+	}
+	for _, state := range states {
+		stateParts := strings.Split(state, ":")
+		if len(stateParts) != 3 {
+			t.Errorf("invalid state format: %q", state)
+			continue
+		}
+		name := stateParts[0]
+		roleAlive := stateParts[1] + ":" + stateParts[2]
+		if expected, ok := expectedStates[name]; ok {
+			if roleAlive != expected {
+				t.Errorf("player %s: got %s, want %s", name, roleAlive, expected)
+			}
+		} else {
+			t.Errorf("unexpected player %q", name)
+		}
+	}
+
+	if parts[2] != "苹果" {
+		t.Errorf("civilian word = %q, want 苹果", parts[2])
+	}
+	if parts[3] != "香蕉" {
+		t.Errorf("undercover word = %q, want 香蕉", parts[3])
+	}
+}
+
