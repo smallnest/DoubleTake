@@ -1099,3 +1099,152 @@ func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
 
 	<-serverDone
 }
+
+// TestRunPlayer_ReceivesWin_CivilianWins tests that the player correctly
+// parses and displays a WIN message when civilians win, and exits with code 0.
+func TestRunPlayer_ReceivesWin_CivilianWins(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		// WIN message: civilians win
+		winPayload := "Civilian|Alice:Civilian:1,Bob:Undercover:0,Charlie:Civilian:1|苹果|香蕉"
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgWin, Payload: winPayload}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\nAlice\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	if !strings.Contains(output, "游戏结束 — 平民 胜利") {
+		t.Errorf("expected civilian win message, got: %s", output)
+	}
+	if !strings.Contains(output, "Alice [平民] 存活") {
+		t.Errorf("expected Alice alive, got: %s", output)
+	}
+	if !strings.Contains(output, "Bob [卧底] 已淘汰") {
+		t.Errorf("expected Bob eliminated, got: %s", output)
+	}
+	if !strings.Contains(output, "平民词语: 苹果") {
+		t.Errorf("expected civilian word, got: %s", output)
+	}
+	if !strings.Contains(output, "卧底词语: 香蕉") {
+		t.Errorf("expected undercover word, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_ReceivesWin_UndercoverWins tests that the player correctly
+// displays a WIN message when undercover wins.
+func TestRunPlayer_ReceivesWin_UndercoverWins(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		// JOIN confirm
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Bob"}))
+		// WIN message: undercover wins
+		winPayload := "Undercover|Alice:Civilian:0,Bob:Undercover:1,Charlie:Civilian:0|苹果|香蕉"
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgWin, Payload: winPayload}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\nBob\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	if !strings.Contains(output, "游戏结束 — 卧底 胜利") {
+		t.Errorf("expected undercover win message, got: %s", output)
+	}
+	if !strings.Contains(output, "Bob [卧底] 存活") {
+		t.Errorf("expected Bob alive, got: %s", output)
+	}
+	if !strings.Contains(output, "Alice [平民] 已淘汰") {
+		t.Errorf("expected Alice eliminated, got: %s", output)
+	}
+
+	<-serverDone
+}
+
+// TestRunPlayer_ReceivesWin_Stealth tests WIN display in stealth mode.
+func TestRunPlayer_ReceivesWin_Stealth(t *testing.T) {
+	ln, _, roomCode := startTestPlayerServer(t)
+	defer ln.Close()
+
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		scanner := bufio.NewScanner(conn)
+		if !scanner.Scan() {
+			return
+		}
+
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		winPayload := "Civilian|Alice:Civilian:1,Bob:Undercover:0|苹果|香蕉"
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgWin, Payload: winPayload}))
+	}()
+
+	out := &bytes.Buffer{}
+	input := roomCode + "\nAlice\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), true)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", exitCode)
+	}
+	output := out.String()
+
+	// Stealth mode should not contain [DATA] tag
+	if strings.Contains(output, "[DATA]") {
+		t.Errorf("stealth mode should not contain [DATA], got: %s", output)
+	}
+	// But should still contain the result info
+	if !strings.Contains(output, "游戏结束 — 平民 胜利") {
+		t.Errorf("expected win message in stealth mode, got: %s", output)
+	}
+
+	<-serverDone
+}

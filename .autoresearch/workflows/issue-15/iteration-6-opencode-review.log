@@ -1,0 +1,138 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m✱ [0mGlob "game/*.go"[90m in . · 14 matches[0m
+[0m✱ [0mGlob "cmd/doubletake/*.go"[90m in . · 0 matches[0m
+[0m✱ [0mGlob "**/protocol.go"[90m in . · 1 match[0m
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead game/game_test.go
+[0m✱ [0mGlob "cmd/doubletake/*_test.go"[90m in . · 0 matches[0m
+[0m✱ [0mGrep "buildWinPayload|CheckWinCondition|MsgWin|WIN"[90m in cmd/doubletake · 18 matches[0m
+Now let me check the test file and the `buildWinPayload` usage:
+[0m→ [0mRead cmd/doubletake/judge_test.go[90m [offset=1920][0m
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./cmd/doubletake/ 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./cmd/doubletake/ 2>&1
+(no output)
+[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go[90m [limit=60][0m
+Let me also check the test infrastructure:
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./cmd/doubletake/ -run "TestGameLoop|TestBuildWinPayload" -count=1 -v 2>&1 | tail -40
+2026/04/29 13:15:09 received from 127.0.0.1:49448: JOIN P0
+2026/04/29 13:15:09 player 127.0.0.1:49448 joined as P0
+2026/04/29 13:15:09 player connected: 127.0.0.1:49449
+2026/04/29 13:15:09 received from 127.0.0.1:49449: JOIN P1
+2026/04/29 13:15:09 player 127.0.0.1:49449 joined as P1
+2026/04/29 13:15:09 player connected: 127.0.0.1:49450
+2026/04/29 13:15:09 received from 127.0.0.1:49450: JOIN P2
+2026/04/29 13:15:09 player 127.0.0.1:49450 joined as P2
+2026/04/29 13:15:09 player connected: 127.0.0.1:49451
+2026/04/29 13:15:09 received from 127.0.0.1:49451: JOIN P3
+2026/04/29 13:15:09 player 127.0.0.1:49451 joined as P3
+2026/04/29 13:15:09 player connected: 127.0.0.1:49452
+2026/04/29 13:15:09 received from 127.0.0.1:49452: JOIN P4
+2026/04/29 13:15:09 player 127.0.0.1:49452 joined as P4
+2026/04/29 13:15:09 received from 127.0.0.1:49450: DESC desc from P2
+2026/04/29 13:15:09 received from 127.0.0.1:49449: DESC desc from P1
+2026/04/29 13:15:09 received from 127.0.0.1:49451: DESC desc from P3
+2026/04/29 13:15:09 received from 127.0.0.1:49452: DESC desc from P4
+2026/04/29 13:15:09 received from 127.0.0.1:49448: DESC desc from P0
+2026/04/29 13:15:09 received from 127.0.0.1:49450: VOTE P1
+2026/04/29 13:15:09 received from 127.0.0.1:49449: VOTE P2
+2026/04/29 13:15:09 received from 127.0.0.1:49451: VOTE P2
+2026/04/29 13:15:09 received from 127.0.0.1:49452: VOTE P2
+2026/04/29 13:15:09 received from 127.0.0.1:49448: VOTE P2
+2026/04/29 13:15:09 connection error from 127.0.0.1:49451: read tcp 127.0.0.1:49445->127.0.0.1:49451: use of closed network connection
+2026/04/29 13:15:09 player disconnected: 127.0.0.1:49451
+2026/04/29 13:15:09 connection error from 127.0.0.1:49452: read tcp 127.0.0.1:49445->127.0.0.1:49452: use of closed network connection
+2026/04/29 13:15:09 player disconnected: 127.0.0.1:49452
+2026/04/29 13:15:09 connection error from 127.0.0.1:49448: read tcp 127.0.0.1:49445->127.0.0.1:49448: use of closed network connection
+2026/04/29 13:15:09 player disconnected: 127.0.0.1:49448
+2026/04/29 13:15:09 connection error from 127.0.0.1:49449: read tcp 127.0.0.1:49445->127.0.0.1:49449: use of closed network connection
+2026/04/29 13:15:09 player disconnected: 127.0.0.1:49449
+2026/04/29 13:15:09 connection error from 127.0.0.1:49450: read tcp 127.0.0.1:49445->127.0.0.1:49450: use of closed network connection
+2026/04/29 13:15:09 player disconnected: 127.0.0.1:49450
+2026/04/29 13:15:09 server stopped
+--- PASS: TestGameLoop_GameContinuesToNextRound (0.05s)
+=== RUN   TestBuildWinPayload
+--- PASS: TestBuildWinPayload (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.588s
+[0m
+Now let me run all tests to make sure they pass:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 2>&1 | tail -20
+ok  	github.com/smallnest/doubletake/client	0.888s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	32.381s
+ok  	github.com/smallnest/doubletake/game	2.154s
+ok  	github.com/smallnest/doubletake/server	3.256s
+[0m
+## 审核报告
+
+### Issue
+- 编号: #15
+- 子任务: T-002
+- 迭代次数: 1
+
+### 总体评价
+**评分: 97/100**
+
+### 严重问题 (必须修复)
+无
+
+### 一般问题 (建议修复)
+无
+
+### 建议改进 (可选)
+
+1. **测试确定性**: `TestGameLoop_WinBroadcastOnCivilianWin` 和 `TestGameLoop_GameContinuesToNextRound` 依赖随机角色分配，导致测试结果非确定。可考虑添加一个确定性测试——通过注入或 patch，确保下回合被淘汰的是卧底，从而稳定触发 WIN 路径。当前方案可接受，但弱化了测试的可重复性。
+
+2. **WIN 消息完整性验证不足**: 集成测试中 WIN payload 的 player states 验证仅覆盖了 `conns[0]`，虽然已检查其余连接也收到 WIN，但未深入校验其余连接收到的 WIN payload 内容是否完全一致。建议在 WIN 分支中添加对全部连接的 payload 一致性检查。
+
+### 审核结论
+- [x] 通过
+
+### 验收条件逐项核验
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | votingPhase/pkPhase 后调用 CheckWinCondition | ✅ | `judge.go:214` 在主循环中统一调用 |
+| 2 | WIN payload 包含胜负方、所有玩家角色和存活状态、双方词语 | ✅ | `judge.go:240-250` `buildWinPayload` 函数 |
+| 3 | 游戏结束时广播 WIN 后不再进入下一轮 | ✅ | `judge.go:219` `return cfg` 退出循环 |
+| 4 | 游戏未结束时正常进入下一轮描述+投票 | ✅ | `judge.go:223` 更新 `alivePlayers` 继续循环 |
+| 5 | 编译通过，go vet 无错误 | ✅ | `go build` 和 `go vet` 均通过 |
+
+### 各维度得分
+
+| 维度 | 权重 | 得分 | 加权 | 说明 |
+|------|------|------|------|------|
+| 正确性 | 35% | 100 | 35.0 | 所有验收条件满足，游戏结束条件判定逻辑正确，WIN payload 格式符合规范 |
+| 测试质量 | 25% | 90 | 22.5 | 核心逻辑覆盖完整（Table-driven + 集成测试），但集成测试依赖随机分配，未提供确定性 WIN 触发路径 |
+| 代码质量 | 20% | 100 | 20.0 | 命名清晰、职责分离、遵循项目规范（MsgWin 常量复用、CheckWinCondition 约定） |
+| 安全性 | 10% | 100 | 10.0 | 无注入风险，payload 为结构化拼接，无敏感信息泄露 |
+| 性能 | 10% | 100 | 10.0 | 无性能问题，字符串拼接操作简单高效 |
+| **总分** | 100% | — | **97.5** | **优秀** |
+
+### 实现分析
+
+**核心架构**（`cmd/doubletake/judge.go`）
+
+游戏循环位于 `RunJudge` 的 `for roundNum := 1; ; roundNum++` 中（L200-225），每轮流程清晰：
+
+1. `descriptionPhase` → 描述阶段
+2. `votingPhase` → 投票阶段（内部含 `pkPhase` 平票处理）
+3. `game.CheckWinCondition(players)` → 胜负判定
+4. 判定 `gameOver=true` 则广播 WIN 并 `return`
+5. 否则 `getAlivePlayers` 更新存活列表，进入下一轮
+
+**关键设计决策**：
+- `pkPhase` 内部的淘汰标记在回到主循环后由 `CheckWinCondition` 统一检测，职责分离得当
+- `votingPhase` 和 `pkPhase` 均会在内部设置 `p.Alive = false`，主循环只需读取 `players` 切片状态
+- `buildWinPayload` 独立封装，便于单元测试
+
+**值得注意的细节**：`votingPhase` 返回的 `Eliminated` 在主循环中未被使用（符合经验总结中的记录），主循环仅依赖 `players` 切片的状态变化，这是正确的设计。

@@ -1,0 +1,51 @@
+{
+  "issueNumber": 15,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "实现 CheckWinCondition 函数及单元测试",
+      "description": "在 game/game.go 中新增 CheckWinCondition(players []*Player) (winner Role, gameOver bool) 函数。逻辑：遍历 players 统计存活的 Undercover 和 Civilian 数量（Blank 归入平民阵营）。若 Undercover 存活数为 0 → 返回 (Civilian, true) 平民胜利；若 Undercover 存活数 >= Civilian 存活数 → 返回 (Undercover, true) 卧底胜利；否则返回 (0, false) 游戏继续。在 game/game_test.go 中编写表格驱动测试覆盖：3 平民 1 卧底（卧底出局→平民胜）、3 平民 1 卧底（卧底存活>=平民→卧底胜）、4 平民 1 卧底（卧底存活<平民→继续）、全平民（平民胜）、边界（0 人）等场景。",
+      "acceptanceCriteria": [
+        "CheckWinCondition 函数签名符合 Acceptance Criteria 要求",
+        "卧底全部出局时返回 (Civilian, true)",
+        "卧底存活人数 >= 平民存活人数时返回 (Undercover, true)",
+        "以上条件均不满足时返回 (0, false)",
+        "测试覆盖至少 5 个场景，全部通过",
+        "go vet ./... 无错误"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "在投票淘汰后集成胜负判定并广播 WIN 消息",
+      "description": "修改 cmd/doubletake/judge.go，在 votingPhase 和 pkPhase 返回淘汰者后调用 game.CheckWinCondition 检查胜负。若 gameOver=true，构造 WIN 消息广播给所有玩家。WIN payload 格式：\"winner|player1:Role:alive,player2:Role:alive,...|civilianWord|undercoverWord\"（winner 为 \"Civilian\" 或 \"Undercover\"，alive 为 \"1\" 或 \"0\"）。在 RunJudge 的主循环中，投票完成后调用 CheckWinCondition，游戏结束则广播 WIN 并返回，否则继续下一轮描述+投票。",
+      "acceptanceCriteria": [
+        "votingPhase/pkPhase 后调用 CheckWinCondition",
+        "WIN 消息 payload 包含胜负方、所有玩家角色和存活状态、双方词语",
+        "游戏结束时广播 WIN 消息后不再进入下一轮",
+        "游戏未结束时正常进入下一轮描述+投票",
+        "编译通过，go vet 无错误"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "玩家端处理 WIN 消息并用伪装格式显示结果",
+      "description": "修改 cmd/doubletake/player.go 的 handleMessage 函数，新增对 game.MsgWin 的处理：解析 WIN payload（winner|playerRoles|civilianWord|undercoverWord），用 Display 的伪装格式显示游戏结果，包括胜负方、各玩家角色（中文映射）、双方词语。显示后返回 false 退出消息循环。同时在 client/display.go 中新增 ShowGameResult 方法封装结果展示。",
+      "acceptanceCriteria": [
+        "玩家收到 WIN 消息后正确解析并显示游戏结果",
+        "结果显示包含胜负方、各玩家角色（中文）、双方词语",
+        "输出使用伪装格式（与现有 Display 风格一致）",
+        "显示结果后客户端正常退出",
+        "编译通过，go vet 无错误"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

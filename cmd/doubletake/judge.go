@@ -195,21 +195,58 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 
 	broadcastReady(disp, srv)
 
-	// Run description phase for round 1 with all players.
-	descResult := descriptionPhase(disp, srv, 1, names)
-	if descResult == nil {
-		return cfg
-	}
-	_ = descResult // descriptions recorded for later phases
+	// Game loop: repeat description + voting until game ends.
+	alivePlayers := getAlivePlayers(players)
+	for roundNum := 1; ; roundNum++ {
+		// Description phase.
+		descResult := descriptionPhase(disp, srv, roundNum, alivePlayers)
+		if descResult == nil {
+			return cfg
+		}
 
-	// Run voting phase for round 1.
-	voteResult := votingPhase(disp, srv, 1, names, players)
-	if voteResult == nil {
-		return cfg
-	}
-	_ = voteResult
+		// Voting phase.
+		voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players)
+		if voteResult == nil {
+			return cfg
+		}
 
-	return cfg
+		// Check win condition after elimination.
+		winner, gameOver := game.CheckWinCondition(players)
+		if gameOver {
+			winPayload := buildWinPayload(winner, players, civilianWord, undercoverWord)
+			srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
+			disp.Info("0000", fmt.Sprintf("游戏结束！%s 获胜", winner))
+			return cfg
+		}
+
+		// Update alive players for next round.
+		alivePlayers = getAlivePlayers(players)
+	}
+}
+
+// getAlivePlayers returns the names of all alive players.
+func getAlivePlayers(players []*game.Player) []string {
+	var alive []string
+	for _, p := range players {
+		if p.Alive {
+			alive = append(alive, p.Name)
+		}
+	}
+	return alive
+}
+
+// buildWinPayload constructs the WIN message payload.
+// Format: "winner|player1:Role:alive,player2:Role:alive,...|civilianWord|undercoverWord"
+func buildWinPayload(winner game.Role, players []*game.Player, civilianWord, undercoverWord string) string {
+	var playerStates []string
+	for _, p := range players {
+		alive := "0"
+		if p.Alive {
+			alive = "1"
+		}
+		playerStates = append(playerStates, fmt.Sprintf("%s:%s:%s", p.Name, p.Role, alive))
+	}
+	return fmt.Sprintf("%s|%s|%s|%s", winner, strings.Join(playerStates, ","), civilianWord, undercoverWord)
 }
 
 // newStdinSource starts a goroutine that reads from scanner and returns a stdinSource.

@@ -114,8 +114,8 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 				if !ok {
 					return 0
 				}
-				if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
-					return 1
+				if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase); code >= 0 {
+					return code
 				}
 			case line, ok := <-stdinCh:
 				if !ok {
@@ -151,16 +151,16 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 			if !ok {
 				return 0
 			}
-			if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
-				return 1
+			if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase); code >= 0 {
+				return code
 			}
 		}
 	}
 }
 
-// handleMessage processes a single network message. It returns false if the
-// player should exit (fatal error).
-func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool) bool {
+// handleMessage processes a single network message.
+// Returns: -1 = continue, 0 = exit normally (e.g. WIN), 1 = exit with error.
+func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool) int {
 	switch msg.Type {
 	case game.MsgJoin:
 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
@@ -168,7 +168,7 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		parts := strings.SplitN(msg.Payload, "|", 2)
 		if len(parts) < 2 {
 			disp.Data("00", "received malformed role message")
-			return true
+			return -1
 		}
 		roleName, word := parts[0], parts[1]
 		dispLabel := roleName
@@ -225,6 +225,9 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		*inVotePhase = true
 	case game.MsgResult:
 		handleResultMsg(disp, msg.Payload)
+	case game.MsgWin:
+		handleWinMsg(disp, msg.Payload)
+		return 0
 	case game.MsgError:
 		disp.Warn(msg.Payload)
 		if *descP == descSubmitted || *descP == descWaitingInput {
@@ -236,12 +239,12 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 			fmt.Fprint(out, "  请输入投票目标: ")
 			*voteP = voteWaitingInput
 		} else {
-			return false
+			return 1
 		}
 	default:
 		disp.Data("00", fmt.Sprintf("%s %s", msg.Type, msg.Payload))
 	}
-	return true
+	return -1
 }
 
 // handleRoundMsg parses and displays the ROUND message.
@@ -302,6 +305,44 @@ func handleResultMsg(disp *client.Display, payload string) {
 		}
 		disp.Data("00", fmt.Sprintf("  %s: %s 票", kv[0], kv[1]))
 	}
+}
+
+// handleWinMsg parses and displays the WIN message.
+// Payload format: "winner|player1:Role:alive,player2:Role:alive,...|civilianWord|undercoverWord"
+func handleWinMsg(disp *client.Display, payload string) {
+	parts := strings.SplitN(payload, "|", 4)
+	if len(parts) < 4 {
+		disp.Data("00", fmt.Sprintf("WIN %s", payload))
+		return
+	}
+	winner := parts[0]
+	statesStr := parts[1]
+	civilianWord := parts[2]
+	undercoverWord := parts[3]
+
+	winnerLabel := winner
+	if label, ok := roleDisplayNames[winner]; ok {
+		winnerLabel = label
+	}
+
+	var results []client.PlayerResult
+	for _, state := range strings.Split(statesStr, ",") {
+		sp := strings.SplitN(state, ":", 3)
+		if len(sp) < 3 {
+			continue
+		}
+		name, roleName, aliveStr := sp[0], sp[1], sp[2]
+		roleLabel := roleName
+		if label, ok := roleDisplayNames[roleName]; ok {
+			roleLabel = label
+		}
+		results = append(results, client.PlayerResult{
+			Name:  name,
+			Role:  roleLabel,
+			Alive: aliveStr == "1",
+		})
+	}
+	disp.ShowGameResult(winnerLabel, results, civilianWord, undercoverWord)
 }
 
 // handlePKStartMsg parses and displays the PK_START broadcast.

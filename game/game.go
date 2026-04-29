@@ -80,3 +80,30 @@ func (d *DescRound) Description(player string) (string, bool) {
 	v, ok := d.Descriptions[player]
 	return v, ok
 }
+
+// CheckWinCondition checks whether the game has ended after an elimination.
+// Blank players are counted on the Civilian side.
+//   - All Undercover eliminated → (Civilian, true)
+//   - Undercover alive >= Civilian+Blank alive → (Undercover, true)
+//   - Otherwise → (0, false), game continues
+func CheckWinCondition(players []*Player) (winner Role, gameOver bool) {
+	var undercoverAlive, civilianAlive int
+	for _, p := range players {
+		if !p.Alive {
+			continue
+		}
+		if p.Role == Undercover {
+			undercoverAlive++
+		} else {
+			civilianAlive++
+		}
+	}
+
+	if undercoverAlive == 0 {
+		return Civilian, true
+	}
+	if undercoverAlive >= civilianAlive {
+		return Undercover, true
+	}
+	return 0, false
+}

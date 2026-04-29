@@ -213,3 +213,126 @@ func TestRecordDesc_AllowsWhitespaceInContent(t *testing.T) {
 		t.Errorf("Descriptions[alice] = %q, should contain original content", d.Descriptions["alice"])
 	}
 }
+
+func TestCheckWinCondition(t *testing.T) {
+	tests := []struct {
+		name       string
+		players    []*Player
+		wantWinner Role
+		wantOver   bool
+	}{
+		{
+			name: "undercover eliminated - civilian wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Civilian, Alive: true},
+				{Name: "carol", Role: Civilian, Alive: true},
+				{Name: "dave", Role: Undercover, Alive: false},
+			},
+			wantWinner: Civilian,
+			wantOver:   true,
+		},
+		{
+			name: "undercover outnumbers civilians - undercover wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Civilian, Alive: false},
+				{Name: "carol", Role: Civilian, Alive: false},
+				{Name: "dave", Role: Undercover, Alive: true},
+			},
+			wantWinner: Undercover,
+			wantOver:   true,
+		},
+		{
+			name: "undercover equals civilians - undercover wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Civilian, Alive: true},
+				{Name: "carol", Role: Undercover, Alive: true},
+				{Name: "dave", Role: Undercover, Alive: true},
+			},
+			wantWinner: Undercover,
+			wantOver:   true,
+		},
+		{
+			name: "undercover alive fewer than civilians - continue",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Civilian, Alive: true},
+				{Name: "carol", Role: Civilian, Alive: true},
+				{Name: "dave", Role: Civilian, Alive: true},
+				{Name: "eve", Role: Undercover, Alive: true},
+			},
+			wantWinner: 0,
+			wantOver:   false,
+		},
+		{
+			name: "all civilians - civilian wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Civilian, Alive: true},
+				{Name: "carol", Role: Civilian, Alive: true},
+			},
+			wantWinner: Civilian,
+			wantOver:   true,
+		},
+		{
+			name:       "no players - civilian wins",
+			players:    []*Player{},
+			wantWinner: Civilian,
+			wantOver:   true,
+		},
+		{
+			name: "blank counts as civilian - undercover eliminated",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Blank, Alive: true},
+				{Name: "carol", Role: Undercover, Alive: false},
+			},
+			wantWinner: Civilian,
+			wantOver:   true,
+		},
+		{
+			name: "blank counts as civilian - undercover wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: false},
+				{Name: "bob", Role: Blank, Alive: true},
+				{Name: "carol", Role: Undercover, Alive: true},
+				{Name: "dave", Role: Undercover, Alive: true},
+			},
+			wantWinner: Undercover,
+			wantOver:   true,
+		},
+		{
+			name: "all dead except undercover - undercover wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: false},
+				{Name: "bob", Role: Civilian, Alive: false},
+				{Name: "carol", Role: Undercover, Alive: true},
+			},
+			wantWinner: Undercover,
+			wantOver:   true,
+		},
+		{
+			name: "single undercover alive single civilian alive - undercover wins",
+			players: []*Player{
+				{Name: "alice", Role: Civilian, Alive: true},
+				{Name: "bob", Role: Undercover, Alive: true},
+			},
+			wantWinner: Undercover,
+			wantOver:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotWinner, gotOver := CheckWinCondition(tt.players)
+			if gotWinner != tt.wantWinner {
+				t.Errorf("CheckWinCondition() winner = %v, want %v", gotWinner, tt.wantWinner)
+			}
+			if gotOver != tt.wantOver {
+				t.Errorf("CheckWinCondition() gameOver = %v, want %v", gotOver, tt.wantOver)
+			}
+		})
+	}
+}

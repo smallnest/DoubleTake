@@ -37,7 +37,7 @@
 - `collectWordsFromCh` 也使用同一个 `stdinSource` channel，确保 waitingPhase 返回后词语输入不会被 stdin goroutine 抢先消费
 - 嵌套的 `select`（如确认 Y/N 时）也必须包含 `<-stdinSrc.done` case，防止 EOF 时死锁
 - `collectConfig` 中 `readIntInput` 在 EOF 时返回 -1 依赖 `validateConfig` 拒绝，会导致 EOF 场景下无限循环。如需优雅退出，应在 `collectConfig` 层检测 `scanner.Err()` 或 `readInt` 的 error
-- `RunJudge` 流程：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady → descriptionPhase
+- `RunJudge` 流程：collectConfig → waitingPhase → collectWordsFromCh → AssignRoles → AssignWords → broadcastReady → 游戏循环（descriptionPhase → votingPhase → CheckWinCondition → 循环或结束）
 - 集成测试中 `extraLines` channel 提供的输入不仅包括 "start"/"Y"，还需包括词语输入（如 "苹果"、"香蕉"）
 - `descriptionPhase` 在 `broadcastReady` 之后被调用，广播 ROUND|轮次号|发言顺序 和 TURN|playerName 消息
 
@@ -75,6 +75,25 @@
 - 测试覆盖：其他玩家回合显示等待提示、自己回合提示输入并发送 DESC、空描述客户端拦截、服务端 ERROR 重试、非描述阶段 ERROR 致命退出
 - 服务端模拟 ERROR 重试测试：先读取第一个 DESC（被拒绝），发送 ERROR，再读取第二个有效 DESC
 - 客户端空描述拦截测试：发送空行后客户端本地拦截，服务器只收到有效的描述
+
+## 游戏循环约定
+- `RunJudge` 使用 `for roundNum := 1; ; roundNum++` 无限循环管理多轮游戏
+- 每轮流程：`descriptionPhase` → `votingPhase` → `CheckWinCondition` → 未结束则更新 `alivePlayers` 进入下一轮
+- `getAlivePlayers(players)` 辅助函数从 `[]*game.Player` 提取存活玩家名列表，每轮投票后重新计算
+- 游戏结束时构造 WIN payload 广播给所有玩家，然后 `return cfg` 退出循环
+- WIN payload 格式：`"winner|player1:Role:alive,player2:Role:alive,...|civilianWord|undercoverWord"`
+  - `winner` 为 `"Civilian"` 或 `"Undercover"`
+  - `alive` 为 `"1"`（存活）或 `"0"`（已淘汰）
+  - `buildWinPayload(winner, players, civilianWord, undercoverWord)` 辅助函数构造 payload
+- `CheckWinCondition` 在 `votingPhase` 返回后调用（而非在 `votingPhase` 内部），保持职责分离
+
+## 游戏循环测试约定
+- `setupGameLoopTest` 辅助函数处理完整初始化流程，返回 conns + speakers + cleanup
+- `doDescription` 辅助函数驱动描述阶段（所有玩家依次发言）
+- `doVotingForElimination` 辅助函数驱动投票阶段，指定目标玩家被投票出局
+- 测试 WIN 消息时需处理不确定性：投票出局的玩家可能是卧底（游戏结束）或平民（游戏继续）
+- `TestGameLoop_WinBroadcastOnCivilianWin` 根据实际结果分支验证 WIN 或 ROUND 消息
+- `TestBuildWinPayload` 单元测试验证 payload 格式，使用固定的 players 切片避免随机性
 
 ## 投票环节约定
 - `votingPhase` 严格复用 `descriptionPhase` 的模式：NewVoteRound → 广播 VOTE → TURN → 循环读 OnVoteMsg → RecordVote 校验 → ERROR 拒绝 → TURN 下一位 → Tally + FindEliminated → 广播 RESULT
@@ -122,3 +141,13 @@
 - 投票阶段测试复用 `startTestPlayerServer` 创建 TCP 服务器
 - 测试覆盖：其他玩家投票回合显示"等待 X 投票..."、自己回合提示"请输入投票目标"并发送 VOTE|targetName、空目标客户端拦截、服务端 ERROR 重试、RESULT 结果显示、描述阶段→投票阶段过渡
 - 描述→投票过渡测试验证：先发送 ROUND/TURN/DESC 消息完成描述阶段，再发送 VOTE/TURN 消息进入投票阶段，确认两个阶段的提示文案正确切换
+
+## 玩家端 WIN 消息处理约定
+- `handleMessage` 返回 `int`：`-1` 表示继续、`0` 表示正常退出（如 WIN）、`1` 表示错误退出（如致命 ERROR）
+- `case game.MsgWin:` 调用 `handleWinMsg` 后 `return 0`（正常退出，exit code 0）
+- `case game.MsgError:` 在非描述/投票阶段时 `return 1`（错误退出，exit code 1）
+- `handleWinMsg` 解析 payload 格式 `"winner|playerStates|civilianWord|undercoverWord"`，使用 `SplitN(payload, "|", 4)` 分割
+- playerStates 为逗号分隔的 `"name:Role:alive"` 列表，每个用 `SplitN(state, ":", 3)` 解析
+- winner 和 roleName 都通过 `roleDisplayNames` 映射为中文显示标签（Civilian→平民, Undercover→卧底, Blank→白板）
+- `handleWinMsg` 调用 `disp.ShowGameResult(winnerLabel, results, civilianWord, undercoverWord)` 显示结果
+- WIN 消息处理测试覆盖：平民胜、卧底胜、stealth 模式，均验证 exit code 0

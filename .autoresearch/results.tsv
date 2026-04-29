@@ -12,3 +12,5 @@
 2026-04-29T06:32:40+08:00	12	#12 描述环节 — 轮流发言与广播	completed	9	true	97	97	feature/issue-12	
 2026-04-29T07:40:36+08:00	13	#13 投票环节 — 收集与统计	completed	3	true	96	96	feature/issue-13	
 2026-04-29T12:58:18+08:00	14	#14 平票 PK 机制 — 多轮 PK 描述+投票	completed	3	false	89	89	feature/issue-14	
+2026-04-29T12:58:59+08:00	14	#14 平票 PK 机制 — 多轮 PK 描述+投票	push_failed	3	true	89	89	feature/issue-14	
+2026-04-29T13:31:24+08:00	15	#15 胜负判定 — 游戏结束条件检查	completed	9	true	94	94	feature/issue-15	
