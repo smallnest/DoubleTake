@@ -1,0 +1,53 @@
+{
+  "issueNumber": 17,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "重连后发送 STATE 消息恢复玩家状态",
+      "description": "在 server.handleReconnect 成功后，向重连玩家发送 STATE 消息，包含当前轮次、自己的词语、存活玩家列表。需要扩展 Server 接口，让 judge 端可以提供当前游戏状态信息（如 currentRound、civilianWord 等），或通过 channel/回调机制在 handleReconnect 中获取并发送 STATE。STATE payload 格式建议：roundNum|playerWord|alivePlayer1,alivePlayer2,...",
+      "acceptanceCriteria": [
+        "handleReconnect 成功后向重连玩家发送 STATE 消息",
+        "STATE 消息包含当前轮次号",
+        "STATE 消息包含该玩家的词语",
+        "STATE 消息包含当前存活玩家列表",
+        "编译通过，无 lint 错误",
+        "新增测试验证 STATE 消息内容"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "掉线玩家回合 60 秒超时自动跳过",
+      "description": "在 judge 端的 descriptionPhase 和 votingPhase 中，当轮到某个玩家操作时，如果该玩家处于掉线状态（Connected=false），设置 60 秒超时。超时后自动跳过该玩家的回合（描述环节跳过发言，投票环节视为弃票），并将 TURN 发送给下一个玩家。需要修改 descriptionPhase 和 votingPhase 的等待循环，加入对 OnDisconnect 事件和超时的 select 处理。",
+      "acceptanceCriteria": [
+        "掉线玩家轮到发言时，等待 60 秒后自动跳过",
+        "掉线玩家轮到投票时，等待 60 秒后视为弃票",
+        "超时跳过后自动将 TURN 发送给下一位玩家",
+        "掉线玩家在超时前重连可继续操作",
+        "编译通过，无 lint 错误",
+        "新增测试验证超时跳过逻辑"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "客户端断线检测与自动重连",
+      "description": "在 client 包中添加断线检测和自动重连逻辑。当 receiveLoop 检测到连接断开（scanner 返回 EOF/error）时，不立即退出，而是尝试重新连接到服务器并发送 RECONNECT|playerName 消息。重连成功后（收到 RECONNECT 响应），恢复正常消息接收。需要在 Client 中存储 server 地址和玩家名，支持 Connect 时传入名字参数。同时在 player.go 中处理收到的 STATE 消息并显示恢复的状态信息。",
+      "acceptanceCriteria": [
+        "客户端检测到断线后自动尝试重连",
+        "重连时发送 RECONNECT|playerName 消息",
+        "重连成功后恢复正常消息收发",
+        "玩家端能正确解析并显示 STATE 消息内容",
+        "编译通过，无 lint 错误",
+        "新增测试验证客户端重连逻辑"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

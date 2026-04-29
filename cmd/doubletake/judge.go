@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/smallnest/doubletake/client"
 	"github.com/smallnest/doubletake/game"
@@ -33,6 +34,33 @@ const (
 	guessCorrect                    // guess matches civilian word
 	guessWrong                      // guess does not match civilian word
 )
+
+// disconnectTimeout is the time to wait for a disconnected player to respond
+// before automatically skipping their turn. Override in tests for faster execution.
+var disconnectTimeout = 60 * time.Second
+
+// stopTimer safely stops a timer and drains its channel.
+func stopTimer(t *time.Timer) {
+	if t != nil {
+		t.Stop()
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+}
+
+// isPlayerDisconnected checks whether the named player is currently disconnected.
+func isPlayerDisconnected(name string, players []*game.Player, playersMu *sync.Mutex) bool {
+	playersMu.Lock()
+	defer playersMu.Unlock()
+	for _, p := range players {
+		if p.Name == name {
+			return !p.Connected
+		}
+	}
+	return false
+}
 
 // checkGuess validates a guess attempt from a player.
 // It must be called with playersMu held.
@@ -231,12 +259,49 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 		return cfg
 	}
 	game.AssignWords(players, civilianWord, undercoverWord)
+	srv.SetGamePlayers(players)
 	sendRoleToPlayers(disp, srv, players)
 
 	broadcastReady(disp, srv)
 
-	// Start guess handler goroutine.
 	var playersMu sync.Mutex
+
+	// Start reconnect handler goroutine.
+	var currentRound int
+	stopReconnect := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case req := <-srv.OnReconnect:
+				playersMu.Lock()
+				var word string
+				var aliveList []string
+				for _, p := range players {
+					if p.Name == req.PlayerName {
+						if p.Role == game.Blank {
+							word = "你是白板"
+						} else {
+							word = p.Word
+						}
+					}
+					if p.Alive {
+						aliveList = append(aliveList, p.Name)
+					}
+				}
+				round := currentRound
+				playersMu.Unlock()
+				req.Response <- server.ReconnectResponse{
+					Round:        round,
+					Word:         word,
+					AlivePlayers: aliveList,
+				}
+			case <-stopReconnect:
+				return
+			}
+		}
+	}()
+
+	// Start guess handler goroutine.
 	guessedThisRound := make(map[string]bool)
 	guessDone := make(chan struct{})
 	go func() {
@@ -268,14 +333,16 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	// Game loop: repeat description + voting until game ends.
 	alivePlayers := getAlivePlayers(players)
 	for roundNum := 1; ; roundNum++ {
-		// Reset guess tracking for new round.
+		// Update shared round number for reconnect handler.
 		playersMu.Lock()
+		currentRound = roundNum
 		guessedThisRound = make(map[string]bool)
 		playersMu.Unlock()
 
 		// Description phase.
-		descResult := descriptionPhase(disp, srv, roundNum, alivePlayers)
+		descResult := descriptionPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
 		if descResult == nil {
+			close(stopReconnect)
 			close(guessDone)
 			return cfg
 		}
@@ -283,6 +350,7 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 		// Voting phase.
 		voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
 		if voteResult == nil {
+			close(stopReconnect)
 			close(guessDone)
 			return cfg
 		}
@@ -293,6 +361,7 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 			winPayload := buildWinPayload(winner, players, civilianWord, undercoverWord)
 			srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
 			disp.Info("0000", fmt.Sprintf("游戏结束！%s 获胜", winner))
+			close(stopReconnect)
 			close(guessDone)
 			return cfg
 		}
@@ -389,7 +458,7 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 // descriptionPhase runs the description phase for one round.
 // It broadcasts ROUND|roundNum|speakerOrder, then sends TURN|playerName to the
 // first speaker and processes DESC messages until all players have spoken.
-func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string) *descResult {
+func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string, players []*game.Player, playersMu *sync.Mutex) *descResult {
 	round, err := game.NewDescRound(roundNum, alivePlayers)
 	if err != nil {
 		disp.Warn(fmt.Sprintf("创建描述轮次失败: %v", err))
@@ -410,53 +479,79 @@ func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, al
 	})
 
 	for !round.AllDone() {
-		evt := <-srv.OnDescMsg
 		current := round.CurrentSpeaker()
-
-		// If all done (shouldn't happen due to loop condition), break.
 		if current == "" {
 			break
 		}
 
-		// Check if it's this player's turn.
-		if evt.PlayerName != current {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: "还没轮到你发言",
-			})
-			continue
+		var timer *time.Timer
+		var timeoutCh <-chan time.Time
+		if isPlayerDisconnected(current, players, playersMu) {
+			timer = time.NewTimer(disconnectTimeout)
+			timeoutCh = timer.C
 		}
 
-		// Try to record the description.
-		err := round.RecordDesc(evt.PlayerName, evt.Description)
-		if err == game.ErrEmptyDesc {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: "描述不能为空，请重新输入",
-			})
-			continue
-		}
-		// ErrNotYourTurn shouldn't happen here since we checked above, but handle defensively.
-		if err != nil {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: err.Error(),
-			})
-			continue
-		}
+		select {
+		case evt := <-srv.OnDescMsg:
+			stopTimer(timer)
+			// Check if it's this player's turn.
+			if evt.PlayerName != current {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "还没轮到你发言",
+				})
+				continue
+			}
 
-		// Valid description: broadcast DESC|playerName|description to all.
-		srv.BroadcastToNamedPlayers(game.Message{
-			Type:    game.MsgDesc,
-			Payload: evt.PlayerName + "|" + evt.Description,
-		})
+			// Try to record the description.
+			err := round.RecordDesc(evt.PlayerName, evt.Description)
+			if err == game.ErrEmptyDesc {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "描述不能为空，请重新输入",
+				})
+				continue
+			}
+			// ErrNotYourTurn shouldn't happen here since we checked above, but handle defensively.
+			if err != nil {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: err.Error(),
+				})
+				continue
+			}
 
-		// Send TURN to the next speaker, if any.
-		if !round.AllDone() {
+			// Valid description: broadcast DESC|playerName|description to all.
 			srv.BroadcastToNamedPlayers(game.Message{
-				Type:    game.MsgTurn,
-				Payload: round.CurrentSpeaker(),
+				Type:    game.MsgDesc,
+				Payload: evt.PlayerName + "|" + evt.Description,
 			})
+
+			// Send TURN to the next speaker, if any.
+			if !round.AllDone() {
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgTurn,
+					Payload: round.CurrentSpeaker(),
+				})
+			}
+
+		case disc := <-srv.OnDisconnect:
+			if disc.PlayerName == current {
+				stopTimer(timer)
+				timer = time.NewTimer(disconnectTimeout)
+				timeoutCh = timer.C
+			}
+			continue
+
+		case <-timeoutCh:
+			disp.Warn(fmt.Sprintf("%s 超时未发言（已掉线），跳过", current))
+			round.SkipCurrent()
+			if !round.AllDone() {
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgTurn,
+					Payload: round.CurrentSpeaker(),
+				})
+			}
 		}
 	}
 
@@ -495,46 +590,73 @@ func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePl
 	})
 
 	for !round.AllDone() {
-		evt := <-srv.OnVoteMsg
 		current := round.CurrentVoter()
-
 		if current == "" {
 			break
 		}
 
-		// Check if it's this player's turn.
-		if evt.PlayerName != current {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: "还没轮到你投票",
-			})
-			continue
+		var timer *time.Timer
+		var timeoutCh <-chan time.Time
+		if isPlayerDisconnected(current, players, playersMu) {
+			timer = time.NewTimer(disconnectTimeout)
+			timeoutCh = timer.C
 		}
 
-		// Build alive player list for validation.
-		aliveNames := make([]string, 0, len(players))
-		for _, p := range players {
-			if p.Alive {
-				aliveNames = append(aliveNames, p.Name)
+		select {
+		case evt := <-srv.OnVoteMsg:
+			stopTimer(timer)
+			// Check if it's this player's turn.
+			if evt.PlayerName != current {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "还没轮到你投票",
+				})
+				continue
 			}
-		}
 
-		// Try to record the vote.
-		err := round.RecordVote(evt.PlayerName, evt.Target, aliveNames)
-		if err != nil {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: err.Error(),
-			})
+			// Build alive player list for validation.
+			aliveNames := make([]string, 0, len(players))
+			for _, p := range players {
+				if p.Alive {
+					aliveNames = append(aliveNames, p.Name)
+				}
+			}
+
+			// Try to record the vote.
+			err := round.RecordVote(evt.PlayerName, evt.Target, aliveNames)
+			if err != nil {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: err.Error(),
+				})
+				continue
+			}
+
+			// Valid vote: send TURN to the next voter, if any.
+			if !round.AllDone() {
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgTurn,
+					Payload: round.CurrentVoter(),
+				})
+			}
+
+		case disc := <-srv.OnDisconnect:
+			if disc.PlayerName == current {
+				stopTimer(timer)
+				timer = time.NewTimer(disconnectTimeout)
+				timeoutCh = timer.C
+			}
 			continue
-		}
 
-		// Valid vote: send TURN to the next voter, if any.
-		if !round.AllDone() {
-			srv.BroadcastToNamedPlayers(game.Message{
-				Type:    game.MsgTurn,
-				Payload: round.CurrentVoter(),
-			})
+		case <-timeoutCh:
+			disp.Warn(fmt.Sprintf("%s 超时未投票（已掉线），跳过", current))
+			round.SkipCurrent()
+			if !round.AllDone() {
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgTurn,
+					Payload: round.CurrentVoter(),
+				})
+			}
 		}
 	}
 
@@ -612,48 +734,75 @@ func pkPhase(disp *client.Display, srv *server.Server, tied []string, alivePlaye
 		})
 
 		for !pk.Desc.AllDone() {
-			evt := <-srv.OnDescMsg
 			current := pk.CurrentSpeaker()
-
 			if current == "" {
 				break
 			}
 
-			if evt.PlayerName != current {
-				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-					Type:    game.MsgError,
-					Payload: "还没轮到你发言",
-				})
-				continue
+			var timer *time.Timer
+			var timeoutCh <-chan time.Time
+			if isPlayerDisconnected(current, players, playersMu) {
+				timer = time.NewTimer(disconnectTimeout)
+				timeoutCh = timer.C
 			}
 
-			err := pk.RecordDesc(evt.PlayerName, evt.Description)
-			if err == game.ErrEmptyDesc {
-				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-					Type:    game.MsgError,
-					Payload: "描述不能为空，请重新输入",
-				})
-				continue
-			}
-			if err != nil {
-				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-					Type:    game.MsgError,
-					Payload: err.Error(),
-				})
-				continue
-			}
+			select {
+			case evt := <-srv.OnDescMsg:
+				stopTimer(timer)
+				if evt.PlayerName != current {
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: "还没轮到你发言",
+					})
+					continue
+				}
 
-			// Broadcast DESC|playerName|description.
-			srv.BroadcastToNamedPlayers(game.Message{
-				Type:    game.MsgDesc,
-				Payload: evt.PlayerName + "|" + evt.Description,
-			})
+				err := pk.RecordDesc(evt.PlayerName, evt.Description)
+				if err == game.ErrEmptyDesc {
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: "描述不能为空，请重新输入",
+					})
+					continue
+				}
+				if err != nil {
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: err.Error(),
+					})
+					continue
+				}
 
-			if !pk.Desc.AllDone() {
+				// Broadcast DESC|playerName|description.
 				srv.BroadcastToNamedPlayers(game.Message{
-					Type:    game.MsgTurn,
-					Payload: pk.CurrentSpeaker(),
+					Type:    game.MsgDesc,
+					Payload: evt.PlayerName + "|" + evt.Description,
 				})
+
+				if !pk.Desc.AllDone() {
+					srv.BroadcastToNamedPlayers(game.Message{
+						Type:    game.MsgTurn,
+						Payload: pk.CurrentSpeaker(),
+					})
+				}
+
+			case disc := <-srv.OnDisconnect:
+				if disc.PlayerName == current {
+					stopTimer(timer)
+					timer = time.NewTimer(disconnectTimeout)
+					timeoutCh = timer.C
+				}
+				continue
+
+			case <-timeoutCh:
+				disp.Warn(fmt.Sprintf("PK %s 超时未发言（已掉线），跳过", current))
+				pk.Desc.SkipCurrent()
+				if !pk.Desc.AllDone() {
+					srv.BroadcastToNamedPlayers(game.Message{
+						Type:    game.MsgTurn,
+						Payload: pk.CurrentSpeaker(),
+					})
+				}
 			}
 		}
 
@@ -680,35 +829,62 @@ func pkPhase(disp *client.Display, srv *server.Server, tied []string, alivePlaye
 		})
 
 		for !pk.AllVoted() {
-			evt := <-srv.OnVoteMsg
 			current := pk.CurrentVoter()
-
 			if current == "" {
 				break
 			}
 
-			if evt.PlayerName != current {
-				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-					Type:    game.MsgError,
-					Payload: "还没轮到你投票",
-				})
-				continue
+			var timer *time.Timer
+			var timeoutCh <-chan time.Time
+			if isPlayerDisconnected(current, players, playersMu) {
+				timer = time.NewTimer(disconnectTimeout)
+				timeoutCh = timer.C
 			}
 
-			err := pk.RecordVote(evt.PlayerName, evt.Target, alivePlayers)
-			if err != nil {
-				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-					Type:    game.MsgError,
-					Payload: err.Error(),
-				})
-				continue
-			}
+			select {
+			case evt := <-srv.OnVoteMsg:
+				stopTimer(timer)
+				if evt.PlayerName != current {
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: "还没轮到你投票",
+					})
+					continue
+				}
 
-			if !pk.AllVoted() {
-				srv.BroadcastToNamedPlayers(game.Message{
-					Type:    game.MsgTurn,
-					Payload: pk.CurrentVoter(),
-				})
+				err := pk.RecordVote(evt.PlayerName, evt.Target, alivePlayers)
+				if err != nil {
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: err.Error(),
+					})
+					continue
+				}
+
+				if !pk.AllVoted() {
+					srv.BroadcastToNamedPlayers(game.Message{
+						Type:    game.MsgTurn,
+						Payload: pk.CurrentVoter(),
+					})
+				}
+
+			case disc := <-srv.OnDisconnect:
+				if disc.PlayerName == current {
+					stopTimer(timer)
+					timer = time.NewTimer(disconnectTimeout)
+					timeoutCh = timer.C
+				}
+				continue
+
+			case <-timeoutCh:
+				disp.Warn(fmt.Sprintf("PK %s 超时未投票（已掉线），跳过", current))
+				pk.SkipCurrentVoter()
+				if !pk.AllVoted() {
+					srv.BroadcastToNamedPlayers(game.Message{
+						Type:    game.MsgTurn,
+						Payload: pk.CurrentVoter(),
+					})
+				}
 			}
 		}
 

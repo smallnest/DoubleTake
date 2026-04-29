@@ -1,0 +1,339 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m• [0mExplore codebase structure[90m Explore Agent[0m
+[0m
+[0m$ [0mgit log --oneline -20
+09d5642 delete some files
+f0cf106 chore: archive autoresearch workflow logs for issue 13, 15, 16, 17, 32
+8ded287 feat: implement issue #17 - 断线标记与重连机制
+80a5b5f Merge pull request #34 from smallnest/feature/issue-16
+a28edd6 feat: implement issue #16 - #16 白板猜词 — guess 命令
+277ac45 Merge pull request #33 from smallnest/feature/issue-15
+9f8124b feat: implement issue #15 - #15 胜负判定 — 游戏结束条件检查
+c8b0369 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+984896d delete binary
+9670694 Merge pull request #30 from smallnest/feature/issue-13
+b4dbba7 feat: implement issue #13 - #13 投票环节 — 收集与统计
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+[0m
+[0m$ [0mgit diff HEAD~5 --name-only 2>/dev/null || git log --oneline -5
+.autoresearch/archive/2026-04-29-issue-13-1/.last_score
+.autoresearch/archive/2026-04-29-issue-13-1/.phase
+.autoresearch/archive/2026-04-29-issue-13-1/hard-gate-1.log
+.autoresearch/archive/2026-04-29-issue-13-1/hard-gate-2.log
+.autoresearch/archive/2026-04-29-issue-13-1/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-13-1/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-13-1/iteration-2-codex.log
+.autoresearch/archive/2026-04-29-issue-13-1/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-13-1/log.md
+.autoresearch/archive/2026-04-29-issue-13-1/planning.log
+.autoresearch/archive/2026-04-29-issue-13-1/progress.md
+.autoresearch/archive/2026-04-29-issue-13-1/summary.html
+.autoresearch/archive/2026-04-29-issue-13-1/tasks.json
+.autoresearch/archive/2026-04-29-issue-13-1/terminal.log
+.autoresearch/archive/2026-04-29-issue-13-2/.last_score
+.autoresearch/archive/2026-04-29-issue-13-2/.phase
+.autoresearch/archive/2026-04-29-issue-13-2/hard-gate-1.log
+.autoresearch/archive/2026-04-29-issue-13-2/hard-gate-2.log
+.autoresearch/archive/2026-04-29-issue-13-2/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-13-2/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-13-2/iteration-2-codex.log
+.autoresearch/archive/2026-04-29-issue-13-2/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-13-2/log.md
+.autoresearch/archive/2026-04-29-issue-13-2/planning.log
+.autoresearch/archive/2026-04-29-issue-13-2/progress.md
+.autoresearch/archive/2026-04-29-issue-13-2/summary.html
+.autoresearch/archive/2026-04-29-issue-13-2/tasks.json
+.autoresearch/archive/2026-04-29-issue-13-2/terminal.log
+.autoresearch/archive/2026-04-29-issue-15/.last_score
+.autoresearch/archive/2026-04-29-issue-15/.phase
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-1.log
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-2.log
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-4.log
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-5.log
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-7.log
+.autoresearch/archive/2026-04-29-issue-15/hard-gate-8.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-2-codex.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-4-claude-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-4-claude.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-5-codex-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-5-codex.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-6-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-7-claude-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-7-claude.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-8-codex-review.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-8-codex.log
+.autoresearch/archive/2026-04-29-issue-15/iteration-9-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-15/log.md
+.autoresearch/archive/2026-04-29-issue-15/planning.log
+.autoresearch/archive/2026-04-29-issue-15/progress.md
+.autoresearch/archive/2026-04-29-issue-15/summary.html
+.autoresearch/archive/2026-04-29-issue-15/tasks.json
+.autoresearch/archive/2026-04-29-issue-15/terminal.log
+.autoresearch/archive/2026-04-29-issue-16/.last_score
+.autoresearch/archive/2026-04-29-issue-16/.phase
+.autoresearch/archive/2026-04-29-issue-16/hard-gate-2.log
+.autoresearch/archive/2026-04-29-issue-16/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-16/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-16/iteration-2-codex.log
+.autoresearch/archive/2026-04-29-issue-16/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-16/iteration-4-claude-review.log
+.autoresearch/archive/2026-04-29-issue-16/log.md
+.autoresearch/archive/2026-04-29-issue-16/planning.log
+.autoresearch/archive/2026-04-29-issue-16/progress.md
+.autoresearch/archive/2026-04-29-issue-16/summary.html
+.autoresearch/archive/2026-04-29-issue-16/terminal.log
+.autoresearch/archive/2026-04-29-issue-17/.last_score
+.autoresearch/archive/2026-04-29-issue-17/.phase
+.autoresearch/archive/2026-04-29-issue-17/hard-gate-1.log
+.autoresearch/archive/2026-04-29-issue-17/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-17/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-17/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-17/log.md
+.autoresearch/archive/2026-04-29-issue-17/planning.log
+.autoresearch/archive/2026-04-29-issue-17/progress.md
+.autoresearch/archive/2026-04-29-issue-17/tasks.json
+.autoresearch/archive/2026-04-29-issue-17/terminal.log
+.autoresearch/archive/2026-04-29-issue-32/.last_score
+.autoresearch/archive/2026-04-29-issue-32/.phase
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-1.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-10.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-2.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-4.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-5.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-7.log
+.autoresearch/archive/2026-04-29-issue-32/hard-gate-8.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-1-claude.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-10-claude-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-10-claude.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-11-codex-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-2-codex-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-2-codex.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-3-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-4-claude-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-4-claude.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-5-codex-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-5-codex.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-6-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-7-claude-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-7-claude.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-8-codex-review.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-8-codex.log
+.autoresearch/archive/2026-04-29-issue-32/iteration-9-opencode-review.log
+.autoresearch/archive/2026-04-29-issue-32/log.md
+.autoresearch/archive/2026-04-29-issue-32/planning.log
+.autoresearch/archive/2026-04-29-issue-32/progress.md
+.autoresearch/archive/2026-04-29-issue-32/tasks.json
+.autoresearch/archive/2026-04-29-issue-32/terminal.log
+.autoresearch/results.tsv
+client/CLAUDE.md
+client/display.go
+client/display_test.go
+cmd/doubletake/CLAUDE.md
+cmd/doubletake/judge.go
+cmd/doubletake/judge_test.go
+cmd/doubletake/player.go
+cmd/doubletake/player_test.go
+game/CLAUDE.md
+game/game.go
+game/game_test.go
+game/pk.go
+game/pk_test.go
+game/vote.go
+game/vote_test.go
+server/CLAUDE.md
+server/server.go
+server/server_test.go
+[0m
+[0m✓ [0mExplore codebase structure[90m Explore Agent[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/vote.go
+[0m→ [0mRead game/protocol.go
+[0m
+[0m$ [0mrg -n -i "timeout|disconnect|60|OnDisconnect" --include="*.go" . | grep -v "_test.go" | grep -v "\.autoresearch"
+rg: unrecognized flag --include
+
+similar flags that are available: --include-zero
+[0m
+[0m$ [0mrg -n "Timeout|timeout|disconnect|60.*second|OnDisconnect" --include="*_test.go" . | grep -v "\.autoresearch"
+rg: unrecognized flag --include
+
+similar flags that are available: --include-zero
+[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m
+[0m$ [0mrg -n "OnDisconnect|timeout|60|time\.After|time\.NewTimer|skip|跳过" cmd/doubletake/judge.go
+(no output)
+[0m
+[0m$ [0mrg -n "Timeout|timeout|disconnect|60.*second|OnDisconnect" cmd/doubletake/judge_test.go
+1067:		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 10*time.Millisecond)
+1110:func waitForOutput(t *testing.T, out *safeBuffer, substr string, timeout time.Duration) {
+1112:	deadline := time.Now().Add(timeout)
+1168:// readMsgFromConn reads one message from a connection with timeout.
+[0m
+[0m→ [0mRead game/role.go
+[0m
+[0m$ [0mgit diff 8ded287^..8ded287 --name-only 2>/dev/null
+server/CLAUDE.md
+server/server.go
+server/server_test.go
+[0m
+[0m$ [0mgit show 8ded287 --stat
+commit 8ded2870dd1cc04c78413923b9bf05497f46fcc9
+Author: smallnest <smallnest@gmail.com>
+Date:   Wed Apr 29 19:56:17 2026 +0800
+
+    feat: implement issue #17 - 断线标记与重连机制
+    
+    - 玩家断线后保留名字，标记 Connected=false，不再释放名字
+    - 新增 RECONNECT 消息处理，支持掉线玩家恢复连接
+    - 新增 SetGamePlayers 注册游戏玩家对象供断线跟踪
+    - 新增 OnDisconnect 通道通知裁判端玩家掉线事件
+    - 未命名玩家断线行为不变，正常清理
+
+ server/CLAUDE.md      |  11 ++
+ server/server.go      |  86 ++++++++++++--
+ server/server_test.go | 316 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 402 insertions(+), 11 deletions(-)
+[0m
+## 审核报告
+
+### Issue
+- **编号**: #17
+- **子任务**: T-002 - 掉线玩家回合 60 秒超时自动跳过
+- **迭代次数**: 1
+
+### 总体评价
+
+**当前子任务尚未实现**。T-002 的全部代码改动为零——`cmd/doubletake/judge.go` 中的 `descriptionPhase`、`votingPhase`、`pkPhase` 均未做任何修改，仍沿用原始的阻塞 `<-srv.OnDescMsg` / `<-srv.OnVoteMsg` 模式，未引入 `OnDisconnect` 事件处理、60 秒定时器、自动跳过逻辑。
+
+**评分: 28/100** (不合格)
+
+### 各维度评估
+
+| 维度 | 权重 | 得分 | 加权得分 | 说明 |
+|------|------|------|----------|------|
+| 正确性 | 35% | 10 | 3.5 | 功能完全缺失 |
+| 测试质量 | 25% | 10 | 2.5 | 无任何新增测试 |
+| 代码质量 | 20% | 10 | 2.0 | 无新增代码 |
+| 安全性 | 10% | 100 | 10.0 | 未引入新风险 |
+| 性能 | 10% | 100 | 10.0 | 未引入新问题 |
+
+### 严重问题 (必须修复)
+
+**1. 全部验收条件均未满足**
+
+| 验收条件 | 状态 | 代码位置 |
+|----------|------|----------|
+| 掉线玩家轮到发言时，等待 60 秒后自动跳过 | ❌ 未实现 | `judge.go:453-502` — 阻塞 `<-srv.OnDescMsg`，无 select |
+| 掉线玩家轮到投票时，等待 60 秒后视为弃票 | ❌ 未实现 | `judge.go:538-580` — 阻塞 `<-srv.OnVoteMsg`，无 select |
+| 超时跳过后自动将 TURN 发送给下一位玩家 | ❌ 未实现 | — |
+| 掉线玩家在超时前重连可继续操作 | ❌ 未实现 | — |
+| 编译通过，无 lint 错误 | ✅ 编译通过 | 但未修改代码自然无错误 |
+| 新增测试验证超时跳过逻辑 | ❌ 未实现 | `judge_test.go` 无相关测试 |
+
+**2. `pkPhase` 同样缺失超时处理**
+
+`pkPhase`（`judge.go:655-753`）中的描述子循环和投票子循环同样使用阻塞 channel 读取，掉线玩家在 PK 阶段会导致永久卡死。
+
+**3. `OnDisconnect` 通道无人消费**
+
+`server.OnDisconnect` channel 在 server 端已实现（当命名玩家断开时发送 `DisconnectEvent`），但 judge 端从未读取该 channel，事件被丢弃到缓冲区后进一步发送会静默丢弃（`default` case）。
+
+### 建议改进 (可选)
+
+**实现方案概要**：
+
+将 `descriptionPhase` 中的 `evt := <-srv.OnDescMsg` 改为 `select` 多路复用：
+
+```go
+for !round.AllDone() {
+    current := round.CurrentSpeaker()
+    if current == "" {
+        break
+    }
+
+    // Check if current speaker is disconnected
+    var isDisconnected bool
+    playersMu.Lock()
+    for _, p := range players {
+        if p.Name == current && !p.Connected {
+            isDisconnected = true
+            break
+        }
+    }
+    // Note: players not available here; you need to pass them through
+    playersMu.Unlock()
+
+    if isDisconnected {
+        // Start 60s timer, listen for OnReconnect or timeout
+        timer := time.NewTimer(60 * time.Second)
+        select {
+        case evt := <-srv.OnDescMsg:
+            // Normal message handling
+            timer.Stop()
+            // ... process evt ...
+        case disc := <-srv.OnDisconnect:
+            // Another player disconnected, irrelevant
+        case <-timer.C:
+            // Timeout: skip this player's turn
+            round.SkipCurrent()  // Need to add SkipCurrent to DescRound
+            srv.BroadcastToNamedPlayers(game.Message{
+                Type:    game.MsgTurn,
+                Payload: round.CurrentSpeaker(),
+            })
+        }
+        timer.Stop()
+    } else {
+        // Normal: block on OnDescMsg only
+        evt := <-srv.OnDescMsg
+        // ... existing code ...
+    }
+}
+```
+
+需要新增/修改：
+- `game.DescRound.SkipCurrent()` 方法，跳过当前发言者而不记录描述
+- `game.VoteRound.SkipCurrent()` 方法，跳过当前投票者（视为弃票）
+- `descriptionPhase` 接收 `players` 切片引用，用于检查 `Connected` 状态
+- `votingPhase` 同理
+- 同样适用于 `pkPhase` 的 desc 和 vote 子循环
+
+### 审核结论
+
+- [ ] 通过
+- [ ] 需要修改
+- [x] **阻塞** — 子任务未开始实现，需要先实现代码
+
+---
+
+### 实现者自检确认
+
+- [ ] 实现者已执行编译/类型检查 — N/A，无代码改动
+- [ ] 实现者已执行 Lint 检查 — N/A
+- [ ] 实现者已运行相关测试 — N/A
+- [x] 实现者已确认测试覆盖 — 未通过：无新增测试
+
+> 该子任务尚未有实现者提交代码，需要从头实现。
+
+---
+
+## Learnings
+
+- **缺失模式**: `judge.go` 中的 `descriptionPhase`、`votingPhase`、`pkPhase` 均使用阻塞式 channel 读取，未考虑掉线玩家超时跳过的场景——这是后续实现 T-002 时所有循环都必须修改的模式。
+- **已有基础设施**: `server.OnDisconnect`（`server/server.go:218`）和 `game.Player.Connected` 字段（`game/role.go:41`）是 T-001 已就绪的依赖，T-002 只需在 judge 端消费它们。
+- **影响范围**: T-002 需要同时修改 `judge.go`（三个 phase 循环）和 `game/game.go`/`game/vote.go`（新增 `SkipCurrent` 方法），任何遗漏都会导致掉线玩家卡死游戏。

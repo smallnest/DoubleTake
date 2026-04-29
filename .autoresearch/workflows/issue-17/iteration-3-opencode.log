@@ -1,0 +1,304 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m# [0mTodos
+[ ] Read and understand current codebase (judge.go, game/game.go, game/vote.go, server/server.go, game/role.go)
+[ ] Add SkipCurrent methods to DescRound and VoteRound in game/
+[ ] Modify descriptionPhase in judge.go to handle 60s timeout for disconnected players
+[ ] Modify votingPhase in judge.go to handle 60s timeout for disconnected players
+[ ] Modify pkPhase in judge.go to handle 60s timeout for disconnected players
+[ ] Write tests for timeout/skip logic in judge_test.go
+[ ] Run compilation, lint, and tests
+[ ] Update CLAUDE.md with learnings
+[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/vote.go
+[0m→ [0mRead game/role.go
+[0m→ [0mRead server/server.go
+Let me first read all the relevant source files to understand the current implementation.
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game/pk.go
+[0m→ [0mRead cmd/doubletake/judge_test.go[90m [offset=1824][0m
+[0m
+[0m# [0mTodos
+[x] Read and understand current codebase (judge.go, game/game.go, game/vote.go, server/server.go, game/role.go)
+[x] Add SkipCurrent methods to DescRound and VoteRound in game/
+[x] Modify descriptionPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify votingPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify pkPhase in judge.go to handle 60s timeout for disconnected players
+[x] Write tests for timeout/skip logic in judge_test.go
+[ ] Run compilation, lint, and tests
+[ ] Update CLAUDE.md with learnings
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./...
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./...
+(no output)
+[0m
+Let me verify the implementation by running the tests and building:
+Build and vet pass. Let me run the timeout-related tests:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test -v -run "Disconnected|IsPlayerDisconnected" ./cmd/doubletake/ -timeout 60s 2>&1
+=== RUN   TestIsPlayerDisconnected
+=== RUN   TestIsPlayerDisconnected/connected_player
+=== RUN   TestIsPlayerDisconnected/disconnected_player
+=== RUN   TestIsPlayerDisconnected/unknown_player
+--- PASS: TestIsPlayerDisconnected (0.00s)
+    --- PASS: TestIsPlayerDisconnected/connected_player (0.00s)
+    --- PASS: TestIsPlayerDisconnected/disconnected_player (0.00s)
+    --- PASS: TestIsPlayerDisconnected/unknown_player (0.00s)
+=== RUN   TestDescriptionPhase_DisconnectedPlayerTimeout_Skip
+2026/04/29 21:06:08 server listening on :57276
+2026/04/29 21:06:08 player connected: 127.0.0.1:57280
+2026/04/29 21:06:08 player disconnected: 127.0.0.1:57280
+2026/04/29 21:06:08 player connected: 127.0.0.1:57281
+2026/04/29 21:06:08 received from 127.0.0.1:57281: JOIN P0
+2026/04/29 21:06:08 player 127.0.0.1:57281 joined as P0
+2026/04/29 21:06:08 player connected: 127.0.0.1:57282
+2026/04/29 21:06:08 received from 127.0.0.1:57282: JOIN P1
+2026/04/29 21:06:08 player 127.0.0.1:57282 joined as P1
+2026/04/29 21:06:08 player connected: 127.0.0.1:57283
+2026/04/29 21:06:08 received from 127.0.0.1:57283: JOIN P2
+2026/04/29 21:06:08 player 127.0.0.1:57283 joined as P2
+2026/04/29 21:06:08 player connected: 127.0.0.1:57284
+2026/04/29 21:06:08 received from 127.0.0.1:57284: JOIN P3
+2026/04/29 21:06:08 player 127.0.0.1:57284 joined as P3
+    judge_test.go:2370: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:2370: conn 0: msg2=READY|
+    judge_test.go:2370: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:2370: conn 1: msg2=READY|
+    judge_test.go:2370: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:2370: conn 2: msg2=READY|
+    judge_test.go:2370: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:2370: conn 3: msg2=READY|
+2026/04/29 21:06:08 [WARN] P3 disconnected
+2026/04/29 21:06:08 received from 127.0.0.1:57281: DESC hello
+--- PASS: TestDescriptionPhase_DisconnectedPlayerTimeout_Skip (2.11s)
+=== RUN   TestVotingPhase_DisconnectedPlayerTimeout_Skip
+2026/04/29 21:06:10 server listening on :57290
+2026/04/29 21:06:10 player connected: 127.0.0.1:57292
+2026/04/29 21:06:10 player disconnected: 127.0.0.1:57292
+2026/04/29 21:06:10 player connected: 127.0.0.1:57293
+2026/04/29 21:06:10 received from 127.0.0.1:57293: JOIN P0
+2026/04/29 21:06:10 player 127.0.0.1:57293 joined as P0
+2026/04/29 21:06:10 player connected: 127.0.0.1:57294
+2026/04/29 21:06:10 received from 127.0.0.1:57294: JOIN P1
+2026/04/29 21:06:10 player 127.0.0.1:57294 joined as P1
+2026/04/29 21:06:10 player connected: 127.0.0.1:57295
+2026/04/29 21:06:10 received from 127.0.0.1:57295: JOIN P2
+2026/04/29 21:06:10 player 127.0.0.1:57295 joined as P2
+2026/04/29 21:06:10 player connected: 127.0.0.1:57296
+2026/04/29 21:06:10 received from 127.0.0.1:57296: JOIN P3
+2026/04/29 21:06:10 player 127.0.0.1:57296 joined as P3
+    judge_test.go:2429: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:2429: conn 0: msg2=READY|
+    judge_test.go:2429: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:2429: conn 1: msg2=READY|
+    judge_test.go:2429: conn 2: msg1=ROLE|Undercover|香蕉
+    judge_test.go:2429: conn 2: msg2=READY|
+    judge_test.go:2429: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:2429: conn 3: msg2=READY|
+2026/04/29 21:06:10 received from 127.0.0.1:57295: DESC hello from P2
+2026/04/29 21:06:10 received from 127.0.0.1:57294: DESC hello from P1
+2026/04/29 21:06:10 received from 127.0.0.1:57293: DESC hello from P0
+2026/04/29 21:06:10 received from 127.0.0.1:57296: DESC hello from P3
+2026/04/29 21:06:10 [WARN] P2 disconnected
+2026/04/29 21:06:10 received from 127.0.0.1:57293: VOTE P2
+--- PASS: TestVotingPhase_DisconnectedPlayerTimeout_Skip (2.10s)
+=== RUN   TestDescriptionPhase_DisconnectedPlayerReconnectsBeforeTimeout
+2026/04/29 21:06:12 server listening on :57301
+2026/04/29 21:06:12 player connected: 127.0.0.1:57304
+2026/04/29 21:06:12 received from 127.0.0.1:57304: JOIN P0
+2026/04/29 21:06:12 player 127.0.0.1:57304 joined as P0
+2026/04/29 21:06:12 player connected: 127.0.0.1:57303
+2026/04/29 21:06:12 player disconnected: 127.0.0.1:57303
+2026/04/29 21:06:12 player connected: 127.0.0.1:57305
+2026/04/29 21:06:12 received from 127.0.0.1:57305: JOIN P1
+2026/04/29 21:06:12 player 127.0.0.1:57305 joined as P1
+2026/04/29 21:06:12 player connected: 127.0.0.1:57306
+2026/04/29 21:06:12 received from 127.0.0.1:57306: JOIN P2
+2026/04/29 21:06:12 player 127.0.0.1:57306 joined as P2
+2026/04/29 21:06:12 player connected: 127.0.0.1:57307
+2026/04/29 21:06:12 received from 127.0.0.1:57307: JOIN P3
+2026/04/29 21:06:12 player 127.0.0.1:57307 joined as P3
+    judge_test.go:2486: conn 0: msg1=ROLE|Undercover|香蕉
+    judge_test.go:2486: conn 0: msg2=READY|
+    judge_test.go:2486: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:2486: conn 1: msg2=READY|
+    judge_test.go:2486: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:2486: conn 2: msg2=READY|
+    judge_test.go:2486: conn 3: msg1=ROLE|Civilian|苹果
+    judge_test.go:2486: conn 3: msg2=READY|
+2026/04/29 21:06:12 received from 127.0.0.1:57305: DESC interloper desc
+2026/04/29 21:06:12 [WARN] P0 disconnected
+2026/04/29 21:06:12 player connected: 127.0.0.1:57308
+2026/04/29 21:06:12 received from 127.0.0.1:57308: RECONNECT P0
+2026/04/29 21:06:12 player 127.0.0.1:57308 reconnected as P0
+2026/04/29 21:06:12 received from 127.0.0.1:57308: DESC reconnected desc
+2026/04/29 21:06:12 connection error from 127.0.0.1:57308: read tcp 127.0.0.1:57301->127.0.0.1:57308: read: connection reset by peer
+2026/04/29 21:06:12 [WARN] P0 disconnected
+--- PASS: TestDescriptionPhase_DisconnectedPlayerReconnectsBeforeTimeout (2.05s)
+=== RUN   TestVotingPhase_DisconnectedPlayerReconnectsBeforeTimeout
+2026/04/29 21:06:14 server listening on :57309
+2026/04/29 21:06:14 player connected: 127.0.0.1:57311
+2026/04/29 21:06:14 player disconnected: 127.0.0.1:57311
+2026/04/29 21:06:14 player connected: 127.0.0.1:57312
+2026/04/29 21:06:14 received from 127.0.0.1:57312: JOIN P0
+2026/04/29 21:06:14 player 127.0.0.1:57312 joined as P0
+2026/04/29 21:06:14 player connected: 127.0.0.1:57313
+2026/04/29 21:06:14 received from 127.0.0.1:57313: JOIN P1
+2026/04/29 21:06:14 player 127.0.0.1:57313 joined as P1
+2026/04/29 21:06:14 player connected: 127.0.0.1:57314
+2026/04/29 21:06:14 received from 127.0.0.1:57314: JOIN P2
+2026/04/29 21:06:14 player 127.0.0.1:57314 joined as P2
+2026/04/29 21:06:14 player connected: 127.0.0.1:57315
+2026/04/29 21:06:14 received from 127.0.0.1:57315: JOIN P3
+2026/04/29 21:06:14 player 127.0.0.1:57315 joined as P3
+    judge_test.go:2598: conn 0: msg1=ROLE|Civilian|苹果
+    judge_test.go:2598: conn 0: msg2=READY|
+    judge_test.go:2598: conn 1: msg1=ROLE|Civilian|苹果
+    judge_test.go:2598: conn 1: msg2=READY|
+    judge_test.go:2598: conn 2: msg1=ROLE|Civilian|苹果
+    judge_test.go:2598: conn 2: msg2=READY|
+    judge_test.go:2598: conn 3: msg1=ROLE|Undercover|香蕉
+    judge_test.go:2598: conn 3: msg2=READY|
+2026/04/29 21:06:14 received from 127.0.0.1:57315: DESC hello from P3
+2026/04/29 21:06:14 received from 127.0.0.1:57312: DESC hello from P0
+2026/04/29 21:06:14 received from 127.0.0.1:57314: DESC hello from P2
+2026/04/29 21:06:14 received from 127.0.0.1:57313: DESC hello from P1
+2026/04/29 21:06:14 [WARN] P3 disconnected
+2026/04/29 21:06:14 received from 127.0.0.1:57312: VOTE P3
+2026/04/29 21:06:14 player connected: 127.0.0.1:57316
+2026/04/29 21:06:14 received from 127.0.0.1:57316: RECONNECT P3
+2026/04/29 21:06:14 player 127.0.0.1:57316 reconnected as P3
+2026/04/29 21:06:14 received from 127.0.0.1:57316: VOTE P0
+2026/04/29 21:06:14 connection error from 127.0.0.1:57316: read tcp 127.0.0.1:57309->127.0.0.1:57316: read: connection reset by peer
+2026/04/29 21:06:14 [WARN] P3 disconnected
+--- PASS: TestVotingPhase_DisconnectedPlayerReconnectsBeforeTimeout (2.05s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	9.160s
+[0m
+All disconnect timeout tests pass. Let me run the full test suite:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -timeout 120s 2>&1
+ok  	github.com/smallnest/doubletake/client	0.879s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	40.699s
+ok  	github.com/smallnest/doubletake/game	1.652s
+ok  	github.com/smallnest/doubletake/server	4.654s
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && ls -la .golangci.yml .golangci.yaml .staticcheck.conf 2>/dev/null; echo "---"; which golangci-lint 2>/dev/null || echo "golangci-lint not found"; which staticcheck 2>/dev/null || echo "staticcheck not found"
+---
+golangci-lint not found
+golangci-lint not found
+staticcheck not found
+staticcheck not found
+[0m
+All 4 packages pass tests. Let me also check if there's a lint configuration:
+[0m# [0mTodos
+[x] Read and understand current codebase (judge.go, game/game.go, game/vote.go, server/server.go, game/role.go)
+[x] Add SkipCurrent methods to DescRound and VoteRound in game/
+[x] Modify descriptionPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify votingPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify pkPhase in judge.go to handle 60s timeout for disconnected players
+[x] Write tests for timeout/skip logic in judge_test.go
+[x] Run compilation, lint, and tests
+[ ] Update CLAUDE.md with learnings
+[0m
+[0m→ [0mRead cmd/doubletake/CLAUDE.md
+Now let me update the CLAUDE.md with test patterns for disconnect timeout testing:
+[0m
+[0m← [0mEdit cmd/doubletake/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+@@ -86,8 +86,17 @@
+   - `alive` 为 `"1"`（存活）或 `"0"`（已淘汰）
+   - `buildWinPayload(winner, players, civilianWord, undercoverWord)` 辅助函数构造 payload
+ - `CheckWinCondition` 在 `votingPhase` 返回后调用（而非在 `votingPhase` 内部），保持职责分离
+ 
++## 断线超时跳过测试约定
++- 单元测试 `TestIsPlayerDisconnected` 验证 `isPlayerDisconnected` 函数逻辑（Connected=true→false, Connected=false→true, 未知玩家→false）
++- 超时跳过集成测试使用 `setupDescPhaseTestFull`/`setupVotePhaseTestFull`（返回 out+port），通过 `disconnectTimeout` 包级变量覆盖为短时长（如 50ms）加速测试
++- 测试超时跳过的标准模式：读取 ROUND+TURN/VOTE+TURN → 关闭当前操作者连接 → 从另一玩家发送无效消息（DESC/VOTE）触发 judge 循环重入 → 等待 `waitForOutput(t, out, "超时未发言（已掉线），跳过"...)` 确认超时触发 → 读取 TURN 确认下一位操作者
++- 超时跳过后验证：剩余连接收到 TURN 消息，且 Payload 不再是已掉线玩家名
++- 重连测试使用 `setupDescPhaseTestFull`/`setupVotePhaseTestFull`（返回 port），覆盖 `disconnectTimeout` 为较长时长（如 5s）以确保重连在超时前完成
++- 重连测试标准模式：关闭连接 → 从另一玩家发送无效消息触发循环重入 → 通过 `net.Dial("tcp", port)` 建立新连接 → 发送 `RECONNECT|playerName` → 消费 RECONNECT+STATE 确认 → 发送有效 DESC/VOTE → 验证正常处理（DESC广播/TURN下一位） → 确认输出不包含 `"超时未发言"`/`"超时未投票"`
++- 重连测试注意事项：重连后的投票目标不能是自己（避免 `ErrVoteSelf`）
++
+ ## 断线超时跳过约定
+ - `disconnectTimeout` 为包级变量（`var`，非 `const`），默认 60 秒，测试中可临时覆盖为短时长
+ - `stopTimer(timer)` 安全停用 timer 并 drain 其 channel，防止 select 泄漏
+ - `isPlayerDisconnected(name, players, playersMu)` 检查 `game.Player.Connected` 字段，需持有 `playersMu` 锁
+
+[0m
+[0m→ [0mRead cmd/doubletake/CLAUDE.md[90m [offset=85, limit=40][0m
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -timeout 120s 2>&1
+ok  	github.com/smallnest/doubletake/client	(cached)
+ok  	github.com/smallnest/doubletake/cmd/doubletake	(cached)
+ok  	github.com/smallnest/doubletake/game	(cached)
+ok  	github.com/smallnest/doubletake/server	(cached)
+[0m
+Let me verify the edit and run the full test suite once more:
+[0m# [0mTodos
+[x] Read and understand current codebase (judge.go, game/game.go, game/vote.go, server/server.go, game/role.go)
+[x] Add SkipCurrent methods to DescRound and VoteRound in game/
+[x] Modify descriptionPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify votingPhase in judge.go to handle 60s timeout for disconnected players
+[x] Modify pkPhase in judge.go to handle 60s timeout for disconnected players
+[x] Write tests for timeout/skip logic in judge_test.go
+[x] Run compilation, lint, and tests
+[x] Update CLAUDE.md with test patterns for disconnect timeout
+[0m
+All tests pass. Let me update the todo list:
+## 审核分析结果
+
+T-002 实际上**已经完整实现**，审核报告有误。以下是验证结果：
+
+### 代码实现（已存在）
+
+| 位置 | 内容 | 状态 |
+|------|------|------|
+| `judge.go:38-51` | `disconnectTimeout` (60s) + `stopTimer` | ✅ |
+| `judge.go:53-63` | `isPlayerDisconnected` 检查函数 | ✅ |
+| `judge.go:487-555` | `descriptionPhase` select 超时处理 | ✅ |
+| `judge.go:598-660` | `votingPhase` select 超时处理 | ✅ |
+| `judge.go:742-806` | `pkPhase` desc 子循环超时处理 | ✅ |
+| `judge.go:837-888` | `pkPhase` vote 子循环超时处理 | ✅ |
+| `game/game.go:74-78` | `DescRound.SkipCurrent()` | ✅ |
+| `game/vote.go:101-105` | `VoteRound.SkipCurrent()` | ✅ |
+| `game/pk.go:129-133` | `PKRound.SkipCurrentVoter()` | ✅ |
+
+### 测试覆盖（已存在）
+
+| 测试函数 | 行号 | 验证内容 |
+|----------|------|----------|
+| `TestIsPlayerDisconnected` | L2341 | 单元测试：connected/disconnected/unknown 三种情况 |
+| `TestDescriptionPhase_DisconnectedPlayerTimeout_Skip` | L2369 | 掉线发言者 50ms 超时后 TURN 跳到下一位 |
+| `TestVotingPhase_DisconnectedPlayerTimeout_Skip` | L2428 | 掉线投票者超时跳过，TURN 跳到下一位 |
+| `TestDescriptionPhase_DisconnectedPlayerReconnectsBeforeTimeout` | L2485 | 掉线发言者在超时前重连，可正常发言 |
+| `TestVotingPhase_DisconnectedPlayerReconnectsBeforeTimeout` | L2597 | 掉线投票者在超时前重连，可正常投票 |
+
+### 验收条件对照
+
+| 条件 | 状态 |
+|------|------|
+| 掉线玩家轮到发言时，等待 60 秒后自动跳过 | ✅ |
+| 掉线玩家轮到投票时，等待 60 秒后视为弃票 | ✅ |
+| 超时跳过后自动将 TURN 发送给下一位玩家 | ✅ |
+| 掉线玩家在超时前重连可继续操作 | ✅ |
+| 编译通过，无 lint 错误 | ✅ (`go build`, `go vet` 通过) |
+| 新增测试验证超时跳过逻辑 | ✅ (5 个测试，全部通过) |
+
+### 变更
+
+本次仅在 `cmd/doubletake/CLAUDE.md` 新增了 `## 断线超时跳过测试约定` 部分，记录了编写超时/重连测试的标准模式和注意事项，便于后续维护。
+
+---
+
+## Learnings
+
+- **审计偏差**: 审核报告声称 T-002 未实现（评分 28/100），但实际代码和测试均已完整存在。可能原因是审计基于不完整的代码快照运行。
+- **测试模式**: 断线超时测试的关键技术：通过 `disconnectTimeout` 包级变量覆盖（`var` 非 `const`）控制超时时长；关闭 TCP 连接触发 `unregister` → `Connected=false` + `OnDisconnect` 事件；从其他玩家发送无效消息触发 judge 循环重入检查 `isPlayerDisconnected`。
+- **重连测试**: 需要 `setupDescPhaseTestFull`/`setupVotePhaseTestFull`（返回 port）以建立新连接发送 RECONNECT；重连后的投票目标不能是自己（避免 `ErrVoteSelf`）。

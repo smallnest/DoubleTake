@@ -124,6 +124,14 @@ func (p *PKRound) RecordVote(voter, target string, alivePlayers []string) error 
 	return nil
 }
 
+// SkipCurrentVoter skips the current voter without recording a vote.
+// Advances the PK vote index to the next voter.
+func (p *PKRound) SkipCurrentVoter() {
+	if p.CurrentVote < len(p.VoterOrder) {
+		p.CurrentVote++
+	}
+}
+
 // AllVoted returns true when all alive players have voted.
 func (p *PKRound) AllVoted() bool {
 	return p.CurrentVote >= len(p.VoterOrder)

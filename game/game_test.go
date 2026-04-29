@@ -141,6 +141,54 @@ func TestRecordDesc_NotYourTurn(t *testing.T) {
 	}
 }
 
+func TestSkipCurrent(t *testing.T) {
+	d, err := NewDescRound(1, []string{"alice", "bob", "carol"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
+
+	if d.CurrentSpeaker() != "alice" {
+		t.Fatalf("expected alice as current speaker")
+	}
+
+	d.SkipCurrent()
+	if d.CurrentSpeaker() != "bob" {
+		t.Errorf("after skip, expected bob as current speaker, got %q", d.CurrentSpeaker())
+	}
+	if d.Descriptions["alice"] != "" {
+		t.Error("SkipCurrent should not record a description")
+	}
+}
+
+func TestSkipCurrent_AllSkipped(t *testing.T) {
+	d, err := NewDescRound(1, []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
+
+	d.SkipCurrent()
+	d.SkipCurrent()
+	if !d.AllDone() {
+		t.Error("AllDone() should be true after skipping all players")
+	}
+	if d.CurrentSpeaker() != "" {
+		t.Errorf("CurrentSpeaker() should be empty after all skipped")
+	}
+}
+
+func TestSkipCurrent_NoOpWhenDone(t *testing.T) {
+	d, err := NewDescRound(1, []string{"alice"})
+	if err != nil {
+		t.Fatalf("NewDescRound error: %v", err)
+	}
+	d.CurrentIndex = 1
+
+	d.SkipCurrent() // should be a no-op
+	if d.CurrentIndex != 1 {
+		t.Errorf("CurrentIndex should remain 1 after no-op skip, got %d", d.CurrentIndex)
+	}
+}
+
 func TestAllDone_EmptyPlayers(t *testing.T) {
 	d, err := NewDescRound(1, []string{})
 	if err != nil {

@@ -87,6 +87,26 @@
   - `buildWinPayload(winner, players, civilianWord, undercoverWord)` 辅助函数构造 payload
 - `CheckWinCondition` 在 `votingPhase` 返回后调用（而非在 `votingPhase` 内部），保持职责分离
 
+## 断线超时跳过测试约定
+- 单元测试 `TestIsPlayerDisconnected` 验证 `isPlayerDisconnected` 函数逻辑（Connected=true→false, Connected=false→true, 未知玩家→false）
+- 超时跳过集成测试使用 `setupDescPhaseTestFull`/`setupVotePhaseTestFull`（返回 out+port），通过 `disconnectTimeout` 包级变量覆盖为短时长（如 50ms）加速测试
+- 测试超时跳过的标准模式：读取 ROUND+TURN/VOTE+TURN → 关闭当前操作者连接 → 从另一玩家发送无效消息（DESC/VOTE）触发 judge 循环重入 → 等待 `waitForOutput(t, out, "超时未发言（已掉线），跳过"...)` 确认超时触发 → 读取 TURN 确认下一位操作者
+- 超时跳过后验证：剩余连接收到 TURN 消息，且 Payload 不再是已掉线玩家名
+- 重连测试使用 `setupDescPhaseTestFull`/`setupVotePhaseTestFull`（返回 port），覆盖 `disconnectTimeout` 为较长时长（如 5s）以确保重连在超时前完成
+- 重连测试标准模式：关闭连接 → 从另一玩家发送无效消息触发循环重入 → 通过 `net.Dial("tcp", port)` 建立新连接 → 发送 `RECONNECT|playerName` → 消费 RECONNECT+STATE 确认 → 发送有效 DESC/VOTE → 验证正常处理（DESC广播/TURN下一位） → 确认输出不包含 `"超时未发言"`/`"超时未投票"`
+- 重连测试注意事项：重连后的投票目标不能是自己（避免 `ErrVoteSelf`）
+
+## 断线超时跳过约定
+- `disconnectTimeout` 为包级变量（`var`，非 `const`），默认 60 秒，测试中可临时覆盖为短时长
+- `stopTimer(timer)` 安全停用 timer 并 drain 其 channel，防止 select 泄漏
+- `isPlayerDisconnected(name, players, playersMu)` 检查 `game.Player.Connected` 字段，需持有 `playersMu` 锁
+- `descriptionPhase` 和 `votingPhase` 的循环均使用 `select` 多路复用 `OnDescMsg`/`OnVoteMsg` 与 `timeoutCh`
+- 仅当 `isPlayerDisconnected` 返回 true 时才启动 timer；已连接玩家走原始阻塞路径（timer=nil, timeoutCh=nil→select 忽略该 case）
+- 掉线玩家在超时前重连并发送有效消息（DESC/VOTE），会被 `OnDescMsg`/`OnVoteMsg` 正常处理（`stopTimer` 取消超时）
+- 超时后调用 `round.SkipCurrent()`/`v.SkipCurrent()` 并广播 `TURN` 给下一位
+- `pkPhase` 的描述子循环和投票子循环同样遵循此模式
+- 所有四个循环的 `select` 均包含 `case disc := <-srv.OnDisconnect:` 处理掉线事件：当当前操作者掉线时启动 timer，防止已连接玩家在轮到其操作后掉线导致游戏永久挂起
+
 ## 游戏循环测试约定
 - `setupGameLoopTest` 辅助函数处理完整初始化流程，返回 conns + speakers + cleanup
 - `doDescription` 辅助函数驱动描述阶段（所有玩家依次发言）

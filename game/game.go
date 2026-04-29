@@ -69,6 +69,14 @@ func (d *DescRound) RecordDesc(playerName, desc string) error {
 	return nil
 }
 
+// SkipCurrent skips the current speaker without recording a description.
+// Advances the turn index to the next player.
+func (d *DescRound) SkipCurrent() {
+	if d.CurrentIndex < len(d.SpeakerOrder) {
+		d.CurrentIndex++
+	}
+}
+
 // AllDone returns true when every player in the speaker order has described.
 func (d *DescRound) AllDone() bool {
 	return d.CurrentIndex >= len(d.SpeakerOrder)

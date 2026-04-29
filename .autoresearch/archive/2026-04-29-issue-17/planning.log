@@ -1,0 +1,95 @@
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+Now I have a thorough understanding of the codebase. Let me analyze the issue and produce the subtask breakdown.
+
+**Key observations:**
+- `game.Player` already has `Connected bool` field (currently always initialized to `false` in `AssignRoles`)
+- `game.protocol.go` already defines `MsgReconnect = "RECONNECT"` and `MsgState = "STATE"`
+- Current server's `unregister` removes player from `names` map entirely on disconnect — this needs to change
+- The judge (`judge.go`) game loop blocks on channel reads (`<-srv.OnDescMsg`, `<-srv.OnVoteMsg`) — timeout logic needs to integrate here
+
+```json
+{
+  "issueNumber": 17,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "服务端掉线标记：断开时保留玩家状态并标记 Connected=false",
+      "description": "修改 server.Server 的 disconnect 处理逻辑。当已命名玩家断开时，不再从 names map 中移除，而是标记 game.Player.Connected=false，保留其在游戏中的身份和状态。添加 OnDisconnect channel 通知裁判端玩家掉线。同时需要在 server 中维护 name→Player 的映射（或扩展 connections 结构），以便断线后仍能按名字查找玩家。修改 handleJoin 防止已存在的掉线玩家名被新连接占用。",
+      "acceptanceCriteria": [
+        "已命名玩家断开连接时，服务端不从 names map 中删除该名字",
+        "已命名玩家断开连接时，对应 game.Player 的 Connected 字段设为 false",
+        "服务端通过 OnDisconnect channel 通知裁判端掉线事件（包含玩家名）",
+        "未命名玩家断开时行为不变（正常清理）",
+        "新连接不能使用已掉线玩家的名字加入（handleJoin 返回错误提示）",
+        "现有测试全部通过，新增 disconnect 相关单元测试"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "RECONNECT 消息处理：验证身份并恢复连接状态",
+      "description": "在 server.Server 中添加 RECONNECT 消息处理逻辑。客户端发送 RECONNECT|playerName 时，服务端验证：(1) 该名字存在于已掉线玩家列表中；(2) 匹配成功则恢复连接，标记 Connected=true，将新连接关联到该玩家；(3) 匹配失败则返回 ERROR 消息拒绝重连。恢复连接后发送 STATE 消息给重连玩家，payload 格式包含当前轮次、玩家词语、存活玩家列表。",
+      "acceptanceCriteria": [
+        "服务端能识别并处理 RECONNECT 消息类型",
+        "RECONNECT|existingName 匹配掉线玩家时，标记 Connected=true 并关联新连接",
+        "RECONNECT|nonExistingName 返回 ERROR 拒绝重连",
+        "重连成功后发送 STATE 消息给重连玩家，包含当前轮次、词语、存活玩家列表",
+        "重连玩家能正常接收后续广播消息",
+        "新增 RECONNECT 和 STATE 相关单元测试"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "裁判端掉线提示与 STATE 消息组装",
+      "description": "在 judge.go 中监听 OnDisconnect 事件，打印掉线警告（如 [WARN] node-05 disconnected）。实现 STATE 消息的 payload 组装逻辑：将当前游戏状态（轮次号、玩家词语、存活玩家列表）编码为 STATE 消息发送给重连玩家。需要在 RunJudge 中维护当前轮次号等状态信息，以便在重连时提供。",
+      "acceptanceCriteria": [
+        "裁判端收到掉线事件时打印 [WARN] player-name disconnected 提示",
+        "STATE 消息 payload 包含当前轮次号",
+        "STATE 消息 payload 包含重连玩家自己的词语",
+        "STATE 消息 payload 包含当前存活玩家列表",
+        "裁判端处理逻辑不影响现有游戏流程"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-004",
+      "title": "掉线玩家超时自动跳过：60 秒无操作跳过回合",
+      "description": "在 judge.go 的 descriptionPhase 和 votingPhase 中，当轮到某个掉线玩家操作时，启动 60 秒超时计时器。超时后自动跳过该玩家的描述/投票回合，记录空描述或无票，并推进到下一位玩家。需要在描述和投票阶段的事件循环中增加超时检测逻辑（使用 select + time.After）。",
+      "acceptanceCriteria": [
+        "轮到掉线玩家发言时，60 秒内未重连则自动跳过，记录空描述",
+        "轮到掉线玩家投票时，60 秒内未重连则自动跳过，不计票",
+        "超时跳过后自动推进到下一位玩家的回合",
+        "掉线玩家在超时前重连，可正常继续发言/投票",
+        "超时时间可配置（默认 60 秒）",
+        "新增超时跳过相关测试"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-005",
+      "title": "客户端重连流程与端到端集成验证",
+      "description": "在 client/client.go 中实现重连能力：断线后客户端可重新 Connect 并发送 RECONNECT|playerName 消息。在 player.go 中处理收到的 STATE 消息，恢复显示状态。编写端到端集成测试验证完整重连流程：玩家加入→掉线→重连→验证身份→收到 STATE→继续游戏。确保 go build ./... 和 go vet ./... 通过。",
+      "acceptanceCriteria": [
+        "客户端断线后可重新连接并发送 RECONNECT 消息",
+        "客户端能正确解析并显示 STATE 消息内容",
+        "端到端集成测试覆盖：正常重连、错误名字拒绝重连、超时跳过场景",
+        "go build ./... 编译通过",
+        "go vet ./... 无警告",
+        "go test ./... 全部通过"
+      ],
+      "priority": 5,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
