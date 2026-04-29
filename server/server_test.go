@@ -532,7 +532,7 @@ func TestJoinDisconnectCleanup(t *testing.T) {
 	conn.Close()
 	time.Sleep(100 * time.Millisecond)
 
-	// New client should be able to use the name "Alice" after disconnect
+	// After a named player disconnects, the name is reserved (not reusable via JOIN).
 	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
@@ -542,8 +542,8 @@ func TestJoinDisconnectCleanup(t *testing.T) {
 	fmt.Fprintf(conn2, "JOIN|Alice\n")
 
 	msg := readMsg(t, conn2)
-	if msg.Type != game.MsgJoin {
-		t.Errorf("expected JOIN response for reused name, got %s", msg.Type)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR for reused name after disconnect, got %s", msg.Type)
 	}
 }
 
@@ -855,4 +855,314 @@ func TestGuess_NamedPlayerForwarded(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for GuessEvent")
 	}
+}
+
+func TestDisconnectMarksPlayerDisconnected(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	// Register a game player so the server can track it.
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	// Verify Connected is true before disconnect.
+	if !gamePlayers[0].Connected {
+		t.Fatal("expected Connected=true before disconnect")
+	}
+
+	// Disconnect.
+	conn.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// Player should be marked disconnected but still in names.
+	if gamePlayers[0].Connected {
+		t.Error("expected Connected=false after disconnect")
+	}
+
+	srv.mu.Lock()
+	nameExists := srv.names["Alice"]
+	srv.mu.Unlock()
+
+	if !nameExists {
+		t.Error("expected name Alice to remain in names map after disconnect")
+	}
+}
+
+func TestDisconnectUnnamedPlayerCleanup(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	srv.mu.Lock()
+	before := len(srv.connections)
+	srv.mu.Unlock()
+
+	if before != 1 {
+		t.Fatalf("expected 1 connection before disconnect, got %d", before)
+	}
+
+	// Disconnect unnamed player — should be fully cleaned up.
+	conn.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	srv.mu.Lock()
+	after := len(srv.connections)
+	srv.mu.Unlock()
+
+	if after != 0 {
+		t.Errorf("expected 0 connections after unnamed disconnect, got %d", after)
+	}
+}
+
+func TestOnDisconnectEvent(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	conn.Close()
+
+	select {
+	case evt := <-srv.OnDisconnect:
+		if evt.PlayerName != "Alice" {
+			t.Errorf("expected disconnect event for Alice, got %s", evt.PlayerName)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for DisconnectEvent")
+	}
+}
+
+func TestJoinRejectedForDisconnectedPlayer(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins and disconnects.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// New connection tries to join with Alice's name.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "JOIN|Alice\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR, got %s", msg.Type)
+	}
+	if msg.Payload != "该玩家已掉线，请使用 RECONNECT 重连" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestReconnectSuccess(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins and disconnects.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	if gamePlayers[0].Connected {
+		t.Fatal("expected Connected=false after disconnect")
+	}
+
+	// Alice reconnects with a new connection.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "RECONNECT|Alice\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgReconnect {
+		t.Errorf("expected RECONNECT response, got %s", msg.Type)
+	}
+	if msg.Payload != "Alice" {
+		t.Errorf("expected payload 'Alice', got %q", msg.Payload)
+	}
+
+	if !gamePlayers[0].Connected {
+		t.Error("expected Connected=true after reconnect")
+	}
+
+	// Alice should be able to receive messages again.
+	testMsg := game.Message{Type: game.MsgReady, Payload: ""}
+	srv.SendToPlayer("Alice", testMsg)
+
+	received := readMsg(t, conn2)
+	if received.Type != game.MsgReady {
+		t.Errorf("expected READY after reconnect, got %s", received.Type)
+	}
+}
+
+func TestReconnectNameMismatch(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1)
+	conn1.Close()
+	time.Sleep(100 * time.Millisecond)
+
+	// New connection tries to reconnect with wrong name.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "RECONNECT|Bob\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR, got %s", msg.Type)
+	}
+	if msg.Payload != "重连失败：名字不匹配或玩家未掉线" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestReconnectEmptyName(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "RECONNECT|\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR, got %s", msg.Type)
+	}
+	if msg.Payload != "名字不能为空" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestReconnectWhileStillConnected(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: true},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Alice joins (still connected).
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn)
+
+	// Try to reconnect while still connected — should fail.
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn2, "RECONNECT|Alice\n")
+
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR, got %s", msg.Type)
+	}
+}
+
+func TestSetGamePlayers(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	gamePlayers := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true, Connected: false},
+		{Name: "Bob", Role: game.Undercover, Alive: true, Connected: false},
+	}
+	srv.SetGamePlayers(gamePlayers)
+
+	// Verify players are registered and marked connected.
+	if !gamePlayers[0].Connected {
+		t.Error("expected Alice to be Connected after SetGamePlayers")
+	}
+	if !gamePlayers[1].Connected {
+		t.Error("expected Bob to be Connected after SetGamePlayers")
+	}
+
+	srv.mu.Lock()
+	if len(srv.gamePlayers) != 2 {
+		t.Errorf("expected 2 game players, got %d", len(srv.gamePlayers))
+	}
+	srv.mu.Unlock()
 }

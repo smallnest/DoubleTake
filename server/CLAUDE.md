@@ -40,6 +40,17 @@
 - SendToPlayer 持锁期间执行 conn.Write（与 Broadcast 模式一致），因最大连接数 <= 10，阻塞风险可忽略
 - 目前没有 name→conn 反向映射，SendToPlayer 使用 O(n) 遍历 connections map
 
+## 断线标记与重连
+- `gamePlayers map[string]*game.Player` 跟踪已分配角色的游戏玩家（名字 → game.Player 指针），由 `SetGamePlayers` 在游戏开始时注册
+- 已命名玩家断开时，`unregister` 不从 `names` map 中移除名字，而是标记 `game.Player.Connected = false`
+- 未命名玩家断开时行为不变（正常从 connections 和 names 中清理）
+- `OnDisconnect chan DisconnectEvent` 通知裁判端玩家掉线事件（缓冲大小 64，满时丢弃）
+- 裁判端日志格式：`[WARN] <playerName> disconnected`
+- `handleJoin` 检测到掉线玩家名字时返回 ERROR("该玩家已掉线，请使用 RECONNECT 重连")
+- `handleReconnect` 处理 RECONNECT 消息：验证名字匹配已掉线玩家后恢复连接，标记 `Connected = true`
+- RECONNECT 验证失败（名字不匹配或玩家未掉线）返回 ERROR("重连失败：名字不匹配或玩家未掉线")
+- `SetGamePlayers(players []*game.Player)` 必须在 `AssignRoles` 之后调用，将 game.Player 对象注册到服务器并标记 `Connected = true`
+
 ## DESC 消息处理
 - `handleDesc` 处理 DESC 消息：未命名玩家收到 ERROR("请先加入游戏")，已命名玩家的描述转发到 `OnDescMsg` channel
 - `OnDescMsg` channel 缓冲大小 64，满时丢弃消息并记录日志
