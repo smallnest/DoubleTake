@@ -113,8 +113,8 @@ func collectConfig(out io.Writer, disp *client.Display, scanner *bufio.Scanner) 
 		fmt.Fprint(out, "  卧底人数 (1-3): ")
 		undercovers := readIntInput(scanner, disp)
 
-		fmt.Fprint(out, "  白板人数 (0+): ")
-		blanks := readIntInput(scanner, disp)
+		fmt.Fprint(out, "  白板人数 (0+, 回车默认 0): ")
+		blanks := readIntInputOrDefault(scanner, disp, 0)
 
 		if err := validateConfig(total, undercovers, blanks); err != nil {
 			disp.Warn(err.Error())
@@ -133,6 +133,24 @@ func collectConfig(out io.Writer, disp *client.Display, scanner *bufio.Scanner) 
 // On parse failure it prints a warning and returns -1 so validation will fail.
 func readIntInput(scanner *bufio.Scanner, disp *client.Display) int {
 	n, err := readInt(scanner)
+	if err != nil {
+		disp.Warn("请输入有效的数字")
+		return -1
+	}
+	return n
+}
+
+// readIntInputOrDefault reads an integer from the scanner, returning the
+// default value when the input is empty (user presses Enter directly).
+func readIntInputOrDefault(scanner *bufio.Scanner, disp *client.Display, def int) int {
+	if !scanner.Scan() {
+		return def
+	}
+	line := strings.TrimSpace(scanner.Text())
+	if line == "" {
+		return def
+	}
+	n, err := strconv.Atoi(line)
 	if err != nil {
 		disp.Warn("请输入有效的数字")
 		return -1
