@@ -35,26 +35,20 @@ const (
 	voteSubmitted                   // vote submitted, waiting for server response
 )
 
-func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
+func RunPlayer(out io.Writer, in io.Reader, stealth bool, addr string) int {
 	disp := client.NewDisplay(out, stealth)
 	disp.PrintStartup()
 
 	scanner := bufio.NewScanner(in)
 
-	disp.Info("0000", "input room code")
-	fmt.Fprint(out, "  room code: ")
+	disp.Info("0000", "input room password")
+	fmt.Fprint(out, "  password: ")
 	if !scanner.Scan() {
 		return 1
 	}
-	roomCode := strings.TrimSpace(scanner.Text())
-	if roomCode == "" {
-		disp.Warn("room code cannot be empty")
-		return 1
-	}
-
-	addr, err := game.DecodeRoomCode(roomCode)
-	if err != nil {
-		disp.Warn(fmt.Sprintf("invalid room code: %v", err))
+	password := strings.TrimSpace(scanner.Text())
+	if password == "" {
+		disp.Warn("password cannot be empty")
 		return 1
 	}
 
@@ -76,7 +70,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 		return 1
 	}
 
-	if err := cc.Send(game.Message{Type: game.MsgJoin, Payload: playerName}); err != nil {
+	if err := cc.Send(game.Message{Type: game.MsgJoin, Payload: password + "|" + playerName}); err != nil {
 		disp.Warn(fmt.Sprintf("send failed: %v", err))
 		return 1
 	}

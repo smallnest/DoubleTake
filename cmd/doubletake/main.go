@@ -14,11 +14,12 @@ const (
 Options:
   --role string   Role mode: judge or player (required)
   --port int      Server port (default 8127)
+  --addr string   Server address host:port (required for player mode)
   --stealth       Enable stealth mode (simplified output, no game markers)
 
 Examples:
   doubletake --role judge
-  doubletake --role player --port 9000
+  doubletake --role player --addr 192.168.1.100:8127
   doubletake --role player --stealth
 `
 )
@@ -27,6 +28,7 @@ func run(stdout, stderr io.Writer, stdin io.Reader, args []string) int {
 	var role string
 	var port int
 	var stealth bool
+	var addr string
 
 	i := 1 // skip program name
 	for i < len(args) {
@@ -51,6 +53,14 @@ func run(stdout, stderr io.Writer, stdin io.Reader, args []string) int {
 				fmt.Fprint(stderr, usage)
 				return 1
 			}
+			i += 2
+		case "--addr":
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, "Error: --addr requires a value")
+				fmt.Fprint(stderr, usage)
+				return 1
+			}
+			addr = args[i+1]
 			i += 2
 		case "--stealth":
 			stealth = true
@@ -85,7 +95,12 @@ func run(stdout, stderr io.Writer, stdin io.Reader, args []string) int {
 		RunJudge(stdout, stdin, strconv.Itoa(port), stealth)
 		return 0
 	case "player":
-		return RunPlayer(stdout, stdin, stealth)
+		if addr == "" {
+			fmt.Fprintln(stderr, "Error: --addr is required for player mode")
+			fmt.Fprint(stderr, usage)
+			return 1
+		}
+		return RunPlayer(stdout, stdin, stealth, addr)
 	}
 
 	return 0

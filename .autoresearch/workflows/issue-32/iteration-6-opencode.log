@@ -1,0 +1,835 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m# [0mTodos
+[ ] Read all relevant source files to understand current state
+[ ] Plan fix approach based on review feedback and current code
+[ ] Implement server-side hash verification in handleJoin (T-005)
+[ ] Implement player-side hash password input in player.go (T-004)
+[ ] Update CLI flags in cmd/doubletake for --addr parameter
+[ ] Update judge.go to generate and display hash (T-003 verification)
+[ ] Write/update tests for new functionality
+[ ] Build and run tests to verify
+[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead game/roomhash.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead cmd/doubletake/main.go
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead server/server_test.go[90m [offset=779][0m
+[0m→ [0mRead game/roomhash_test.go
+[0m✱ [0mGrep "func GetLocalIP"[90m 1 match[0m
+[0m→ [0mRead game
+Let me check a few more things to understand the full picture:
+[0m
+[0m# [0mTodos
+[x] Read all relevant source files to understand current state
+[ ] Build and run tests to verify current implementation
+[ ] Fix any issues found during testing
+[ ] Write/update tests for new functionality if needed
+[ ] Update CLAUDE.md files with new learnings
+[0m
+[0m$ [0mgo build ./...
+(no output)
+[0m
+[0m$ [0mgo test ./game/... -v -run 'TestGenerate|TestRoomHash|TestSetAndVerify|TestVerifyRoomHash|TestSetRoomHash' -count=1 2>&1
+=== RUN   TestGenerateRoomHash_Basic
+--- PASS: TestGenerateRoomHash_Basic (0.00s)
+=== RUN   TestGenerateRoomHash_UniquePerCall
+--- PASS: TestGenerateRoomHash_UniquePerCall (0.00s)
+=== RUN   TestGenerateRoomHash_DifferentInputs
+--- PASS: TestGenerateRoomHash_DifferentInputs (0.00s)
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts/localhost-like_IP
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts/LAN_IP
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts/public_IP
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts/zero_port
+=== RUN   TestGenerateRoomHash_VariousIPsAndPorts/max_port
+--- PASS: TestGenerateRoomHash_VariousIPsAndPorts (0.00s)
+    --- PASS: TestGenerateRoomHash_VariousIPsAndPorts/localhost-like_IP (0.00s)
+    --- PASS: TestGenerateRoomHash_VariousIPsAndPorts/LAN_IP (0.00s)
+    --- PASS: TestGenerateRoomHash_VariousIPsAndPorts/public_IP (0.00s)
+    --- PASS: TestGenerateRoomHash_VariousIPsAndPorts/zero_port (0.00s)
+    --- PASS: TestGenerateRoomHash_VariousIPsAndPorts/max_port (0.00s)
+=== RUN   TestGenerateRoomHash_RandomHexUniqueness
+--- PASS: TestGenerateRoomHash_RandomHexUniqueness (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	0.933s
+[0m
+[0m$ [0mgo test ./server/... -v -run 'TestSetAndVerify|TestVerifyRoomHash|TestSetRoomHash|TestHandleJoin|TestJoin' -count=1 2>&1
+=== RUN   TestJoinSuccess
+2026/04/30 05:42:05 server listening on :54443
+2026/04/30 05:42:05 player connected: 127.0.0.1:54447
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54447
+2026/04/30 05:42:05 player connected: 127.0.0.1:54448
+2026/04/30 05:42:05 received from 127.0.0.1:54448: JOIN Alice
+2026/04/30 05:42:05 player 127.0.0.1:54448 joined as Alice
+2026/04/30 05:42:05 connection error from 127.0.0.1:54448: read tcp 127.0.0.1:54443->127.0.0.1:54448: use of closed network connection
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54448
+2026/04/30 05:42:05 server stopped
+--- PASS: TestJoinSuccess (0.01s)
+=== RUN   TestJoinDuplicateName
+2026/04/30 05:42:05 server listening on :54449
+2026/04/30 05:42:05 player connected: 127.0.0.1:54450
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54450
+2026/04/30 05:42:05 player connected: 127.0.0.1:54451
+2026/04/30 05:42:05 received from 127.0.0.1:54451: JOIN Alice
+2026/04/30 05:42:05 player 127.0.0.1:54451 joined as Alice
+2026/04/30 05:42:05 player connected: 127.0.0.1:54452
+2026/04/30 05:42:05 received from 127.0.0.1:54452: JOIN Alice
+2026/04/30 05:42:05 received from 127.0.0.1:54452: JOIN Bob
+2026/04/30 05:42:05 player 127.0.0.1:54452 joined as Bob
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54451
+2026/04/30 05:42:05 server stopped
+--- PASS: TestJoinDuplicateName (0.00s)
+=== RUN   TestJoinEmptyName
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54452
+2026/04/30 05:42:05 server listening on :54453
+2026/04/30 05:42:05 player connected: 127.0.0.1:54455
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54455
+2026/04/30 05:42:05 player connected: 127.0.0.1:54456
+2026/04/30 05:42:05 received from 127.0.0.1:54456: JOIN 
+2026/04/30 05:42:05 server stopped
+--- PASS: TestJoinEmptyName (0.01s)
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54456
+=== RUN   TestJoinDisconnectCleanup
+2026/04/30 05:42:05 server listening on :54457
+2026/04/30 05:42:05 player connected: 127.0.0.1:54459
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54459
+2026/04/30 05:42:05 player connected: 127.0.0.1:54460
+2026/04/30 05:42:05 received from 127.0.0.1:54460: JOIN Alice
+2026/04/30 05:42:05 player 127.0.0.1:54460 joined as Alice
+2026/04/30 05:42:05 player disconnected: 127.0.0.1:54460
+2026/04/30 05:42:06 player connected: 127.0.0.1:54461
+2026/04/30 05:42:06 received from 127.0.0.1:54461: JOIN Alice
+2026/04/30 05:42:06 player 127.0.0.1:54461 joined as Alice
+2026/04/30 05:42:06 connection error from 127.0.0.1:54461: read tcp 127.0.0.1:54457->127.0.0.1:54461: use of closed network connection
+2026/04/30 05:42:06 player disconnected: 127.0.0.1:54461
+2026/04/30 05:42:06 server stopped
+--- PASS: TestJoinDisconnectCleanup (0.11s)
+=== RUN   TestSetAndVerifyRoomHash
+2026/04/30 05:42:06 server listening on :54462
+2026/04/30 05:42:06 server stopped
+--- PASS: TestSetAndVerifyRoomHash (0.01s)
+=== RUN   TestVerifyRoomHash_WrongHash
+2026/04/30 05:42:06 server listening on :54465
+2026/04/30 05:42:06 server stopped
+--- PASS: TestVerifyRoomHash_WrongHash (0.01s)
+=== RUN   TestVerifyRoomHash_EmptyHash
+2026/04/30 05:42:06 server listening on :54468
+2026/04/30 05:42:06 player connected: 127.0.0.1:54470
+2026/04/30 05:42:06 connection error from 127.0.0.1:54470: read tcp 127.0.0.1:54468->127.0.0.1:54470: use of closed network connection
+2026/04/30 05:42:06 player disconnected: 127.0.0.1:54470
+2026/04/30 05:42:06 server stopped
+--- PASS: TestVerifyRoomHash_EmptyHash (0.01s)
+=== RUN   TestSetRoomHash_Overwrite
+2026/04/30 05:42:06 server listening on :54471
+2026/04/30 05:42:06 player connected: 127.0.0.1:54473
+2026/04/30 05:42:06 server stopped
+2026/04/30 05:42:06 player disconnected: 127.0.0.1:54473
+--- PASS: TestSetRoomHash_Overwrite (0.01s)
+=== RUN   TestSetAndVerifyRoomHash_ConcurrentSafe
+2026/04/30 05:42:06 server listening on :54474
+2026/04/30 05:42:06 player connected: 127.0.0.1:54476
+2026/04/30 05:42:06 server stopped
+--- PASS: TestSetAndVerifyRoomHash_ConcurrentSafe (0.01s)
+2026/04/30 05:42:06 player disconnected: 127.0.0.1:54476
+PASS
+ok  	github.com/smallnest/doubletake/server	0.652s
+[0m
+[0m$ [0mgo test ./cmd/doubletake/... -v -run 'TestRunPlayer' -count=1 2>&1
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyPassword
+--- PASS: TestRunPlayer_EmptyPassword (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:67: test server on 127.0.0.1:54478
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:107: test server on 127.0.0.1:54480
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:143: test server on 127.0.0.1:54482
+--- PASS: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:171: test server on 127.0.0.1:54484
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:204: test server on 127.0.0.1:54486
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Civilian
+    player_test.go:236: test server on 127.0.0.1:54488
+--- PASS: TestRunPlayer_ReceivesRole_Civilian (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Undercover
+    player_test.go:277: test server on 127.0.0.1:54490
+--- PASS: TestRunPlayer_ReceivesRole_Undercover (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Blank
+    player_test.go:315: test server on 127.0.0.1:54492
+--- PASS: TestRunPlayer_ReceivesRole_Blank (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Stealth
+    player_test.go:353: test server on 127.0.0.1:54494
+--- PASS: TestRunPlayer_ReceivesRole_Stealth (0.00s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:396: test server on 127.0.0.1:54496
+--- PASS: TestRunPlayer_ReceivesMultipleMessages (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OtherPlayerTurn
+    player_test.go:445: test server on 127.0.0.1:54498
+--- PASS: TestRunPlayer_DescPhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OwnTurn
+    player_test.go:512: test server on 127.0.0.1:54500
+--- PASS: TestRunPlayer_DescPhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_DescPhase_EmptyDescRetry
+    player_test.go:576: test server on 127.0.0.1:54502
+--- PASS: TestRunPlayer_DescPhase_EmptyDescRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ServerErrorRetry
+    player_test.go:637: test server on 127.0.0.1:54504
+--- PASS: TestRunPlayer_DescPhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_DescPhase_ErrorFatal
+    player_test.go:707: test server on 127.0.0.1:54506
+--- PASS: TestRunPlayer_DescPhase_ErrorFatal (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OtherPlayerTurn
+    player_test.go:747: test server on 127.0.0.1:54508
+--- PASS: TestRunPlayer_VotePhase_OtherPlayerTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_OwnTurn
+    player_test.go:809: test server on 127.0.0.1:54510
+--- PASS: TestRunPlayer_VotePhase_OwnTurn (0.00s)
+=== RUN   TestRunPlayer_VotePhase_EmptyTargetRetry
+    player_test.go:873: test server on 127.0.0.1:54512
+--- PASS: TestRunPlayer_VotePhase_EmptyTargetRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ServerErrorRetry
+    player_test.go:934: test server on 127.0.0.1:54514
+--- PASS: TestRunPlayer_VotePhase_ServerErrorRetry (0.00s)
+=== RUN   TestRunPlayer_VotePhase_ResultDisplay
+    player_test.go:1004: test server on 127.0.0.1:54516
+--- PASS: TestRunPlayer_VotePhase_ResultDisplay (0.00s)
+=== RUN   TestRunPlayer_VotePhase_DescToVoteTransition
+    player_test.go:1064: test server on 127.0.0.1:54518
+--- PASS: TestRunPlayer_VotePhase_DescToVoteTransition (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.477s
+[0m
+All tests pass. Let me also run the full test suite and judge tests:
+[0m$ [0mgo test ./cmd/doubletake/... -v -run 'TestRunJudge' -count=1 2>&1
+testing: warning: no tests to run
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.916s [no tests to run]
+[0m
+[0m$ [0mgo test ./... -count=1 2>&1
+ok  	github.com/smallnest/doubletake/client	0.464s
+2026/04/30 05:42:16 server listening on :54563
+2026/04/30 05:42:16 player connected: 127.0.0.1:54570
+2026/04/30 05:42:16 player disconnected: 127.0.0.1:54570
+2026/04/30 05:42:16 player connected: 127.0.0.1:54571
+2026/04/30 05:42:16 received from 127.0.0.1:54571: JOIN Alice
+2026/04/30 05:42:18 connection error from 127.0.0.1:54571: read tcp 127.0.0.1:54563->127.0.0.1:54571: read: connection reset by peer
+2026/04/30 05:42:18 server stopped
+2026/04/30 05:42:18 player disconnected: 127.0.0.1:54571
+--- FAIL: TestWaitingPhase_PlayerJoinNotification (2.03s)
+    judge_test.go:363: timed out waiting for "Alice joined [1/4]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: ad806e3d1908140868771043c1ad22728114faad3155148ad8f0c02a1858750f
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:18 server listening on :54662
+2026/04/30 05:42:18 player connected: 127.0.0.1:54664
+2026/04/30 05:42:18 player connected: 127.0.0.1:54665
+2026/04/30 05:42:18 received from 127.0.0.1:54665: JOIN Alice
+2026/04/30 05:42:18 player disconnected: 127.0.0.1:54664
+2026/04/30 05:42:18 player connected: 127.0.0.1:54666
+2026/04/30 05:42:18 received from 127.0.0.1:54666: JOIN Bob
+2026/04/30 05:42:18 player connected: 127.0.0.1:54667
+2026/04/30 05:42:18 received from 127.0.0.1:54667: JOIN Charlie
+2026/04/30 05:42:18 player connected: 127.0.0.1:54668
+2026/04/30 05:42:18 received from 127.0.0.1:54668: JOIN Dave
+2026/04/30 05:42:21 connection error from 127.0.0.1:54668: read tcp 127.0.0.1:54662->127.0.0.1:54668: read: connection reset by peer
+2026/04/30 05:42:21 player disconnected: 127.0.0.1:54668
+2026/04/30 05:42:21 connection error from 127.0.0.1:54666: read tcp 127.0.0.1:54662->127.0.0.1:54666: read: connection reset by peer
+2026/04/30 05:42:21 player disconnected: 127.0.0.1:54666
+2026/04/30 05:42:21 connection error from 127.0.0.1:54667: read tcp 127.0.0.1:54662->127.0.0.1:54667: read: connection reset by peer
+2026/04/30 05:42:21 player disconnected: 127.0.0.1:54667
+2026/04/30 05:42:21 connection error from 127.0.0.1:54665: read tcp 127.0.0.1:54662->127.0.0.1:54665: read: connection reset by peer
+2026/04/30 05:42:21 player disconnected: 127.0.0.1:54665
+2026/04/30 05:42:21 server stopped
+--- FAIL: TestWaitingPhase_AllPlayersJoined (3.04s)
+    judge_test.go:383: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 6280716a31cb756b597be4802bce00cbf0946594ab376b940a6fcf1e7730fa2d
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:21 server listening on :54672
+2026/04/30 05:42:21 player connected: 127.0.0.1:54674
+2026/04/30 05:42:21 player connected: 127.0.0.1:54675
+2026/04/30 05:42:21 received from 127.0.0.1:54675: JOIN A
+2026/04/30 05:42:21 player disconnected: 127.0.0.1:54674
+2026/04/30 05:42:21 player connected: 127.0.0.1:54676
+2026/04/30 05:42:21 received from 127.0.0.1:54676: JOIN B
+2026/04/30 05:42:21 player connected: 127.0.0.1:54677
+2026/04/30 05:42:21 received from 127.0.0.1:54677: JOIN C
+2026/04/30 05:42:23 connection error from 127.0.0.1:54677: read tcp 127.0.0.1:54672->127.0.0.1:54677: read: connection reset by peer
+2026/04/30 05:42:23 connection error from 127.0.0.1:54675: read tcp 127.0.0.1:54672->127.0.0.1:54675: read: connection reset by peer
+2026/04/30 05:42:23 connection error from 127.0.0.1:54676: read tcp 127.0.0.1:54672->127.0.0.1:54676: read: connection reset by peer
+2026/04/30 05:42:23 server stopped
+--- FAIL: TestWaitingPhase_StartWithFewerThan4 (2.04s)
+    judge_test.go:400: timed out waiting for "C joined [3/4]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: c560d3c5d14b8a7621bc96f6ca1889d81486fcb11f87d4d7254b8edab13ee24c
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:23 player disconnected: 127.0.0.1:54675
+2026/04/30 05:42:23 player disconnected: 127.0.0.1:54676
+2026/04/30 05:42:23 player disconnected: 127.0.0.1:54677
+2026/04/30 05:42:23 server listening on :54678
+2026/04/30 05:42:23 player connected: 127.0.0.1:54680
+2026/04/30 05:42:23 player disconnected: 127.0.0.1:54680
+2026/04/30 05:42:23 player connected: 127.0.0.1:54681
+2026/04/30 05:42:23 received from 127.0.0.1:54681: JOIN A
+2026/04/30 05:42:23 player connected: 127.0.0.1:54682
+2026/04/30 05:42:23 received from 127.0.0.1:54682: JOIN B
+2026/04/30 05:42:23 player connected: 127.0.0.1:54683
+2026/04/30 05:42:23 received from 127.0.0.1:54683: JOIN C
+2026/04/30 05:42:23 player connected: 127.0.0.1:54684
+2026/04/30 05:42:23 received from 127.0.0.1:54684: JOIN D
+2026/04/30 05:42:25 connection error from 127.0.0.1:54684: read tcp 127.0.0.1:54678->127.0.0.1:54684: read: connection reset by peer
+2026/04/30 05:42:25 player disconnected: 127.0.0.1:54684
+2026/04/30 05:42:25 connection error from 127.0.0.1:54682: read tcp 127.0.0.1:54678->127.0.0.1:54682: read: connection reset by peer
+2026/04/30 05:42:25 player disconnected: 127.0.0.1:54682
+2026/04/30 05:42:25 connection error from 127.0.0.1:54683: read tcp 127.0.0.1:54678->127.0.0.1:54683: read: connection reset by peer
+2026/04/30 05:42:25 player disconnected: 127.0.0.1:54683
+2026/04/30 05:42:25 connection error from 127.0.0.1:54681: read tcp 127.0.0.1:54678->127.0.0.1:54681: read: connection reset by peer
+2026/04/30 05:42:25 player disconnected: 127.0.0.1:54681
+2026/04/30 05:42:25 server stopped
+--- FAIL: TestWaitingPhase_StartWithConfirmation (2.03s)
+    judge_test.go:422: timed out waiting for "D joined [4/6]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: b0d04cd7708f9132c4c1a4080983960a3cca42efa4554087f6e27c121954494f
+        [INFO] [session:0000] 房间已创建，等待 6 名玩家加入...
+2026/04/30 05:42:25 server listening on :54687
+2026/04/30 05:42:25 player connected: 127.0.0.1:54689
+2026/04/30 05:42:25 player disconnected: 127.0.0.1:54689
+2026/04/30 05:42:25 player connected: 127.0.0.1:54690
+2026/04/30 05:42:25 received from 127.0.0.1:54690: JOIN A
+2026/04/30 05:42:25 player connected: 127.0.0.1:54691
+2026/04/30 05:42:25 received from 127.0.0.1:54691: JOIN B
+2026/04/30 05:42:25 player connected: 127.0.0.1:54692
+2026/04/30 05:42:25 received from 127.0.0.1:54692: JOIN C
+2026/04/30 05:42:25 player connected: 127.0.0.1:54693
+2026/04/30 05:42:25 received from 127.0.0.1:54693: JOIN D
+2026/04/30 05:42:27 connection error from 127.0.0.1:54693: read tcp 127.0.0.1:54687->127.0.0.1:54693: read: connection reset by peer
+2026/04/30 05:42:27 player disconnected: 127.0.0.1:54693
+2026/04/30 05:42:27 connection error from 127.0.0.1:54691: read tcp 127.0.0.1:54687->127.0.0.1:54691: read: connection reset by peer
+2026/04/30 05:42:27 connection error from 127.0.0.1:54690: read tcp 127.0.0.1:54687->127.0.0.1:54690: read: connection reset by peer
+2026/04/30 05:42:27 connection error from 127.0.0.1:54692: read tcp 127.0.0.1:54687->127.0.0.1:54692: read: connection reset by peer
+2026/04/30 05:42:27 server stopped
+2026/04/30 05:42:27 player disconnected: 127.0.0.1:54691
+2026/04/30 05:42:27 player disconnected: 127.0.0.1:54690
+2026/04/30 05:42:27 player disconnected: 127.0.0.1:54692
+--- FAIL: TestWaitingPhase_StartConfirmed (2.03s)
+    judge_test.go:447: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 51ee9f635fa8d846eaa7aaf44626d53e37839f9fcdb9872a03c8e99b7ba4a890
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:27 server listening on :54698
+2026/04/30 05:42:27 player connected: 127.0.0.1:54700
+2026/04/30 05:42:27 player connected: 127.0.0.1:54701
+2026/04/30 05:42:27 player disconnected: 127.0.0.1:54700
+2026/04/30 05:42:27 received from 127.0.0.1:54701: JOIN A
+2026/04/30 05:42:27 player connected: 127.0.0.1:54702
+2026/04/30 05:42:27 received from 127.0.0.1:54702: JOIN B
+2026/04/30 05:42:27 player connected: 127.0.0.1:54703
+2026/04/30 05:42:27 received from 127.0.0.1:54703: JOIN C
+2026/04/30 05:42:27 player connected: 127.0.0.1:54704
+2026/04/30 05:42:27 received from 127.0.0.1:54704: JOIN D
+2026/04/30 05:42:27 player connected: 127.0.0.1:54705
+2026/04/30 05:42:27 received from 127.0.0.1:54705: JOIN E
+2026/04/30 05:42:29 connection error from 127.0.0.1:54705: read tcp 127.0.0.1:54698->127.0.0.1:54705: read: connection reset by peer
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54705
+2026/04/30 05:42:29 connection error from 127.0.0.1:54701: read tcp 127.0.0.1:54698->127.0.0.1:54701: read: connection reset by peer
+2026/04/30 05:42:29 connection error from 127.0.0.1:54702: read tcp 127.0.0.1:54698->127.0.0.1:54702: read: connection reset by peer
+2026/04/30 05:42:29 connection error from 127.0.0.1:54703: read tcp 127.0.0.1:54698->127.0.0.1:54703: read: connection reset by peer
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54701
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54702
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54703
+2026/04/30 05:42:29 connection error from 127.0.0.1:54704: read tcp 127.0.0.1:54698->127.0.0.1:54704: read: connection reset by peer
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54704
+2026/04/30 05:42:29 server stopped
+--- FAIL: TestWaitingPhase_WithBlankPlayer (2.04s)
+    judge_test.go:569: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 652ebb2acbe1bb197247387543db19fc5dcfaa43e42c8e8c2cff6e40338696b2
+        [INFO] [session:0000] 房间已创建，等待 5 名玩家加入...
+2026/04/30 05:42:29 server listening on :54710
+2026/04/30 05:42:29 player connected: 127.0.0.1:54712
+2026/04/30 05:42:29 player disconnected: 127.0.0.1:54712
+2026/04/30 05:42:29 player connected: 127.0.0.1:54713
+2026/04/30 05:42:29 received from 127.0.0.1:54713: JOIN A
+2026/04/30 05:42:29 player connected: 127.0.0.1:54714
+2026/04/30 05:42:29 received from 127.0.0.1:54714: JOIN B
+2026/04/30 05:42:29 player connected: 127.0.0.1:54715
+2026/04/30 05:42:29 received from 127.0.0.1:54715: JOIN C
+2026/04/30 05:42:29 player connected: 127.0.0.1:54716
+2026/04/30 05:42:29 received from 127.0.0.1:54716: JOIN D
+2026/04/30 05:42:31 connection error from 127.0.0.1:54716: read tcp 127.0.0.1:54710->127.0.0.1:54716: read: connection reset by peer
+2026/04/30 05:42:31 player disconnected: 127.0.0.1:54716
+2026/04/30 05:42:31 connection error from 127.0.0.1:54713: read tcp 127.0.0.1:54710->127.0.0.1:54713: read: connection reset by peer
+2026/04/30 05:42:31 connection error from 127.0.0.1:54714: read tcp 127.0.0.1:54710->127.0.0.1:54714: read: connection reset by peer
+2026/04/30 05:42:31 connection error from 127.0.0.1:54715: read tcp 127.0.0.1:54710->127.0.0.1:54715: read: connection reset by peer
+2026/04/30 05:42:31 server stopped
+--- FAIL: TestWaitingPhase_SameWordRetry (2.03s)
+    judge_test.go:674: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: dd3770351aab300419bea425cad2f1847227c27e08c09b5505c5c8d912b587bf
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:31 player disconnected: 127.0.0.1:54713
+2026/04/30 05:42:31 player disconnected: 127.0.0.1:54714
+2026/04/30 05:42:31 player disconnected: 127.0.0.1:54715
+2026/04/30 05:42:31 server listening on :54717
+2026/04/30 05:42:31 player connected: 127.0.0.1:54719
+2026/04/30 05:42:31 player disconnected: 127.0.0.1:54719
+2026/04/30 05:42:31 player connected: 127.0.0.1:54720
+2026/04/30 05:42:31 received from 127.0.0.1:54720: JOIN Alice
+2026/04/30 05:42:31 player connected: 127.0.0.1:54721
+2026/04/30 05:42:31 received from 127.0.0.1:54721: JOIN Bob
+2026/04/30 05:42:31 player connected: 127.0.0.1:54722
+2026/04/30 05:42:31 received from 127.0.0.1:54722: JOIN Carol
+2026/04/30 05:42:31 player connected: 127.0.0.1:54723
+2026/04/30 05:42:31 received from 127.0.0.1:54723: JOIN Dave
+2026/04/30 05:42:31 player connected: 127.0.0.1:54724
+2026/04/30 05:42:31 received from 127.0.0.1:54724: JOIN Eve
+2026/04/30 05:42:31 player connected: 127.0.0.1:54725
+2026/04/30 05:42:31 received from 127.0.0.1:54725: JOIN Frank
+2026/04/30 05:42:33 connection error from 127.0.0.1:54725: read tcp 127.0.0.1:54717->127.0.0.1:54725: read: connection reset by peer
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54725
+2026/04/30 05:42:33 connection error from 127.0.0.1:54722: read tcp 127.0.0.1:54717->127.0.0.1:54722: read: connection reset by peer
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54722
+2026/04/30 05:42:33 connection error from 127.0.0.1:54724: read tcp 127.0.0.1:54717->127.0.0.1:54724: read: connection reset by peer
+2026/04/30 05:42:33 connection error from 127.0.0.1:54723: read tcp 127.0.0.1:54717->127.0.0.1:54723: read: connection reset by peer
+2026/04/30 05:42:33 connection error from 127.0.0.1:54720: read tcp 127.0.0.1:54717->127.0.0.1:54720: read: connection reset by peer
+2026/04/30 05:42:33 connection error from 127.0.0.1:54721: read tcp 127.0.0.1:54717->127.0.0.1:54721: read: connection reset by peer
+2026/04/30 05:42:33 server stopped
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54724
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54723
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54720
+--- FAIL: TestWaitingPhase_EndToEnd (2.03s)
+    judge_test.go:798: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 3d22832606ceb2f56774dab191b482c6198665d1fc33f1f6e8850ed9a2da26c4
+        [INFO] [session:0000] 房间已创建，等待 6 名玩家加入...
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54721
+2026/04/30 05:42:33 server listening on :54726
+2026/04/30 05:42:33 player connected: 127.0.0.1:54728
+2026/04/30 05:42:33 player disconnected: 127.0.0.1:54728
+2026/04/30 05:42:33 player connected: 127.0.0.1:54729
+2026/04/30 05:42:33 received from 127.0.0.1:54729: JOIN A
+2026/04/30 05:42:33 player connected: 127.0.0.1:54730
+2026/04/30 05:42:33 received from 127.0.0.1:54730: JOIN B
+2026/04/30 05:42:33 player connected: 127.0.0.1:54731
+2026/04/30 05:42:33 received from 127.0.0.1:54731: JOIN C
+2026/04/30 05:42:33 player connected: 127.0.0.1:54732
+2026/04/30 05:42:33 received from 127.0.0.1:54732: JOIN D
+2026/04/30 05:42:33 player connected: 127.0.0.1:54733
+2026/04/30 05:42:33 received from 127.0.0.1:54733: JOIN E
+2026/04/30 05:42:35 connection error from 127.0.0.1:54733: read tcp 127.0.0.1:54726->127.0.0.1:54733: read: connection reset by peer
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54733
+2026/04/30 05:42:35 connection error from 127.0.0.1:54731: read tcp 127.0.0.1:54726->127.0.0.1:54731: read: connection reset by peer
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54731
+2026/04/30 05:42:35 connection error from 127.0.0.1:54732: read tcp 127.0.0.1:54726->127.0.0.1:54732: read: connection reset by peer
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54732
+2026/04/30 05:42:35 connection error from 127.0.0.1:54729: read tcp 127.0.0.1:54726->127.0.0.1:54729: read: connection reset by peer
+2026/04/30 05:42:35 connection error from 127.0.0.1:54730: read tcp 127.0.0.1:54726->127.0.0.1:54730: read: connection reset by peer
+2026/04/30 05:42:35 server stopped
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54729
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54730
+--- FAIL: TestWaitingPhase_StartWithPartialConfirmation (2.03s)
+    judge_test.go:919: timed out waiting for "E joined [5/6]" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: f921a0ad468afcc853dcdfc2dbf16008db97a4b224bdad5149e418e98a10e9d6
+        [INFO] [session:0000] 房间已创建，等待 6 名玩家加入...
+2026/04/30 05:42:35 server listening on :54736
+2026/04/30 05:42:35 player connected: 127.0.0.1:54738
+2026/04/30 05:42:35 player disconnected: 127.0.0.1:54738
+2026/04/30 05:42:35 player connected: 127.0.0.1:54739
+2026/04/30 05:42:35 received from 127.0.0.1:54739: JOIN P0
+2026/04/30 05:42:35 player connected: 127.0.0.1:54740
+2026/04/30 05:42:35 received from 127.0.0.1:54740: JOIN P1
+2026/04/30 05:42:35 player connected: 127.0.0.1:54741
+2026/04/30 05:42:35 received from 127.0.0.1:54741: JOIN P2
+2026/04/30 05:42:35 player connected: 127.0.0.1:54742
+2026/04/30 05:42:35 received from 127.0.0.1:54742: JOIN P3
+--- FAIL: TestDescriptionPhase_NormalFlow (2.03s)
+    judge_test.go:1240: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 068b7e224c836a7193ca23ebd126dfc25b628e334ebbc2d532449f0b76ad2e57
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:37 server listening on :54743
+2026/04/30 05:42:37 player connected: 127.0.0.1:54745
+2026/04/30 05:42:37 player disconnected: 127.0.0.1:54745
+2026/04/30 05:42:37 player connected: 127.0.0.1:54746
+2026/04/30 05:42:37 received from 127.0.0.1:54746: JOIN P0
+2026/04/30 05:42:37 player connected: 127.0.0.1:54747
+2026/04/30 05:42:37 received from 127.0.0.1:54747: JOIN P1
+2026/04/30 05:42:37 player connected: 127.0.0.1:54748
+2026/04/30 05:42:37 received from 127.0.0.1:54748: JOIN P2
+2026/04/30 05:42:37 player connected: 127.0.0.1:54749
+2026/04/30 05:42:37 received from 127.0.0.1:54749: JOIN P3
+--- FAIL: TestDescriptionPhase_EmptyDescRejected (2.03s)
+    judge_test.go:1305: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: d4c0b554a2b87600edea73a412c08d97b5493f5d06892bd2c3938a3d52951b0b
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:39 server listening on :54754
+2026/04/30 05:42:39 player connected: 127.0.0.1:54756
+2026/04/30 05:42:39 player disconnected: 127.0.0.1:54756
+2026/04/30 05:42:39 player connected: 127.0.0.1:54757
+2026/04/30 05:42:39 received from 127.0.0.1:54757: JOIN P0
+2026/04/30 05:42:39 player connected: 127.0.0.1:54758
+2026/04/30 05:42:39 received from 127.0.0.1:54758: JOIN P1
+2026/04/30 05:42:39 player connected: 127.0.0.1:54759
+2026/04/30 05:42:39 received from 127.0.0.1:54759: JOIN P2
+2026/04/30 05:42:39 player connected: 127.0.0.1:54760
+2026/04/30 05:42:39 received from 127.0.0.1:54760: JOIN P3
+--- FAIL: TestDescriptionPhase_NotYourTurn (2.05s)
+    judge_test.go:1354: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 5982af190f8fc295d0342633059572dba60dc65ddf871850135149f319778be4
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:42 server listening on :54761
+2026/04/30 05:42:42 player connected: 127.0.0.1:54763
+2026/04/30 05:42:42 player disconnected: 127.0.0.1:54763
+2026/04/30 05:42:42 player connected: 127.0.0.1:54764
+2026/04/30 05:42:42 received from 127.0.0.1:54764: JOIN P0
+2026/04/30 05:42:42 player connected: 127.0.0.1:54765
+2026/04/30 05:42:42 received from 127.0.0.1:54765: JOIN P1
+2026/04/30 05:42:42 player connected: 127.0.0.1:54766
+2026/04/30 05:42:42 received from 127.0.0.1:54766: JOIN P2
+2026/04/30 05:42:42 player connected: 127.0.0.1:54767
+2026/04/30 05:42:42 received from 127.0.0.1:54767: JOIN P3
+--- FAIL: TestVotingPhase_NormalFlow (2.05s)
+    judge_test.go:1434: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 82485df5b8f8dd260aae8120f468f9cc74ee6a71d8b5a3ef1f715aa175546b3e
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:44 server listening on :54768
+2026/04/30 05:42:44 player connected: 127.0.0.1:54771
+2026/04/30 05:42:44 player connected: 127.0.0.1:54770
+2026/04/30 05:42:44 player disconnected: 127.0.0.1:54770
+2026/04/30 05:42:44 received from 127.0.0.1:54771: JOIN P0
+2026/04/30 05:42:44 player connected: 127.0.0.1:54772
+2026/04/30 05:42:44 received from 127.0.0.1:54772: JOIN P1
+2026/04/30 05:42:44 player connected: 127.0.0.1:54773
+2026/04/30 05:42:44 received from 127.0.0.1:54773: JOIN P2
+2026/04/30 05:42:44 player connected: 127.0.0.1:54774
+2026/04/30 05:42:44 received from 127.0.0.1:54774: JOIN P3
+--- FAIL: TestVotingPhase_ValidationRejectsInvalidVote (2.04s)
+    judge_test.go:1505: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: 3a3ec6472796762b2eae6bfedf4f417db9aeef7783c0ae7d6597867a3122d0b1
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:46 server listening on :54779
+2026/04/30 05:42:46 player connected: 127.0.0.1:54781
+2026/04/30 05:42:46 player disconnected: 127.0.0.1:54781
+2026/04/30 05:42:46 player connected: 127.0.0.1:54782
+2026/04/30 05:42:46 received from 127.0.0.1:54782: JOIN P0
+2026/04/30 05:42:46 player connected: 127.0.0.1:54783
+2026/04/30 05:42:46 player connected: 127.0.0.1:54784
+2026/04/30 05:42:46 received from 127.0.0.1:54784: JOIN P2
+2026/04/30 05:42:46 received from 127.0.0.1:54783: JOIN P1
+2026/04/30 05:42:46 player connected: 127.0.0.1:54785
+2026/04/30 05:42:46 received from 127.0.0.1:54785: JOIN P3
+--- FAIL: TestVotingPhase_NotYourTurn (2.04s)
+    judge_test.go:1557: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: d55563c9f322a74cfec6dd5c9eb721df9b7f55636795ebabdd546e4bab87abf5
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:48 server listening on :54791
+2026/04/30 05:42:48 player connected: 127.0.0.1:54793
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54793
+2026/04/30 05:42:48 player connected: 127.0.0.1:54794
+2026/04/30 05:42:48 received from 127.0.0.1:54794: JOIN P0
+2026/04/30 05:42:48 player connected: 127.0.0.1:54795
+2026/04/30 05:42:48 received from 127.0.0.1:54795: JOIN P1
+2026/04/30 05:42:48 player connected: 127.0.0.1:54796
+2026/04/30 05:42:48 received from 127.0.0.1:54796: JOIN P2
+2026/04/30 05:42:48 player connected: 127.0.0.1:54797
+2026/04/30 05:42:48 received from 127.0.0.1:54797: JOIN P3
+2026/04/30 05:42:48 connection error from 127.0.0.1:54774: read tcp 127.0.0.1:54768->127.0.0.1:54774: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54774
+2026/04/30 05:42:48 connection error from 127.0.0.1:54785: read tcp 127.0.0.1:54779->127.0.0.1:54785: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54785
+2026/04/30 05:42:48 connection error from 127.0.0.1:54784: read tcp 127.0.0.1:54779->127.0.0.1:54784: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54784
+2026/04/30 05:42:48 connection error from 127.0.0.1:54740: read tcp 127.0.0.1:54736->127.0.0.1:54740: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54740
+2026/04/30 05:42:48 connection error from 127.0.0.1:54747: read tcp 127.0.0.1:54743->127.0.0.1:54747: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54747
+2026/04/30 05:42:48 connection error from 127.0.0.1:54749: read tcp 127.0.0.1:54743->127.0.0.1:54749: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54749
+2026/04/30 05:42:48 connection error from 127.0.0.1:54742: read tcp 127.0.0.1:54736->127.0.0.1:54742: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54742
+2026/04/30 05:42:48 connection error from 127.0.0.1:54783: read tcp 127.0.0.1:54779->127.0.0.1:54783: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54783
+2026/04/30 05:42:48 connection error from 127.0.0.1:54741: read tcp 127.0.0.1:54736->127.0.0.1:54741: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54748: read tcp 127.0.0.1:54743->127.0.0.1:54748: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54739: read tcp 127.0.0.1:54736->127.0.0.1:54739: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54748
+2026/04/30 05:42:48 connection error from 127.0.0.1:54758: read tcp 127.0.0.1:54754->127.0.0.1:54758: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54739
+2026/04/30 05:42:48 connection error from 127.0.0.1:54760: read tcp 127.0.0.1:54754->127.0.0.1:54760: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54758
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54760
+2026/04/30 05:42:48 connection error from 127.0.0.1:54746: read tcp 127.0.0.1:54743->127.0.0.1:54746: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54757: read tcp 127.0.0.1:54754->127.0.0.1:54757: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54782: read tcp 127.0.0.1:54779->127.0.0.1:54782: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54757
+2026/04/30 05:42:48 connection error from 127.0.0.1:54765: read tcp 127.0.0.1:54761->127.0.0.1:54765: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54764: read tcp 127.0.0.1:54761->127.0.0.1:54764: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54782
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54765
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54764
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54741
+2026/04/30 05:42:48 connection error from 127.0.0.1:54772: read tcp 127.0.0.1:54768->127.0.0.1:54772: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54766: read tcp 127.0.0.1:54761->127.0.0.1:54766: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54773: read tcp 127.0.0.1:54768->127.0.0.1:54773: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54772
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54766
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54773
+2026/04/30 05:42:48 connection error from 127.0.0.1:54767: read tcp 127.0.0.1:54761->127.0.0.1:54767: read: connection reset by peer
+2026/04/30 05:42:48 connection error from 127.0.0.1:54771: read tcp 127.0.0.1:54768->127.0.0.1:54771: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54767
+2026/04/30 05:42:48 connection error from 127.0.0.1:54759: read tcp 127.0.0.1:54754->127.0.0.1:54759: read: connection reset by peer
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54771
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54759
+2026/04/30 05:42:48 player disconnected: 127.0.0.1:54746
+--- FAIL: TestVotingPhase_ResultBroadcastAndElimination (2.04s)
+    judge_test.go:1590: timed out waiting for "人已齐，输入 start 开始游戏" in output: [sysmon] v2.4.1 — diagnostics mode
+        [INFO] [session:0000] 输入游戏参数
+          玩家人数 (4-10):   卧底人数 (1-3):   白板人数 (0+): [INFO] [session:0000] 房间连接密码: da4aef45d7fbf0d4ccfc6765b15b5ce2910a5f87d6e77f7a8c8b115c655e6630
+        [INFO] [session:0000] 房间已创建，等待 4 名玩家加入...
+2026/04/30 05:42:50 server listening on :8127
+2026/04/30 05:42:50 server stopped
+2026/04/30 05:42:50 server listening on :9000
+2026/04/30 05:42:50 server stopped
+2026/04/30 05:42:50 server listening on :8127
+2026/04/30 05:42:50 server stopped
+FAIL
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	34.837s
+ok  	github.com/smallnest/doubletake/game	1.596s
+ok  	github.com/smallnest/doubletake/server	2.335s
+FAIL
+[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go
+The judge integration tests fail because they send `JOIN|Alice` directly, but now the server has a room hash set and requires `JOIN|hash|Alice`. Let me look at the judge test code to understand the test setup.
+[0m
+[0m# [0mTodos
+[x] Read all relevant source files to understand current state
+[x] Build and run tests to verify current implementation
+[ ] Fix judge tests to extract room hash and include in JOIN messages
+[ ] Add extractRoomHash helper and waitForHash polling in test setup
+[ ] Run all tests to verify fixes
+[ ] Update CLAUDE.md files with new learnings
+[0m
+I see the root cause: the judge integration tests send `JOIN|name` without a hash, but the server now has `roomHash` set and requires `JOIN|hash|name`. I need to fix all judge tests to extract the hash from the judge output and include it in JOIN messages.
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -1013,23 +1013,24 @@
+ func newDisplay(out *bytes.Buffer) *client.Display {
+ 	return client.NewDisplay(out, false)
+ }
+ 
+-// startJudgeForTest runs RunJudge in a goroutine and returns a buffered output, the server port, and a cleanup function.
+-func startJudgeForTest(t *testing.T, configInput string) (*safeBuffer, string, func()) {
++// startJudgeForTest runs RunJudge in a goroutine and returns a buffered output, the server port, the room hash, and a cleanup function.
++func startJudgeForTest(t *testing.T, configInput string) (*safeBuffer, string, string, func()) {
+ 	t.Helper()
+-	return startJudgeForTestWithStdinRaw(t, configInput)
++	out, port, hash, cleanup := startJudgeForTestWithStdinRaw(t, configInput)
++	return out, port, hash, cleanup
+ }
+ 
+ // startJudgeForTestWithStdin runs RunJudge and also returns a channel to inject stdin lines.
+-func startJudgeForTestWithStdin(t *testing.T, configInput string) (*safeBuffer, string, chan string, func()) {
++func startJudgeForTestWithStdin(t *testing.T, configInput string) (*safeBuffer, string, string, chan string, func()) {
+ 	t.Helper()
+ 	stdinCh := make(chan string, 16)
+-	out, port, cleanup := startJudgeForTestWithStdinRaw(t, configInput, stdinCh)
+-	return out, port, stdinCh, cleanup
++	out, port, hash, cleanup := startJudgeForTestWithStdinRaw(t, configInput, stdinCh)
++	return out, port, hash, stdinCh, cleanup
+ }
+ 
+-func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines ...chan string) (*safeBuffer, string, func()) {
++func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines ...chan string) (*safeBuffer, string, string, func()) {
+ 	t.Helper()
+ 
+ 	// Find a free port
+ 	ln, err := net.Listen("tcp", "127.0.0.1:0")
+@@ -1070,8 +1071,11 @@
+ 		}
+ 		time.Sleep(20 * time.Millisecond)
+ 	}
+ 
++	// Wait for room hash to appear in output
++	hash := waitForRoomHash(t, out, 2*time.Second)
++
+ 	cleanup := func() {
+ 		// Close extraLines channel so the stdin goroutine in RunJudge can detect EOF
+ 		for _, ch := range extraLines {
+ 			close(ch)
+@@ -1083,11 +1087,32 @@
+ 		case <-time.After(2 * time.Second):
+ 		}
+ 	}
+ 
+-	return out, port, cleanup
++	return out, port, hash, cleanup
+ }
+ 
++// waitForRoomHash polls the output buffer until the room hash appears or timeout.
++// Returns the 64-character hex hash string.
++func waitForRoomHash(t *testing.T, out *safeBuffer, timeout time.Duration) string {
++	t.Helper()
++	deadline := time.Now().Add(timeout)
++	prefix := "房间连接密码: "
++	for time.Now().Before(deadline) {
++		s := out.String()
++		idx := strings.Index(s, prefix)
++		if idx >= 0 {
++			hashStart := idx + len([]rune(prefix))
++			if hashStart+64 <= len(s) {
++				return s[hashStart : hashStart+64]
++			}
++		}
++		time.Sleep(20 * time.Millisecond)
++	}
++	t.Fatalf("timed out waiting for room hash in output: %s", out.String())
++	return ""
++}
++
+ // safeBuffer is a thread-safe bytes.Buffer for concurrent read/write in tests.
+ type safeBuffer struct {
+ 	mu  sync.Mutex
+ 	buf bytes.Buffer
+
+[0m
+First, let me add the `extractRoomHash` helper and modify the test setup to extract and return the hash:
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -346,9 +346,9 @@
+ 
+ // --- Waiting phase integration tests ---
+ 
+ func TestWaitingPhase_PlayerJoinNotification(t *testing.T) {
+-	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
++	out, port, hash, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+ 	defer cleanup()
+ 
+ 	// Connect a player
+ 	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+@@ -356,9 +356,9 @@
+ 		t.Fatalf("failed to connect: %v", err)
+ 	}
+ 	defer conn.Close()
+ 
+-	fmt.Fprintf(conn, "JOIN|Alice\n")
++	fmt.Fprintf(conn, "JOIN|%s|Alice\n", hash)
+ 
+ 	// Wait for the join notification to appear in output
+ 	waitForOutput(t, out, "Alice joined [1/4]", 2*time.Second)
+ }
+
+[0m
+Now let me update all the callers. First, update the tests using `startJudgeForTest` (no stdin):
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -363,9 +363,9 @@
+ 	waitForOutput(t, out, "Alice joined [1/4]", 2*time.Second)
+ }
+ 
+ func TestWaitingPhase_AllPlayersJoined(t *testing.T) {
+-	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
++	out, port, hash, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+ 	defer cleanup()
+ 
+ 	names := []string{"Alice", "Bob", "Charlie", "Dave"}
+ 	conns := make([]net.Conn, len(names))
+@@ -375,9 +375,9 @@
+ 			t.Fatalf("failed to connect %s: %v", name, err)
+ 		}
+ 		conns[i] = conn
+ 		defer conn.Close()
+-		fmt.Fprintf(conn, "JOIN|%s\n", name)
++		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
+ 	}
+ 
+ 	// Should see "人已齐" message
+ 	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 3*time.Second)
+
+[0m
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -383,9 +383,9 @@
+ 	waitForOutput(t, out, "人已齐，输入 start 开始游戏", 3*time.Second)
+ }
+ 
+ func TestWaitingPhase_StartWithFewerThan4(t *testing.T) {
+-	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
++	out, port, hash, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+ 	defer cleanup()
+ 
+ 	// Connect only 3 players
+ 	for _, name := range []string{"A", "B", "C"} {
+@@ -393,9 +393,9 @@
+ 		if err != nil {
+ 			t.Fatalf("failed to connect %s: %v", name, err)
+ 		}
+ 		defer conn.Close()
+-		fmt.Fprintf(conn, "JOIN|%s\n", name)
++		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
+ 	}
+ 
+ 	waitForOutput(t, out, "C joined [3/4]", 2*time.Second)
+ 
+
+[0m
+[0m← [0mEdit cmd/doubletake/judge_test.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+@@ -405,9 +405,9 @@
+ 	waitForOutput(t, out, "至少需要 4 人，当前 3 人", 2*time.Second)
+ }
+ 
+ func TestWaitingPhase_StartWithConfirmation(t *testing.T) {
+-	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
++	out, port, hash, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
+ 	defer cleanup()
+ 
+ 	// Connect 4 players (less than 6)
+ 	for _, name := range []string{"A", "B", "C", "D"} {
+@@ -415,9 +415,9 @@
+ 		if err != nil {
+ 			t.Fatalf("failed to connect %s: %v", name, err)
+ 		}
+ 		defer conn.Close()
+-		fmt.Fprintf(conn, "JOIN|%s\n", name)
++		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
+ 	}
+ 
+ 	waitForOutput(t, out, "D joined [4/6]", 2*time.Second)
+ 
+
+[0m
+[91m[1mError: [0mError from provider (DeepSeek): The `reasoning_content` in the thinking mode must be passed back to the API.

@@ -52,3 +52,10 @@
 - `VoteEvent` 结构体包含 `PlayerName` 和 `Target` 字段
 - server 层不做投票内容校验（空目标、非当前投票者、投自己等），这些由 judge 端通过 `VoteRound.RecordVote` 处理
 - VOTE 与 DESC 遵循完全对称的模式：Event 结构体 → OnXxxMsg channel → handleConn switch case → handleXxx 方法
+
+## 房间哈希（Room Hash）
+- `Server` 结构体包含 `roomHash string` 字段，用于存储房间连接密码的 SHA256 哈希
+- `SetRoomHash(hash string)` 设置房间哈希，由 judge 创建房间后调用
+- `VerifyRoomHash(hash string) bool` 验证哈希匹配；空哈希（未设置）始终返回 false
+- 两个方法均通过 `s.mu` (`sync.Mutex`) 保证并发安全
+- 哈希由 `game.GenerateRoomHash(ip, port string)` 生成，其内部使用 `crypto/rand` + `crypto/sha256`

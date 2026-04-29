@@ -1,0 +1,36 @@
+Implementation complete. Here's a summary of what was done:
+
+## Summary
+
+### Changes made to `server/server.go`:
+
+1. **Added `QuitEvent` struct** (line 56-58) — carries `PlayerName` for quit notifications
+2. **Added `OnQuitMsg` channel** to `Server` struct (line 34) — notifies judge when a player quits
+3. **Initialized `OnQuitMsg`** in `NewServer` (line 72) — buffered channel, size 64
+4. **Added `MsgQuit` case** in `handleConn` switch (line 162-164) — routes to `handleQuit` and returns to exit read loop
+5. **Added `handleQuit` method** (line 333-361):
+   - Unnamed players: silently return (deferred `unregister` handles cleanup)
+   - Named players: broadcast `QUIT|playerName` to other named players, send `QuitEvent` to `OnQuitMsg`, then return (deferred `unregister` removes from `names` map and closes connection)
+
+### Tests added to `server/server_test.go`:
+
+- `TestQuit_NamedPlayerBroadcast` — verifies QUIT is broadcast to other players
+- `TestQuit_OnQuitMsgEvent` — verifies `OnQuitMsg` channel receives the event
+- `TestQuit_PlayerRemovedFromNames` — verifies player is removed from names map
+- `TestQuit_ConnectionClosed` — verifies connection is closed after QUIT
+- `TestQuit_UnnamedPlayer` — verifies unnamed player QUIT doesn't broadcast or fire event
+
+### Verification:
+- `go build ./...` — pass
+- `go vet ./...` — pass
+- `go test ./...` — all tests pass (server, client, game, cmd/doubletake)
+
+### Updated:
+- `server/CLAUDE.md` — added QUIT message handling documentation
+- `.autoresearch/workflows/issue-18/progress.md` — added codebase patterns and learnings
+
+## Learnings
+
+- **Pattern**: The server uses a consistent event channel pattern: `XxxEvent` struct + `OnXxxMsg` buffered channel (64) + non-blocking send with `select default` fallback
+- **Key difference**: Unlike other message handlers (DESC, VOTE), QUIT needs to `return` from `handleConn` after handling, so the deferred `unregister` can clean up the connection
+- **Test tip**: When appending tests to an existing file, `cat >>` via Bash avoids Edit tool string matching issues with trailing whitespace

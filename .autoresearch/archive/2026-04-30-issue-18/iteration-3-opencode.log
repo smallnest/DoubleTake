@@ -1,0 +1,394 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead server/server.go
+[0m
+[0m$ [0mgo vet ./...
+(no output)
+[0m
+[0m$ [0mgo build ./...
+(no output)
+[0m
+Let me first verify the current state — run the build and tests to understand what's actually implemented.
+[0m$ [0mgo test ./cmd/doubletake/ -run "Quit" -v -count=1 2>&1
+=== RUN   TestRunPlayer_QuitDuringIdlePhase
+    player_test.go:731: test server on 127.0.0.1:64177, room code: deP6OODh
+--- PASS: TestRunPlayer_QuitDuringIdlePhase (0.00s)
+=== RUN   TestRunPlayer_QuitFromOtherPlayerNotification
+    player_test.go:774: test server on 127.0.0.1:64179, room code: deP6OODj
+--- PASS: TestRunPlayer_QuitFromOtherPlayerNotification (0.00s)
+=== RUN   TestRunPlayer_QuitDuringDescPhase
+    player_test.go:812: test server on 127.0.0.1:64181, room code: deP6OODl
+--- PASS: TestRunPlayer_QuitDuringDescPhase (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.824s
+[0m
+[0m$ [0mgo test ./... -count=1 2>&1
+ok  	github.com/smallnest/doubletake/client	0.428s
+
+
+<bash_metadata>
+bash tool terminated command after exceeding timeout 60000 ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.
+</bash_metadata>
+[0m
+[0m$ [0mgo test ./game/ ./client/ -count=1 -timeout=30s 2>&1
+ok  	github.com/smallnest/doubletake/game	0.557s
+ok  	github.com/smallnest/doubletake/client	0.988s
+[0m
+[0m$ [0mgo test ./server/ -count=1 -timeout=30s 2>&1
+ok  	github.com/smallnest/doubletake/server	3.147s
+[0m
+[0m$ [0mgo test ./cmd/doubletake/ -count=1 -timeout=30s -v 2>&1 | tail -60
+net.(*conn).Read(0x3abfa2224078, {0x3abfa225a008?, 0x2?, 0x3abfa20f6da8?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x3abfa20f6ec8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/server.(*Server).handleConn(0x3abfa224a090, {0x1051a41f0, 0x3abfa2224078})
+	/Users/smallnest/ai/DoubleTake/server/server.go:144 +0x118
+created by github.com/smallnest/doubletake/server.(*Server).Start in goroutine 153
+	/Users/smallnest/ai/DoubleTake/server/server.go:104 +0x240
+
+goroutine 160 [chan receive]:
+github.com/smallnest/doubletake/cmd/doubletake.descriptionPhase(0x3abfa20faee0, 0x3abfa1f44090, 0x1, {0x3abfa2220340?, 0x3abfa1f2a2a0?, 0x3abfa1f44090?})
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:310 +0x1a4
+github.com/smallnest/doubletake/cmd/doubletake.RunJudge({0x1051a2200, 0x3abfa2219080}, {0x12df40008, 0x3abfa221cd80}, {0x3abfa2206730, 0x5}, 0x0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go:199 +0x4fc
+github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw.func2()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1061 +0x5c
+created by github.com/smallnest/doubletake/cmd/doubletake.startJudgeForTestWithStdinRaw in goroutine 158
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go:1060 +0x218
+
+goroutine 225 [IO wait]:
+internal/poll.runtime_pollWait(0x12ddb0400, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x3abfa221d000?, 0x3abfa225b008?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x3abfa221d000, {0x3abfa225b008, 0xff8, 0xff8})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x3abfa221d000, {0x3abfa225b008?, 0x3abfa204fcf8?, 0x104face3c?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x3abfa2224098, {0x3abfa225b008?, 0x2?, 0x3abfa204fda8?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x3abfa204fec8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/server.(*Server).handleConn(0x3abfa1f44090, {0x1051a41f0, 0x3abfa2224098})
+	/Users/smallnest/ai/DoubleTake/server/server.go:144 +0x118
+created by github.com/smallnest/doubletake/server.(*Server).Start in goroutine 30
+	/Users/smallnest/ai/DoubleTake/server/server.go:104 +0x240
+
+goroutine 226 [IO wait]:
+internal/poll.runtime_pollWait(0x12ddb0200, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x3abfa221d080?, 0x3abfa225c008?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x3abfa221d080, {0x3abfa225c008, 0xff8, 0xff8})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x3abfa221d080, {0x3abfa225c008?, 0x3abfa1f58cf8?, 0x104face3c?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x3abfa22240a0, {0x3abfa225c008?, 0x2?, 0x3abfa1f58da8?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x3abfa1f58ec8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/server.(*Server).handleConn(0x3abfa1f44090, {0x1051a41f0, 0x3abfa22240a0})
+	/Users/smallnest/ai/DoubleTake/server/server.go:144 +0x118
+created by github.com/smallnest/doubletake/server.(*Server).Start in goroutine 30
+	/Users/smallnest/ai/DoubleTake/server/server.go:104 +0x240
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	30.469s
+FAIL
+[0m
+[0m$ [0mgo test ./cmd/doubletake/ -count=1 -timeout=15s -v -run "TestJudge" 2>&1 | tail -30
+testing: warning: no tests to run
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	0.474s [no tests to run]
+[0m
+[0m$ [0mgo test ./cmd/doubletake/ -count=1 -timeout=15s -v -run "TestRunPlayer" 2>&1
+=== RUN   TestRunPlayer_EmptyStdin
+--- PASS: TestRunPlayer_EmptyStdin (0.00s)
+=== RUN   TestRunPlayer_EmptyRoomCode
+--- PASS: TestRunPlayer_EmptyRoomCode (0.00s)
+=== RUN   TestRunPlayer_InvalidRoomCode
+--- PASS: TestRunPlayer_InvalidRoomCode (0.00s)
+=== RUN   TestRunPlayer_ConnectionRefused
+--- PASS: TestRunPlayer_ConnectionRefused (0.00s)
+=== RUN   TestRunPlayer_SuccessfulJoin
+    player_test.go:78: test server on 127.0.0.1:64740, room code: deP6OOMm
+--- PASS: TestRunPlayer_SuccessfulJoin (0.00s)
+=== RUN   TestRunPlayer_ServerErrorResponse
+    player_test.go:117: test server on 127.0.0.1:64742, room code: deP6OOMo
+--- PASS: TestRunPlayer_ServerErrorResponse (0.00s)
+=== RUN   TestRunPlayer_EmptyPlayerName
+    player_test.go:152: test server on 127.0.0.1:64744, room code: deP6OOMq
+--- PASS: TestRunPlayer_EmptyPlayerName (0.00s)
+=== RUN   TestRunPlayer_StealthMode
+    player_test.go:180: test server on 127.0.0.1:64746, room code: deP6OOMs
+--- PASS: TestRunPlayer_StealthMode (0.00s)
+=== RUN   TestRunPlayer_NonStealthMode
+    player_test.go:213: test server on 127.0.0.1:64748, room code: deP6OOMu
+--- PASS: TestRunPlayer_NonStealthMode (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Civilian
+    player_test.go:245: test server on 127.0.0.1:64750, room code: deP6OOMw
+--- PASS: TestRunPlayer_ReceivesRole_Civilian (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Undercover
+    player_test.go:284: test server on 127.0.0.1:64752, room code: deP6OOMy
+--- PASS: TestRunPlayer_ReceivesRole_Undercover (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Blank
+    player_test.go:320: test server on 127.0.0.1:64754, room code: deP6OON0
+--- PASS: TestRunPlayer_ReceivesRole_Blank (0.00s)
+=== RUN   TestRunPlayer_ReceivesRole_Stealth
+    player_test.go:356: test server on 127.0.0.1:64756, room code: deP6OON2
+--- PASS: TestRunPlayer_ReceivesRole_Stealth (0.00s)
+=== RUN   TestRunPlayer_ReceivesMultipleMessages
+    player_test.go:397: test server on 127.0.0.1:64758, room code: deP6OON4
+--- PASS: TestRunPlayer_ReceivesMultipleMessages (0.00s)
+=== RUN   TestRunPlayer_DescPhase_OtherPlayerTurn
+    player_test.go:444: test server on 127.0.0.1:64760, room code: deP6OON6
+panic: test timed out after 15s
+	running tests:
+		TestRunPlayer_DescPhase_OtherPlayerTurn (15s)
+
+goroutine 59 [running]:
+testing.(*M).startAlarm.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2802 +0x2c4
+created by time.goFunc
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/time/sleep.go:215 +0x38
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x235f76a6c008, {0x100d0cf10?, 0x235f76a65b18?}, 0x100ecc030)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x3bc
+testing.runTests.func1(0x235f76a6c008)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2585 +0x38
+testing.tRunner(0x235f76a6c008, 0x235f76a65c48)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+testing.runTests({0x100d099d3, 0x1f}, {0x100d0f04a, 0x2e}, 0x235f76a1e0d8, {0x100efa3a0, 0x50, 0x50}, {0x8080808080807150?, 0x100d0335e?, ...})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2583 +0x3f0
+testing.(*M).Run(0x235f76a12320)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
+main.main()
+	_testmain.go:204 +0x80
+
+goroutine 67 [select]:
+github.com/smallnest/doubletake/cmd/doubletake.RunPlayer({0x100ece1c0, 0x235f76a17440}, {0x100ece1e0, 0x235f76a24500}, 0xf0?)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go:100 +0x50c
+github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_DescPhase_OtherPlayerTurn(0x235f76a6cfc8)
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:480 +0x158
+testing.tRunner(0x235f76a6cfc8, 0x100ecc030)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+created by testing.(*T).Run in goroutine 1
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2101 +0x3a8
+
+goroutine 45 [IO wait]:
+internal/poll.runtime_pollWait(0x109cc4400, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x235f76a5e900?, 0x235f76b4d055?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x235f76a5e900, {0x235f76b4d055, 0xfab, 0xfab})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x235f76a5e900, {0x235f76b4d055?, 0x2?, 0x235f768fe060?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x235f76922030, {0x235f76b4d055?, 0x20?, 0x100e840a0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x235f76902708)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/client.(*Client).receiveLoop(0x235f76a17470)
+	/Users/smallnest/ai/DoubleTake/client/client.go:73 +0x90
+created by github.com/smallnest/doubletake/client.(*Client).Connect in goroutine 67
+	/Users/smallnest/ai/DoubleTake/client/client.go:35 +0x108
+
+goroutine 68 [IO wait]:
+internal/poll.runtime_pollWait(0x109cc4200, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x235f76a5e980?, 0x235f76a9700b?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x235f76a5e980, {0x235f76a9700b, 0xff5, 0xff5})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+net.(*netFD).Read(0x235f76a5e980, {0x235f76a9700b?, 0x0?, 0x100c26cd0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_posix.go:68 +0x28
+net.(*conn).Read(0x235f76a080b8, {0x235f76a9700b?, 0x235f76930600?, 0x100000076?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/net.go:196 +0x34
+bufio.(*Scanner).Scan(0x235f76a0def8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x3d8
+github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_DescPhase_OtherPlayerTurn.func1()
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:472 +0x3fc
+created by github.com/smallnest/doubletake/cmd/doubletake.TestRunPlayer_DescPhase_OtherPlayerTurn in goroutine 67
+	/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go:448 +0xc4
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	15.809s
+FAIL
+[0m
+[0m# [0mTodos
+[x] Analyze the root cause: TestRunPlayer_DescPhase_OtherPlayerTurn hangs because stdin goroutine pre-reads all input and idle phase silently drops non-quit lines
+[ ] Fix stdin goroutine: separate quit detection from input delivery using quitCh channel
+[ ] Fix idle phase select: watch quitCh instead of stdinCh to avoid consuming desc input
+[ ] Fix desc/vote phase select: add quitCh to the select as well
+[ ] Verify all tests pass
+[ ] Update CLAUDE.md with learnings
+[0m
+[0m← [0mEdit cmd/doubletake/player.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+@@ -84,13 +84,19 @@
+ // received during PK mode. Used to distinguish PK description TURN
+ // (player is in speaker list) from PK voting TURN (player is not).
+ var pkRoundSpeakers []string
+ 
+-// stdinCh reads stdin lines in a background goroutine for quit detection.
+-stdinCh := make(chan string, 1)
++// stdinCh delivers non-quit stdin lines to desc/vote input handling.
++// quitCh signals when the user typed "quit".
++stdinCh := make(chan string, 64)
++quitCh := make(chan struct{}, 1)
+ go func() {
+ 	for scanner.Scan() {
+ 		line := strings.TrimSpace(scanner.Text())
++		if strings.EqualFold(line, "quit") {
++			quitCh <- struct{}{}
++			return
++		}
+ 		stdinCh <- line
+ 	}
+ }()
+ 
+
+[0m
+Root cause identified: The stdin goroutine reads ALL stdin lines into `stdinCh`, but the idle phase only checks for `"quit"` and SILENTLY drops any other input. So description text meant for `descWaitingInput` gets consumed during idle and lost.
+
+Fix: separate quit detection from input delivery using a dedicated `quitCh`.
+[0m← [0mEdit cmd/doubletake/player.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+@@ -114,14 +114,8 @@
+ case line, ok := <-stdinCh:
+ 	if !ok {
+ 		return 0
+ 	}
+-	if strings.EqualFold(line, "quit") {
+-		if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
+-			disp.Warn(fmt.Sprintf("send failed: %v", err))
+-		}
+-		return 0
+-	}
+ 	if phase == descWaitingInput {
+ 		if line == "" {
+ 			fmt.Fprintln(out, "  描述不能为空")
+ 			fmt.Fprint(out, "  请输入描述: ")
+
+[0m
+[0m→ [0mRead cmd/doubletake/player.go[90m [offset=95, limit=80][0m
+[0m→ [0mRead cmd/doubletake/player.go[90m [offset=83, limit=90][0m
+[0m
+[0m← [0mEdit cmd/doubletake/player.go
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+@@ -142,29 +142,29 @@
+ 						return 1
+ 					}
+ 					phase = voteSubmitted
+ 				}
++			case <-quitCh:
++				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
++					disp.Warn(fmt.Sprintf("send failed: %v", err))
++				}
++				return 0
+ 			}
+ 		} else {
+-			// Select between network messages and stdin (for quit).
++			// Select between network messages and quit signal.
+ 			select {
+ 			case msg, ok := <-cc.Messages():
+ 				if !ok {
+ 					return 0
+ 				}
+ 				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &pkRoundSpeakers) {
+ 					return 1
+ 				}
+-			case line, ok := <-stdinCh:
+-				if !ok {
+-					return 0
++			case <-quitCh:
++				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
++					disp.Warn(fmt.Sprintf("send failed: %v", err))
+ 				}
+-				if strings.EqualFold(line, "quit") {
+-					if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
+-						disp.Warn(fmt.Sprintf("send failed: %v", err))
+-					}
+-					return 0
+-				}
++				return 0
+ 			}
+ 		}
+ 	}
+ }
+
+[0m
+Now I'll add `quitCh` to the desc/vote phase select and fix the idle phase to use `quitCh` instead of `stdinCh`:
+[0m# [0mTodos
+[x] Analyze the root cause: TestRunPlayer_DescPhase_OtherPlayerTurn hangs because stdin goroutine pre-reads all input and idle phase silently drops non-quit lines
+[x] Fix stdin goroutine: separate quit detection from input delivery using quitCh channel
+[x] Fix idle phase select: watch quitCh instead of stdinCh to avoid consuming desc input
+[x] Fix desc/vote phase select: add quitCh to the select as well
+[ ] Verify all tests pass
+[ ] Update CLAUDE.md with learnings
+[0m
+[0m→ [0mRead cmd/doubletake/player.go[90m [offset=86, limit=90][0m
+Let me verify the final state of the file and run the tests:
+[0m
+[0m$ [0mgo build ./... && go vet ./... && echo "OK"
+OK
+[0m
+Build passes. Now run all tests:
+[0m$ [0mgo test ./... -count=1 -timeout=45s 2>&1
+ok  	github.com/smallnest/doubletake/client	0.823s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	21.989s
+ok  	github.com/smallnest/doubletake/game	1.612s
+ok  	github.com/smallnest/doubletake/server	4.282s
+[0m
+[0m# [0mTodos
+[x] Analyze the root cause: TestRunPlayer_DescPhase_OtherPlayerTurn hangs because stdin goroutine pre-reads all input and idle phase silently drops non-quit lines
+[x] Fix stdin goroutine: separate quit detection from input delivery using quitCh channel
+[x] Fix idle phase select: watch quitCh instead of stdinCh to avoid consuming desc input
+[x] Fix desc/vote phase select: add quitCh to the select as well
+[x] Verify all tests pass
+[ ] Update CLAUDE.md with learnings
+[0m
+All tests pass. Let me update the CLAUDE.md with the learnings:
+[0m→ [0mRead cmd/doubletake/CLAUDE.md[90m [offset=1, limit=10][0m
+[0m→ [0mRead cmd/doubletake/CLAUDE.md[90m [offset=95][0m
+[0m
+[0m← [0mEdit cmd/doubletake/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/cmd/doubletake/CLAUDE.md
+@@ -99,4 +99,12 @@
+ - 单轮 PK 测试：描述阶段（2 人描述）→ 投票阶段（4 人投票，1 人获 3 票淘汰）
+ - 多轮 PK 测试：第一轮平票 → 第二轮分出结果
+ - `assertMsgFromAll` 辅助函数：从所有连接读取一条消息并验证类型一致
+ - 集成测试中 `roundMsg2` 等不需要使用的返回值不要用 `:=` 接收（Go 不允许未使用变量）
++
++## Quit 退出机制约定
++- quit 检测在 stdin goroutine 中完成，使用独立的 `quitCh` channel 传递 quit 信号（而非复用 `stdinCh`）
++- stdin goroutine 读取每行 stdin，若为 "quit" 则发送信号到 `quitCh` 并返回，否则发送到 `stdinCh`
++- `stdinCh` 缓冲区大小为 64，避免 idle 阶段因无人消费而阻塞 goroutine
++- idle 阶段和 desc/vote 阶段的 select 都包含 `case <-quitCh:`，确保任意阶段都能检测到 quit
++- idle 阶段**不读取 `stdinCh`**，防止非 quit 的 stdin 输入被意外消费
++- `stdinCh` 与 `quitCh` 分离的设计解决了 idle 阶段消费 desc/vote 输入导致后续阶段阻塞的问题
+
+[0m
+[91m[1mError: [0mError from provider (DeepSeek): The `reasoning_content` in the thinking mode must be passed back to the API.

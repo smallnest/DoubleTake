@@ -347,7 +347,7 @@ func TestCollectConfig_LargeValidGame(t *testing.T) {
 // --- Waiting phase integration tests ---
 
 func TestWaitingPhase_PlayerJoinNotification(t *testing.T) {
-	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+	out, port, hash, cleanup := startJudgeForTest(t, "4\n1\n0\n")
 	defer cleanup()
 
 	// Connect a player
@@ -357,14 +357,14 @@ func TestWaitingPhase_PlayerJoinNotification(t *testing.T) {
 	}
 	defer conn.Close()
 
-	fmt.Fprintf(conn, "JOIN|Alice\n")
+	fmt.Fprintf(conn, "JOIN|%s|Alice\n", hash)
 
 	// Wait for the join notification to appear in output
 	waitForOutput(t, out, "Alice joined [1/4]", 2*time.Second)
 }
 
 func TestWaitingPhase_AllPlayersJoined(t *testing.T) {
-	out, port, cleanup := startJudgeForTest(t, "4\n1\n0\n")
+	out, port, hash, cleanup := startJudgeForTest(t, "4\n1\n0\n")
 	defer cleanup()
 
 	names := []string{"Alice", "Bob", "Charlie", "Dave"}
@@ -376,7 +376,7 @@ func TestWaitingPhase_AllPlayersJoined(t *testing.T) {
 		}
 		conns[i] = conn
 		defer conn.Close()
-		fmt.Fprintf(conn, "JOIN|%s\n", name)
+		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
 	}
 
 	// Should see "人已齐" message
@@ -384,7 +384,7 @@ func TestWaitingPhase_AllPlayersJoined(t *testing.T) {
 }
 
 func TestWaitingPhase_StartWithFewerThan4(t *testing.T) {
-	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	out, port, hash, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
 	defer cleanup()
 
 	// Connect only 3 players
@@ -394,7 +394,7 @@ func TestWaitingPhase_StartWithFewerThan4(t *testing.T) {
 			t.Fatalf("failed to connect %s: %v", name, err)
 		}
 		defer conn.Close()
-		fmt.Fprintf(conn, "JOIN|%s\n", name)
+		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
 	}
 
 	waitForOutput(t, out, "C joined [3/4]", 2*time.Second)
@@ -406,7 +406,7 @@ func TestWaitingPhase_StartWithFewerThan4(t *testing.T) {
 }
 
 func TestWaitingPhase_StartWithConfirmation(t *testing.T) {
-	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
+	out, port, hash, stdin, cleanup := startJudgeForTestWithStdin(t, "6\n1\n0\n")
 	defer cleanup()
 
 	// Connect 4 players (less than 6)
@@ -416,7 +416,7 @@ func TestWaitingPhase_StartWithConfirmation(t *testing.T) {
 			t.Fatalf("failed to connect %s: %v", name, err)
 		}
 		defer conn.Close()
-		fmt.Fprintf(conn, "JOIN|%s\n", name)
+		fmt.Fprintf(conn, "JOIN|%s|%s\n", hash, name)
 	}
 
 	waitForOutput(t, out, "D joined [4/6]", 2*time.Second)
@@ -1014,21 +1014,22 @@ func newDisplay(out *bytes.Buffer) *client.Display {
 	return client.NewDisplay(out, false)
 }
 
-// startJudgeForTest runs RunJudge in a goroutine and returns a buffered output, the server port, and a cleanup function.
-func startJudgeForTest(t *testing.T, configInput string) (*safeBuffer, string, func()) {
+// startJudgeForTest runs RunJudge in a goroutine and returns a buffered output, the server port, the room hash, and a cleanup function.
+func startJudgeForTest(t *testing.T, configInput string) (*safeBuffer, string, string, func()) {
 	t.Helper()
-	return startJudgeForTestWithStdinRaw(t, configInput)
+	out, port, hash, cleanup := startJudgeForTestWithStdinRaw(t, configInput)
+	return out, port, hash, cleanup
 }
 
 // startJudgeForTestWithStdin runs RunJudge and also returns a channel to inject stdin lines.
-func startJudgeForTestWithStdin(t *testing.T, configInput string) (*safeBuffer, string, chan string, func()) {
+func startJudgeForTestWithStdin(t *testing.T, configInput string) (*safeBuffer, string, string, chan string, func()) {
 	t.Helper()
 	stdinCh := make(chan string, 16)
-	out, port, cleanup := startJudgeForTestWithStdinRaw(t, configInput, stdinCh)
-	return out, port, stdinCh, cleanup
+	out, port, hash, cleanup := startJudgeForTestWithStdinRaw(t, configInput, stdinCh)
+	return out, port, hash, stdinCh, cleanup
 }
 
-func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines ...chan string) (*safeBuffer, string, func()) {
+func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines ...chan string) (*safeBuffer, string, string, func()) {
 	t.Helper()
 
 	// Find a free port
@@ -1071,6 +1072,9 @@ func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines 
 		time.Sleep(20 * time.Millisecond)
 	}
 
+	// Wait for room hash to appear in output
+	hash := waitForRoomHash(t, out, 2*time.Second)
+
 	cleanup := func() {
 		// Close extraLines channel so the stdin goroutine in RunJudge can detect EOF
 		for _, ch := range extraLines {
@@ -1084,7 +1088,28 @@ func startJudgeForTestWithStdinRaw(t *testing.T, configInput string, extraLines 
 		}
 	}
 
-	return out, port, cleanup
+	return out, port, hash, cleanup
+}
+
+// waitForRoomHash polls the output buffer until the room hash appears or timeout.
+// Returns the 64-character hex hash string.
+func waitForRoomHash(t *testing.T, out *safeBuffer, timeout time.Duration) string {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	prefix := "房间连接密码: "
+	for time.Now().Before(deadline) {
+		s := out.String()
+		idx := strings.Index(s, prefix)
+		if idx >= 0 {
+			hashStart := idx + len([]rune(prefix))
+			if hashStart+64 <= len(s) {
+				return s[hashStart : hashStart+64]
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for room hash in output: %s", out.String())
+	return ""
 }
 
 // safeBuffer is a thread-safe bytes.Buffer for concurrent read/write in tests.

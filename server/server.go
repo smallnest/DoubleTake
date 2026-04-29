@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/smallnest/doubletake/game"
@@ -30,6 +31,7 @@ type Server struct {
 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
+	roomHash     string               // SHA256 room password hash, set by judge after room creation
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -185,7 +187,25 @@ func (s *Server) Broadcast(msg game.Message) {
 	}
 }
 
-func (s *Server) handleJoin(player *Player, name string) {
+func (s *Server) handleJoin(player *Player, payload string) {
+	// Payload format: "hash|playerName" or "playerName" (backward compat).
+	var hash, name string
+	parts := strings.SplitN(payload, "|", 2)
+	if len(parts) == 2 {
+		hash = parts[0]
+		name = parts[1]
+	} else {
+		name = parts[0]
+	}
+
+	// Verify hash if room hash is set.
+	if s.roomHashSet() {
+		if !s.VerifyRoomHash(hash) {
+			s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "连接密码错误"})
+			return
+		}
+	}
+
 	if name == "" {
 		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "名字不能为空"})
 		return
@@ -211,6 +231,14 @@ func (s *Server) handleJoin(player *Player, name string) {
 	case s.OnPlayerJoin <- PlayerJoinEvent{Name: name, Current: count, Capacity: capacity}:
 	default:
 	}
+}
+
+// roomHashSet returns true if a room hash has been configured.
+// Concurrent-safe via s.mu.
+func (s *Server) roomHashSet() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.roomHash != ""
 }
 
 // Send sends a message to a single connection.
@@ -254,6 +282,26 @@ func (s *Server) PlayerNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// SetRoomHash sets the room connection password hash.
+// Concurrent-safe via s.mu.
+func (s *Server) SetRoomHash(hash string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.roomHash = hash
+}
+
+// VerifyRoomHash checks whether the given hash matches the stored room hash.
+// Returns false if the stored hash is empty (no password set) or on mismatch.
+// Concurrent-safe via s.mu.
+func (s *Server) VerifyRoomHash(hash string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.roomHash == "" {
+		return false
+	}
+	return s.roomHash == hash
 }
 
 // BroadcastToNamedPlayers sends a message to all connections that have

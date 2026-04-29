@@ -1,0 +1,335 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead server/server.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead game/roomhash.go
+[0m→ [0mRead game/roomhash_test.go
+[0m→ [0mRead .autoresearch/workflows/issue-32/progress.md
+[0m
+[0m# [0mTodos
+[ ] Add roomHash field to Server struct
+[ ] Add SetRoomHash and VerifyRoomHash methods
+[ ] Write unit tests for SetRoomHash/VerifyRoomHash
+[ ] Run tests to verify implementation
+[ ] Update server/CLAUDE.md with new Learnings
+[0m
+[0m$ [0mgit diff HEAD
+(no output)
+[0m
+[0m$ [0mgit log --oneline -10
+984896d delete binary
+9670694 Merge pull request #30 from smallnest/feature/issue-13
+b4dbba7 feat: implement issue #13 - #13 投票环节 — 收集与统计
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+[0m
+[0m← [0mEdit server/server.go
+Index: /Users/smallnest/ai/DoubleTake/server/server.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server.go
++++ /Users/smallnest/ai/DoubleTake/server/server.go
+@@ -29,8 +29,9 @@
+ 	ready        chan struct{}
+ 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
+ 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
+ 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
++	roomHash     string               // SHA256 room password hash, set by judge after room creation
+ }
+ 
+ // PlayerJoinEvent carries info about a player that just joined.
+ type PlayerJoinEvent struct {
+
+[0m
+Good — working tree is clean, T-002 not yet implemented. Let me add the `roomHash` field, methods, and tests.
+
+### Step 1: Add `roomHash` field and methods to `Server`
+[0m← [0mEdit server/server.go
+Index: /Users/smallnest/ai/DoubleTake/server/server.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server.go
++++ /Users/smallnest/ai/DoubleTake/server/server.go
+@@ -256,8 +256,28 @@
+ 	}
+ 	return names
+ }
+ 
++// SetRoomHash sets the room connection password hash.
++// Concurrent-safe via s.mu.
++func (s *Server) SetRoomHash(hash string) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.roomHash = hash
++}
++
++// VerifyRoomHash checks whether the given hash matches the stored room hash.
++// Returns false if the stored hash is empty (no password set) or on mismatch.
++// Concurrent-safe via s.mu.
++func (s *Server) VerifyRoomHash(hash string) bool {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.roomHash == "" {
++		return false
++	}
++	return s.roomHash == hash
++}
++
+ // BroadcastToNamedPlayers sends a message to all connections that have
+ // completed the JOIN handshake (i.e. have a non-empty Name).
+ func (s *Server) BroadcastToNamedPlayers(msg game.Message) {
+ 	data := []byte(game.Encode(msg))
+
+[0m
+[0m✗ [0mtodowrite failed
+[91m[1mError: [0mThe todowrite tool was called with invalid arguments: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "todos",
+      0,
+      "status"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  },
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "todos",
+      1,
+      "status"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  },
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "todos",
+      3,
+      "status"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  },
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "todos",
+      4,
+      "status"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  }
+].
+Please rewrite the input so it satisfies the expected schema.
+[0m
+[0m← [0mEdit server/server_test.go
+Index: /Users/smallnest/ai/DoubleTake/server/server_test.go
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/server_test.go
++++ /Users/smallnest/ai/DoubleTake/server/server_test.go
+@@ -778,8 +778,86 @@
+ 		t.Errorf("unexpected error payload: %q", msg.Payload)
+ 	}
+ }
+ 
++func TestSetAndVerifyRoomHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
++	srv.SetRoomHash(hash)
++
++	if !srv.VerifyRoomHash(hash) {
++		t.Error("VerifyRoomHash should return true for the correct hash")
++	}
++}
++
++func TestVerifyRoomHash_WrongHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	srv.SetRoomHash("correct_hash")
++	if srv.VerifyRoomHash("wrong_hash") {
++		t.Error("VerifyRoomHash should return false for a wrong hash")
++	}
++}
++
++func TestVerifyRoomHash_EmptyHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	// Without setting any hash, roomHash is empty
++	if srv.VerifyRoomHash("anything") {
++		t.Error("VerifyRoomHash should return false when no room hash is set")
++	}
++
++	// Also verify that setting to empty string still returns false
++	srv.SetRoomHash("")
++	if srv.VerifyRoomHash("anything") {
++		t.Error("VerifyRoomHash should return false when room hash is set to empty string")
++	}
++}
++
++func TestSetRoomHash_Overwrite(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	srv.SetRoomHash("hash1")
++	srv.SetRoomHash("hash2")
++
++	if srv.VerifyRoomHash("hash1") {
++		t.Error("VerifyRoomHash should return false for old hash after overwrite")
++	}
++	if !srv.VerifyRoomHash("hash2") {
++		t.Error("VerifyRoomHash should return true for the new hash after overwrite")
++	}
++}
++
++func TestSetAndVerifyRoomHash_ConcurrentSafe(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	const goroutines = 20
++	done := make(chan struct{})
++
++	for i := 0; i < goroutines; i++ {
++		go func(n int) {
++			hash := fmt.Sprintf("hash_%d", n)
++			srv.SetRoomHash(hash)
++			srv.VerifyRoomHash(hash)
++			done <- struct{}{}
++		}(i)
++	}
++
++	for i := 0; i < goroutines; i++ {
++		select {
++		case <-done:
++		case <-time.After(time.Second):
++			t.Fatal("timed out waiting for goroutines")
++		}
++	}
++}
++
+ func TestVote_NamedPlayerForwarded(t *testing.T) {
+ 	srv, port := startTestServer(t)
+ 	defer srv.Stop()
+ 
+
+[0m
+Now let me run the tests to verify everything works:
+[0m$ [0mgo build ./... && go vet ./... && go test ./server/ -v -run "TestSet|TestVerify|TestNewServer|TestStartAndAccept" -count=1 2>&1
+=== RUN   TestNewServer
+--- PASS: TestNewServer (0.00s)
+=== RUN   TestStartAndAccept
+2026/04/30 05:23:27 server listening on :52798
+2026/04/30 05:23:27 player connected: 127.0.0.1:52803
+2026/04/30 05:23:27 player connected: 127.0.0.1:52802
+2026/04/30 05:23:27 player disconnected: 127.0.0.1:52802
+2026/04/30 05:23:27 connection error from 127.0.0.1:52803: read tcp 127.0.0.1:52798->127.0.0.1:52803: use of closed network connection
+2026/04/30 05:23:27 player disconnected: 127.0.0.1:52803
+2026/04/30 05:23:27 server stopped
+--- PASS: TestStartAndAccept (0.06s)
+=== RUN   TestSetAndVerifyRoomHash
+2026/04/30 05:23:27 server listening on :52804
+2026/04/30 05:23:27 server stopped
+--- PASS: TestSetAndVerifyRoomHash (0.01s)
+=== RUN   TestVerifyRoomHash_WrongHash
+2026/04/30 05:23:27 server listening on :52807
+2026/04/30 05:23:27 player connected: 127.0.0.1:52809
+2026/04/30 05:23:27 server stopped
+--- PASS: TestVerifyRoomHash_WrongHash (0.01s)
+2026/04/30 05:23:27 connection error from 127.0.0.1:52809: read tcp 127.0.0.1:52807->127.0.0.1:52809: use of closed network connection
+=== RUN   TestVerifyRoomHash_EmptyHash
+2026/04/30 05:23:27 player disconnected: 127.0.0.1:52809
+2026/04/30 05:23:27 server listening on :52810
+2026/04/30 05:23:27 server stopped
+--- PASS: TestVerifyRoomHash_EmptyHash (0.01s)
+=== RUN   TestSetRoomHash_Overwrite
+2026/04/30 05:23:27 server listening on :52813
+2026/04/30 05:23:27 server stopped
+--- PASS: TestSetRoomHash_Overwrite (0.01s)
+=== RUN   TestSetAndVerifyRoomHash_ConcurrentSafe
+2026/04/30 05:23:27 server listening on :52816
+2026/04/30 05:23:27 player connected: 127.0.0.1:52818
+2026/04/30 05:23:27 player disconnected: 127.0.0.1:52818
+2026/04/30 05:23:27 server stopped
+--- PASS: TestSetAndVerifyRoomHash_ConcurrentSafe (0.01s)
+PASS
+ok  	github.com/smallnest/doubletake/server	0.755s
+[0m
+All 6 new tests pass. Let me run the full test suite:
+[0m$ [0mgo test ./... -count=1 2>&1
+ok  	github.com/smallnest/doubletake/client	0.231s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	25.592s
+ok  	github.com/smallnest/doubletake/game	0.312s
+ok  	github.com/smallnest/doubletake/server	2.486s
+[0m
+[0m→ [0mRead server/CLAUDE.md
+All tests pass across all packages. Now let me update `server/CLAUDE.md`:
+[0m
+[0m← [0mEdit server/CLAUDE.md
+Index: /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+===================================================================
+--- /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
++++ /Users/smallnest/ai/DoubleTake/server/CLAUDE.md
+@@ -51,4 +51,11 @@
+ - `OnVoteMsg` channel 缓冲大小 64，满时丢弃消息并记录日志
+ - `VoteEvent` 结构体包含 `PlayerName` 和 `Target` 字段
+ - server 层不做投票内容校验（空目标、非当前投票者、投自己等），这些由 judge 端通过 `VoteRound.RecordVote` 处理
+ - VOTE 与 DESC 遵循完全对称的模式：Event 结构体 → OnXxxMsg channel → handleConn switch case → handleXxx 方法
++
++## 房间哈希（Room Hash）
++- `Server` 结构体包含 `roomHash string` 字段，用于存储房间连接密码的 SHA256 哈希
++- `SetRoomHash(hash string)` 设置房间哈希，由 judge 创建房间后调用
++- `VerifyRoomHash(hash string) bool` 验证哈希匹配；空哈希（未设置）始终返回 false
++- 两个方法均通过 `s.mu` (`sync.Mutex`) 保证并发安全
++- 哈希由 `game.GenerateRoomHash(ip, port string)` 生成，其内部使用 `crypto/rand` + `crypto/sha256`
+
+[0m
+Let me verify the final state and run a final check:
+[0m$ [0mgo test ./... -count=1 -race 2>&1
+ok  	github.com/smallnest/doubletake/client	1.647s
+ok  	github.com/smallnest/doubletake/cmd/doubletake	25.868s
+ok  	github.com/smallnest/doubletake/game	2.087s
+ok  	github.com/smallnest/doubletake/server	4.119s
+[0m
+All tests pass with `-race` detector. Here's a summary of what was implemented:
+
+## Implementation Summary
+
+**T-002 — Server room hash storage and verification**
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `server/server.go:33` | Added `roomHash string` field to `Server` struct |
+| `server/server.go:260-274` | Added `SetRoomHash(hash string)` and `VerifyRoomHash(hash string) bool` methods |
+| `server/server_test.go:810-895` | Added 5 test functions |
+| `server/CLAUDE.md` | Added Room Hash section with conventions |
+
+### Design decisions
+- **No change to `NewServer`** — `roomHash` defaults to empty string (Go zero value), matching the "no password set" state
+- **`VerifyRoomHash` returns `false` for empty stored hash** — prevents bypassing by sending empty string
+- **Both methods use `s.mu.Lock()`** — consistent with existing concurrency pattern in the Server
+
+### Test coverage (5 new tests)
+- `TestSetAndVerifyRoomHash` — set and verify correct hash
+- `TestVerifyRoomHash_WrongHash` — verify returns false for wrong hash
+- `TestVerifyRoomHash_EmptyHash` — no hash set, and empty string set, both return false
+- `TestSetRoomHash_Overwrite` — old hash invalid after overwrite, new hash valid
+- `TestSetAndVerifyRoomHash_ConcurrentSafe` — 20 goroutines racing, no data race
+
+## Learnings
+
+- **模式**: Server 的新增字段如果使用零值表示"未设置"状态，可以不改 `NewServer` 构造函数，保持向后兼容
+- **踩坑**: 无 — 实现与现有并发模式（`s.mu.Lock/defer Unlock`）完全一致
+- **经验**: 后续子任务 T-003（judge 端调用 `SetRoomHash`）需要使用 `game.GenerateRoomHash` 的返回值，注意 `randomHex` 作为内部盐值不应暴露给客户端

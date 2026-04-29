@@ -1,0 +1,130 @@
+Now I have a complete picture of the implementation. Let me compile the audit report.
+
+## 审核报告
+
+### Issue
+- 编号: #32
+- 标题: feat: 房间连接密码机制 — 裁判创建房间时生成哈希密码
+- 子任务: T-004 - 玩家端支持通过哈希密码连接房间
+- 迭代次数: 7 (本次审核)
+
+---
+
+### 总体评价
+
+**评分: 87/100**
+
+T-004 的核心实现质量良好：玩家端提示输入密码、JOIN 消息携带哈希、服务端验证逻辑完整、错误处理正确。主要扣分点是：1) 项目存在编译错误（judge_test.go 未适配 hash 返回值）导致无法运行完整测试套件；2) 缺少服务端 hash 验证失败通过 `handleJoin` 拒绝连接的集成测试。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: judge_test.go 编译错误 — 5 处调用未适配 hash 返回值
+
+**位置**: `cmd/doubletake/judge_test.go:432, 554, 659, 783, 906, 1218`
+
+**问题描述**:
+`startJudgeForTestWithStdin` 函数返回 5 个值 `(out, port, hash, stdinCh, cleanup)`，但 6 处调用仅解构了 4 个变量，缺少 `hash`，导致项目无法编译。
+
+**代码片段**:
+```go
+// 第 432 行（及 554、659、783、906、1218）
+out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+```
+
+**建议修复**:
+```go
+out, port, hash, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+_ = hash // 如果后续不需要使用
+```
+
+**原因**: 这是前序迭代中 `hash` 返回值被添加到函数签名后遗留的问题。项目当前无法通过 `go test ./cmd/doubletake/` 编译，阻塞了所有测试执行。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 2: 缺少服务端 hash 验证失败拒绝连接的集成测试
+
+**位置**: `server/server_test.go`
+
+**问题描述**:
+验收条件要求"哈希验证失败时服务端拒绝连接并返回错误消息"和"单元测试覆盖正常连接和哈希验证失败的场景"。当前 server 测试覆盖了 `SetRoomHash`/`VerifyRoomHash` 的单元测试（正确/错误/空/覆盖/并发），但缺少通过 `handleJoin` 发送带错误 hash 的 JOIN 消息被拒绝的集成测试。
+
+**建议增加**:
+```go
+func TestJoinWithWrongHash(t *testing.T) {
+    srv, port := startTestServer(t)
+    defer srv.Stop()
+
+    srv.SetRoomHash("correct_hash_64chars...")
+
+    conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+    if err != nil {
+        t.Fatalf("failed to connect: %v", err)
+    }
+    defer conn.Close()
+
+    // Send JOIN with wrong hash
+    fmt.Fprintf(conn, "JOIN|wrong_hash|Alice\n")
+
+    msg := readMsg(t, conn)
+    if msg.Type != game.MsgError {
+        t.Errorf("expected ERROR, got %s", msg.Type)
+    }
+    if msg.Payload != "连接密码错误" {
+        t.Errorf("expected hash error, got %q", msg.Payload)
+    }
+}
+
+func TestJoinWithCorrectHash(t *testing.T) {
+    srv, port := startTestServer(t)
+    defer srv.Stop()
+
+    hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    srv.SetRoomHash(hash)
+
+    conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+    if err != nil {
+        t.Fatalf("failed to connect: %v", err)
+    }
+    defer conn.Close()
+
+    fmt.Fprintf(conn, "JOIN|%s|Alice\n", hash)
+
+    msg := readMsg(t, conn)
+    if msg.Type != game.MsgJoin {
+        t.Errorf("expected JOIN, got %s", msg.Type)
+    }
+}
+```
+
+**原因**: 这是验收条件中明确要求的测试场景。当前只验证了 hash 的存取逻辑，未验证 `handleJoin` 的完整拒绝路径。
+
+---
+
+### 建议改进 (可选)
+
+1. **玩家端缺少 hash 验证失败的专门测试**: `player_test.go` 中 `TestRunPlayer_ServerErrorResponse` 测试了通用的服务端错误响应（"name taken"），但没有专门针对 hash 验证失败（"连接密码错误"）的测试用例。建议增加一个测试，模拟服务端返回 hash 验证失败的 ERROR 消息。
+
+2. **`game.DecodeRoomCode` 残留检查**: 实现已正确移除了对 `game.DecodeRoomCode` 的依赖（玩家端不再需要解码 room code），但 `game/base62.go` 中该函数仍然存在。如果整个 Issue #32 完成后不再需要 base62 编码，可考虑后续清理。
+
+---
+
+### 审核结论
+
+- [x] 需要修改 - 存在必须修复的编译错误（judge_test.go 的 5 处调用）
+
+**下一步行动**:
+1. 修复 `judge_test.go` 中 6 处 `startJudgeForTestWithStdin` 调用，添加缺失的 `hash` 变量
+2. 在 `server_test.go` 中添加 hash 验证失败/成功的 `handleJoin` 集成测试
+3. 运行完整测试套件确认全部通过
+
+---
+
+## Learnings
+
+- **模式**: `startJudgeForTestWithStdin` 返回值签名变更后，所有调用点必须同步更新，Go 编译器会立即报错——这是良好的类型安全保障
+- **踩坑**: 前序迭代添加 `hash` 返回值时只更新了部分调用点（2/8），导致项目编译失败
+- **经验**: 审核子任务时，即使当前子任务的代码质量良好，也需要验证项目整体可编译——跨文件的签名变更可能导致非当前子任务的文件出错

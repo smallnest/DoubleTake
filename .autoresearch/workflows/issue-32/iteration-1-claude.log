@@ -1,0 +1,31 @@
+## T-001 完成
+
+### 实现摘要
+
+**新增文件:**
+- `game/roomhash.go` — `GenerateRoomHash(ip, port string) (hash, randomHex string, err error)`
+- `game/roomhash_test.go` — 5 个测试函数，覆盖正常路径、唯一性、多输入、边界值
+
+### 实现细节
+
+`GenerateRoomHash` 函数：
+1. 使用 `crypto/rand` 生成 16 字节加密安全随机数
+2. 拼接 `ip + port + randomHex` 作为 SHA256 输入
+3. 返回 64 字符十六进制哈希和 32 字符随机数十六进制
+
+### 自检结果
+
+| 检查项 | 状态 |
+|--------|------|
+| `go build ./...` | PASS |
+| `go vet ./...` | PASS |
+| `go test ./game/ -run TestGenerateRoomHash` | 5/5 PASS |
+| `go test ./...` | 全部通过 |
+
+### 验收条件对照
+
+- [x] 使用 `crypto/rand` 生成加密安全随机数
+- [x] 哈希算法为 SHA256(ip + port + randomHex)
+- [x] 返回的哈希为可读的十六进制字符串
+- [x] 相同输入产生不同哈希（因随机数不同）— `TestGenerateRoomHash_UniquePerCall` 验证 100 次调用无重复
+- [x] 单元测试覆盖正常路径和边界情况

@@ -1,0 +1,196 @@
+Now I have a complete picture. Let me compile the review.
+
+## 审核报告
+
+### Issue
+- 编号: #18
+- 标题: 再来一局与退出机制
+- 子任务: T-004 - 游戏结束后裁判端提示再来一局并实现 RESTART 流程
+- 迭代次数: 当前审核
+
+---
+
+### 总体评价
+
+**评分: 42/100**
+
+T-004 的核心需求 — **"再来一局"游戏循环** — 完全未实现。当前代码在 RunJudge 中只运行一轮描述+投票就直接返回，没有游戏结束检测、没有 "再来一局？(Y/N)" 提示、没有 RESTART 广播、没有 CheckWinCondition 集成。实现的大量工作集中在之前子任务的 PK 机制和 quit 退出机制上，但 T-004 本身的验收条件几乎全部未满足。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: 游戏循环完全缺失
+
+**位置**: `cmd/doubletake/judge.go:237-263`
+
+**问题描述**: 
+RunJudge 在完成一轮描述+投票后直接 `return cfg`（第 263 行），没有外层游戏循环。T-004 要求在游戏结束后提示 "再来一局？(Y/N)"，输入 Y 时重新开始新一局，输入 N 时关闭服务端。
+
+**代码片段**:
+```go
+// 当前代码：一轮结束就返回
+descResult := descriptionPhase(disp, srv, 1, names, quitCh)
+// ...
+eliminated, tie, voteRound := votingPhase(disp, srv, 1, players, quitCh)
+// ... 处理淘汰 ...
+return cfg  // 直接返回，没有游戏循环
+```
+
+**建议修复**:
+```go
+for {
+    // Collect words, assign roles, send READY
+    civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done, quitCh)
+    // ... assign roles, send READY ...
+    
+    // Run game rounds until win condition or quit
+    for roundNum := 1; ; roundNum++ {
+        descResult := descriptionPhase(disp, srv, roundNum, aliveNames, quitCh)
+        if descResult == nil { return cfg }
+        
+        eliminated, tie, voteRound := votingPhase(disp, srv, roundNum, players, quitCh)
+        // ... handle elimination, PK ...
+        
+        if winner := checkWinCondition(players); winner != "" {
+            // announce winner
+            break
+        }
+    }
+    
+    // "再来一局？(Y/N)" prompt
+    fmt.Fprint(out, "  再来一局？(Y/N): ")
+    select {
+    case answer := <-stdinSrc.ch:
+        if strings.EqualFold(answer, "Y") {
+            srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgRestart})
+            continue // new game
+        }
+        // N: broadcast quit and stop
+        srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgQuit, Payload: "裁判结束了游戏"})
+        return cfg
+    case <-quitCh:
+        return cfg
+    }
+}
+```
+
+**原因**: 这是 T-004 的核心功能，完全缺失意味着子任务未实现。
+
+#### 问题 2: CheckWinCondition 未实现
+
+**位置**: `cmd/doubletake/judge.go` (缺失)
+
+**问题描述**: 
+T-004 描述中明确要求"在 RunJudge 中整合 CheckWinCondition 调用（依赖 #15 的逻辑），使游戏能正确检测胜负并触发结束"。整个代码库中没有 `CheckWinCondition` 或类似的游戏胜负检测函数。游戏无法判断何时结束。
+
+**建议修复**: 在 `game/game.go` 中实现 `CheckWinCondition` 函数，判断平民人数是否 <= 卧底人数（卧底胜）或卧底全部淘汰（平民胜），并在 RunJudge 每轮投票后调用。
+
+**原因**: 没有胜负检测，游戏无法自然结束，"再来一局"流程无从触发。
+
+#### 问题 3: RESTART 消息未被处理
+
+**位置**: `cmd/doubletake/player.go` / `cmd/doubletake/judge.go`
+
+**问题描述**: 
+`MsgRestart` 在 `protocol.go` 中定义了常量，但：
+- 玩家端 `handleMessage` 中没有 `case game.MsgRestart` 的处理分支
+- 裁判端没有广播 RESTART 的代码
+
+玩家收到 RESTART 后应自动进入等待新词语/角色分配状态并显示提示信息，但这个处理完全不存在。
+
+**建议修复**:
+```go
+// player.go handleMessage 中添加
+case game.MsgRestart:
+    disp.Info("0000", "新一局即将开始，等待裁判分配词语...")
+    *phase = descIdle
+    *inPK = false
+    *pkSpeakers = nil
+```
+
+**原因**: 验收条件明确要求"玩家收到 RESTART 后自动等待新词语分配并显示新角色"。
+
+#### 问题 4: N 输入后服务端关闭流程缺失
+
+**位置**: `cmd/doubletake/judge.go:263`
+
+**问题描述**: 
+验收条件要求"输入 N 后服务端关闭，所有玩家连接断开"。当前代码没有 N 处理逻辑，直接 return。虽然 `defer srv.Stop()` 会关闭服务端，但缺少向所有玩家广播关闭通知的步骤。
+
+**建议修复**: 在游戏循环中，当裁判输入 N 时：
+1. 广播 `MsgQuit` 或关闭通知给所有玩家
+2. 调用 `srv.Stop()`
+3. return
+
+**原因**: 验收条件要求先广播通知再关闭。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 5: 投票广播使用了错误的消息类型
+
+**位置**: `cmd/doubletake/judge.go:478`
+
+**问题描述**: 
+`votingPhase` 中投票广播使用 `game.MsgDesc` 类型发送投票信息：
+```go
+srv.BroadcastToNamedPlayers(game.Message{
+    Type:    game.MsgDesc,
+    Payload: evt.PlayerName + "|" + evt.Target,
+})
+```
+`MsgDesc` 语义上是"描述"消息，用于广播投票内容容易与描述阶段混淆。应使用专门的投票广播消息类型或至少用 `MsgResult` 的子类型。
+
+**建议修复**: 考虑使用新的消息类型如 `MsgVoteBroadcast`，或者在 payload 中加入标识符使玩家端能区分。
+
+#### 问题 6: 玩家端投票阶段 TURN 处理逻辑有误
+
+**位置**: `cmd/doubletake/player.go:139-149`
+
+**问题描述**: 
+在 PK 投票阶段，当收到 TURN 时，代码设置 `*phase = voteWaitingInput`，但如果不是当前发言者的 TURN，则显示"等待 X 投票..."并设置 `*phase = voteWaitingInput`。这意味着非发言者也会进入等待输入状态，这在逻辑上不对 — 非发言者应该保持 idle 等待。
+
+但更关键的是，由于 T-004 的核心流程未实现，这个投票阶段的处理在完整游戏流程中的正确性无法验证。
+
+#### 问题 7: 测试中删除了多个投票阶段测试
+
+**位置**: `cmd/doubletake/player_test.go`
+
+**问题描述**: 
+原 `player_test.go` 中有多个投票阶段相关测试被删除（`TestRunPlayer_VotePhase_OtherPlayerTurn`、`TestRunPlayer_VotePhase_OwnTurn`、`TestRunPlayer_VotePhase_EmptyTargetRetry`、`TestRunPlayer_VotePhase_ServerErrorRetry`、`TestRunPlayer_VotePhase_ResultDisplay`、`TestRunPlayer_VotePhase_DescToVoteTransition`），替换为 quit 相关测试。虽然 quit 测试是需要的，但投票阶段的测试覆盖不应被删除。
+
+**建议修复**: 恢复被删除的投票阶段测试，或用新格式重写它们以适配重构后的代码。
+
+---
+
+### 建议改进 (可选)
+
+- RunJudge 的游戏循环应支持多轮描述+投票（每轮淘汰一人后继续下一轮），而非仅运行一轮
+- 考虑添加 `MsgShutdown` 消息类型区分"玩家退出"和"服务端关闭"
+- 游戏结束后向玩家广播 WIN 消息告知胜负结果
+
+---
+
+### 审核结论
+
+- [ ] 通过 - 代码质量达标，可以进入人工审核
+- [x] 需要修改 - 存在必须修复的问题
+- [ ] 阻塞 - 存在严重问题，需要重新设计
+
+**下一步行动**:
+T-004 的核心功能（游戏循环 + 再来一局 + RESTART + CheckWinCondition）完全未实现。当前代码只完成了之前子任务的 PK 机制和 quit 退出机制。需要重新实现以下内容：
+1. RunJudge 中的游戏循环（多轮描述+投票直到胜负分出）
+2. CheckWinCondition 胜负检测
+3. "再来一局？(Y/N)" 提示和 RESTART 广播
+4. 玩家端 MsgRestart 处理
+5. 补充集成测试覆盖再来一局完整流程
+
+---
+
+## Learnings
+
+- **发现**: 实际代码与验收条件之间存在巨大差距 — `MsgRestart` 常量已定义但从未在任何 handler 中使用，说明实现者只完成了协议层定义而未实现业务逻辑
+- **模式**: 从 diff 中可以看出本次迭代的重心在 PK 机制和 quit 退出机制（属于 T-003 范畴），T-004 的实现几乎为零
+- **经验**: 审核时应首先检查核心验收条件是否被实现，而非仅检查代码质量。本次发现 `MsgRestart` 已定义但未使用是一个典型的"协议定义已完成但业务逻辑未实现"的情况

@@ -779,6 +779,84 @@ func TestVote_UnnamedPlayer(t *testing.T) {
 	}
 }
 
+func TestSetAndVerifyRoomHash(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+	srv.SetRoomHash(hash)
+
+	if !srv.VerifyRoomHash(hash) {
+		t.Error("VerifyRoomHash should return true for the correct hash")
+	}
+}
+
+func TestVerifyRoomHash_WrongHash(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	srv.SetRoomHash("correct_hash")
+	if srv.VerifyRoomHash("wrong_hash") {
+		t.Error("VerifyRoomHash should return false for a wrong hash")
+	}
+}
+
+func TestVerifyRoomHash_EmptyHash(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	// Without setting any hash, roomHash is empty
+	if srv.VerifyRoomHash("anything") {
+		t.Error("VerifyRoomHash should return false when no room hash is set")
+	}
+
+	// Also verify that setting to empty string still returns false
+	srv.SetRoomHash("")
+	if srv.VerifyRoomHash("anything") {
+		t.Error("VerifyRoomHash should return false when room hash is set to empty string")
+	}
+}
+
+func TestSetRoomHash_Overwrite(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	srv.SetRoomHash("hash1")
+	srv.SetRoomHash("hash2")
+
+	if srv.VerifyRoomHash("hash1") {
+		t.Error("VerifyRoomHash should return false for old hash after overwrite")
+	}
+	if !srv.VerifyRoomHash("hash2") {
+		t.Error("VerifyRoomHash should return true for the new hash after overwrite")
+	}
+}
+
+func TestSetAndVerifyRoomHash_ConcurrentSafe(t *testing.T) {
+	srv, _ := startTestServer(t)
+	defer srv.Stop()
+
+	const goroutines = 20
+	done := make(chan struct{})
+
+	for i := 0; i < goroutines; i++ {
+		go func(n int) {
+			hash := fmt.Sprintf("hash_%d", n)
+			srv.SetRoomHash(hash)
+			srv.VerifyRoomHash(hash)
+			done <- struct{}{}
+		}(i)
+	}
+
+	for i := 0; i < goroutines; i++ {
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for goroutines")
+		}
+	}
+}
+
 func TestVote_NamedPlayerForwarded(t *testing.T) {
 	srv, port := startTestServer(t)
 	defer srv.Stop()

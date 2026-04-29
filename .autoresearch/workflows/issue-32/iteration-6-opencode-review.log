@@ -1,0 +1,308 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead .
+[0m✱ [0mGlob "**/*.go"[90m in . · 20 matches[0m
+[0m→ [0mRead cmd/doubletake
+[0m✱ [0mGlob "cmd/doubletake/*.go"[90m in . · 0 matches[0m
+[0m✱ [0mGlob "game/*.go"[90m in . · 14 matches[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead client/client.go
+[0m→ [0mRead client/client_test.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/roomhash.go
+[0m→ [0mRead game/protocol_test.go
+[0m→ [0mRead server/server_test.go
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m
+[0m$ [0mgit log --oneline -20
+984896d delete binary
+9670694 Merge pull request #30 from smallnest/feature/issue-13
+b4dbba7 feat: implement issue #13 - #13 投票环节 — 收集与统计
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+4f99d33 feat: implement issue #9 - #9 裁判等待玩家与启动控制
+7ac7582 Merge pull request #25 from smallnest/feature/issue-8
+3863227 feat: implement issue #8 - #8 玩家通过密码连接并加入房间
+9827b62 Merge pull request #24 from smallnest/feature/issue-7
+b9611a8 feat: implement issue #7 - #7 裁判交互式配置与创建房间
+2878909 feat: implement issue #6 - #6 伪装显示模块 — 日志风格输出
+ac03592 Merge pull request #23 from smallnest/feature/issue-5
+9871976 feat: implement issue #5 - #5 TCP 客户端基础 — 连接与收发消息
+[0m
+[0m$ [0mgit diff HEAD --name-only
+server/CLAUDE.md
+server/server.go
+server/server_test.go
+[0m
+[0m$ [0mgit diff HEAD
+diff --git a/server/CLAUDE.md b/server/CLAUDE.md
+index af2e15f..60b2500 100644
+--- a/server/CLAUDE.md
++++ b/server/CLAUDE.md
+@@ -52,3 +52,10 @@
+ - `VoteEvent` 结构体包含 `PlayerName` 和 `Target` 字段
+ - server 层不做投票内容校验（空目标、非当前投票者、投自己等），这些由 judge 端通过 `VoteRound.RecordVote` 处理
+ - VOTE 与 DESC 遵循完全对称的模式：Event 结构体 → OnXxxMsg channel → handleConn switch case → handleXxx 方法
++
++## 房间哈希（Room Hash）
++- `Server` 结构体包含 `roomHash string` 字段，用于存储房间连接密码的 SHA256 哈希
++- `SetRoomHash(hash string)` 设置房间哈希，由 judge 创建房间后调用
++- `VerifyRoomHash(hash string) bool` 验证哈希匹配；空哈希（未设置）始终返回 false
++- 两个方法均通过 `s.mu` (`sync.Mutex`) 保证并发安全
++- 哈希由 `game.GenerateRoomHash(ip, port string)` 生成，其内部使用 `crypto/rand` + `crypto/sha256`
+diff --git a/server/server.go b/server/server.go
+index d832b4c..e5ade72 100644
+--- a/server/server.go
++++ b/server/server.go
+@@ -30,6 +30,7 @@ type Server struct {
+ 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
+ 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
+ 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
++	roomHash     string               // SHA256 room password hash, set by judge after room creation
+ }
+ 
+ // PlayerJoinEvent carries info about a player that just joined.
+@@ -256,6 +257,26 @@ func (s *Server) PlayerNames() []string {
+ 	return names
+ }
+ 
++// SetRoomHash sets the room connection password hash.
++// Concurrent-safe via s.mu.
++func (s *Server) SetRoomHash(hash string) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.roomHash = hash
++}
++
++// VerifyRoomHash checks whether the given hash matches the stored room hash.
++// Returns false if the stored hash is empty (no password set) or on mismatch.
++// Concurrent-safe via s.mu.
++func (s *Server) VerifyRoomHash(hash string) bool {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.roomHash == "" {
++		return false
++	}
++	return s.roomHash == hash
++}
++
+ // BroadcastToNamedPlayers sends a message to all connections that have
+ // completed the JOIN handshake (i.e. have a non-empty Name).
+ func (s *Server) BroadcastToNamedPlayers(msg game.Message) {
+diff --git a/server/server_test.go b/server/server_test.go
+index 7a66f37..a36994d 100644
+--- a/server/server_test.go
++++ b/server/server_test.go
+@@ -779,6 +779,84 @@ func TestVote_UnnamedPlayer(t *testing.T) {
+ 	}
+ }
+ 
++func TestSetAndVerifyRoomHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	hash := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
++	srv.SetRoomHash(hash)
++
++	if !srv.VerifyRoomHash(hash) {
++		t.Error("VerifyRoomHash should return true for the correct hash")
++	}
++}
++
++func TestVerifyRoomHash_WrongHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	srv.SetRoomHash("correct_hash")
++	if srv.VerifyRoomHash("wrong_hash") {
++		t.Error("VerifyRoomHash should return false for a wrong hash")
++	}
++}
++
++func TestVerifyRoomHash_EmptyHash(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	// Without setting any hash, roomHash is empty
++	if srv.VerifyRoomHash("anything") {
++		t.Error("VerifyRoomHash should return false when no room hash is set")
++	}
++
++	// Also verify that setting to empty string still returns false
++	srv.SetRoomHash("")
++	if srv.VerifyRoomHash("anything") {
++		t.Error("VerifyRoomHash should return false when room hash is set to empty string")
++	}
++}
++
++func TestSetRoomHash_Overwrite(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	srv.SetRoomHash("hash1")
++	srv.SetRoomHash("hash2")
++
++	if srv.VerifyRoomHash("hash1") {
++		t.Error("VerifyRoomHash should return false for old hash after overwrite")
++	}
++	if !srv.VerifyRoomHash("hash2") {
++		t.Error("VerifyRoomHash should return true for the new hash after overwrite")
++	}
++}
++
++func TestSetAndVerifyRoomHash_ConcurrentSafe(t *testing.T) {
++	srv, _ := startTestServer(t)
++	defer srv.Stop()
++
++	const goroutines = 20
++	done := make(chan struct{})
++
++	for i := 0; i < goroutines; i++ {
++		go func(n int) {
++			hash := fmt.Sprintf("hash_%d", n)
++			srv.SetRoomHash(hash)
++			srv.VerifyRoomHash(hash)
++			done <- struct{}{}
++		}(i)
++	}
++
++	for i := 0; i < goroutines; i++ {
++		select {
++		case <-done:
++		case <-time.After(time.Second):
++			t.Fatal("timed out waiting for goroutines")
++		}
++	}
++}
++
+ func TestVote_NamedPlayerForwarded(t *testing.T) {
+ 	srv, port := startTestServer(t)
+ 	defer srv.Stop()
+[0m
+[0m$ [0mgit branch -a
+feature/issue-14
+  feature/issue-15
+  feature/issue-16
+  feature/issue-17
+  feature/issue-18
+* feature/issue-32
+  master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/feature/issue-1
+  remotes/origin/feature/issue-10
+  remotes/origin/feature/issue-11
+  remotes/origin/feature/issue-12
+  remotes/origin/feature/issue-13
+  remotes/origin/feature/issue-14
+  remotes/origin/feature/issue-15
+  remotes/origin/feature/issue-16
+  remotes/origin/feature/issue-17
+  remotes/origin/feature/issue-18
+  remotes/origin/feature/issue-2
+  remotes/origin/feature/issue-3
+  remotes/origin/feature/issue-4
+  remotes/origin/feature/issue-5
+  remotes/origin/feature/issue-6
+  remotes/origin/feature/issue-7
+  remotes/origin/feature/issue-8
+  remotes/origin/feature/issue-9
+  remotes/origin/master
+[0m
+[0m→ [0mRead game/roomhash_test.go
+[0m
+[0m$ [0mgit stash list 2>/dev/null; git log --oneline feature/issue-32 --not master 2>/dev/null
+stash@{0}: On feature/issue-14: autoresearch-push-retry-1777438702
+[0m
+[0m$ [0mgit status
+On branch feature/issue-32
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   server/CLAUDE.md
+	modified:   server/server.go
+	modified:   server/server_test.go
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.autoresearch/archive/2026-04-30-issue-18/
+	.autoresearch/workflows/issue-32/
+	game/roomhash.go
+	game/roomhash_test.go
+
+no changes added to commit (use "git add" and/or "git commit -a")
+[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m✱ [0mGlob "**/*.md"[90m in . · 46 matches[0m
+[0m→ [0mRead .autoresearch/workflows/issue-32
+[0m→ [0mRead .autoresearch/workflows/issue-32/progress.md
+[0m→ [0mRead .autoresearch/workflows/issue-32/tasks.json
+[0m→ [0mRead .autoresearch/workflows/issue-32/iteration-6-opencode-review.log
+## 审核报告
+
+### Issue
+- 编号: #32
+- 子任务: T-004 - 玩家端支持通过哈希密码连接房间
+- 迭代次数: 6
+
+### 总体评价
+**评分: 34/100**
+
+### 验收条件逐项检查
+
+| # | 验收条件 | 状态 | 说明 |
+|---|---------|------|------|
+| 1 | 玩家端提示输入连接密码而非 room code | ❌ | `player.go:44` — 仍显示 `"input room code"`，提示 `"room code: "` |
+| 2 | JOIN 消息携带哈希信息供服务端验证 | ❌ | `player.go:79` — 仍发送 `MsgJoin{Payload: playerName}`，不含哈希 |
+| 3 | 哈希验证失败时服务端拒绝连接并返回错误消息 | ❌ | `server.go:189` — `handleJoin` 无哈希验证逻辑，`VerifyRoomHash` 定义但未调用 |
+| 4 | 玩家端正确处理验证失败的错误消息 | ❌ | 无哈希验证错误处理流程 |
+| 5 | 单元测试覆盖正常连接和哈希验证失败的场景 | ❌ | 无相关测试 |
+
+### 严重问题 (必须修复)
+
+1. **T-004 未实现**: 整个 `player.go` 的 `RunPlayer` 函数未经任何修改，仍使用旧的 room code 机制。联合之前迭代的进度标记（progress.md 显示 T-003/T-004 已通过），说明存在**代码变更丢失**问题——迭代 4/5 的 sandbox 变更未被正确持久化到工作目录。需要：
+   - 重新实现 T-004 的完整功能
+   - 确认代码持久化机制正常
+
+2. **未解决的架构问题**: 哈希是 SHA256(ip+port+randomHex)，不可逆。当前流程中 `game.DecodeRoomCode(roomCode)` 解码出 `IP:port` 后建立 TCP 连接。移除 room code 后，玩家无法从哈希中获知服务端地址。需选择以下方案之一：
+   - **方案 A**: 保留 room code 用于地址发现 + 哈希用于密码验证（双字段）
+   - **方案 B**: 玩家端通过 CLI 参数传入服务端地址 (`--addr`)，哈希仅用于密码验证
+   - **方案 C**: 修改连接流程，先 TCP 连接再哈希验证（但需要预先知道地址）
+
+3. **缺失 T-005 前置依赖**: 服务端 `handleJoin` 未接入哈希验证。即使 T-004 实现，T-005（服务端哈希验证）未完成前整个流程也不可用。两个子任务应同步实现。
+
+### 建议改进
+
+1. **协议变更**: 重新定义 JOIN payload 格式。建议使用 `JOIN|hash|playerName`，`handleJoin` 中 `strings.SplitN(payload, "|", 2)` 先解析 hash 再解析 name。
+
+2. **CLI 新增 `--addr` 参数**: 玩家模式下新增 `--addr <host:port>` 参数，替换 `game.DecodeRoomCode` 的地址获取功能，使哈希仅用于身份验证而非地址发现。
+
+3. **错误处理**: 服务端哈希验证失败时发送 `ERROR|连接密码错误`，玩家端 `handleMessage` 的 `MsgError` case 需处理此场景。
+
+### 审核结论
+- [ ] 阻塞 — T-004 未实现，所有验收条件均不通过
+
+### 自检验证确认
+
+```markdown
+### 实现者自检确认
+- [ ] 实现者已执行编译/类型检查 — N/A，无代码变更
+- [ ] 实现者已执行 Lint 检查 — N/A
+- [ ] 实现者已运行相关测试 — N/A
+- [x] 确认: T-004 代码未存在于工作目录中
+```
+
+### Learnings
+
+- **踩坑**: 多个 Agent 迭代中，早期迭代（迭代 4/5）的代码变更被标记为已完成但未持久化到工作目录。需建立变更持久化验证机制，确保每次实现/修复后代码确实写入磁盘。
+- **模式**: 项目依赖链 T-001 → T-002 → T-003 → T-004 → T-005 中，T-003（judge 端显示哈希）和 T-005（服务端验证哈希）是 T-004 的前置/后置依赖。当前仅 T-001（`game/roomhash.go`）和 T-002（`server` 的 `SetRoomHash`/`VerifyRoomHash`）的变更在磁盘上可见。
+- **经验**: T-004 实现前需先确保 T-003（judge 端生成并设置哈希）和 T-005（服务端 JOIN 时验证哈希）的变更加入工作目录，否则 T-004 的验收条件 2/3/4 无法验证。

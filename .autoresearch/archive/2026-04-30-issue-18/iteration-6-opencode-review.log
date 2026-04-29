@@ -1,0 +1,2314 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mgit diff master --stat
+.../archive/2026-04-29-issue-12/terminal.log       |   16 -
+ .../2026-04-29-issue-13-1}/.last_score             |    0
+ .../.phase                                         |    0
+ .../2026-04-29-issue-13-1}/hard-gate-1.log         |    0
+ .../2026-04-29-issue-13-1}/hard-gate-2.log         |    0
+ .../2026-04-29-issue-13-1}/iteration-1-claude.log  |    0
+ .../iteration-2-codex-review.log                   |    0
+ .../2026-04-29-issue-13-1}/iteration-2-codex.log   |    0
+ .../iteration-3-opencode-review.log                |    0
+ .../2026-04-29-issue-13-1}/log.md                  |    0
+ .../2026-04-29-issue-13-1}/planning.log            |    0
+ .../2026-04-29-issue-13-1}/progress.md             |    0
+ .../2026-04-29-issue-13-1}/summary.html            |    0
+ .../2026-04-29-issue-13-1}/tasks.json              |    0
+ .../2026-04-29-issue-13-1}/terminal.log            |   16 +
+ .../archive/2026-04-29-issue-13/.last_score        |    1 -
+ .../archive/2026-04-29-issue-13/hard-gate-1.log    | 1043 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-2.log    | 1043 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-4.log    | 1048 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-5.log    | 1048 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-7.log    | 1182 -------------
+ .../archive/2026-04-29-issue-13/hard-gate-8.log    | 1182 -------------
+ .../2026-04-29-issue-13/iteration-1-claude.log     |   34 -
+ .../iteration-10-claude-review.log                 |  138 --
+ .../2026-04-29-issue-13/iteration-10-claude.log    |    7 -
+ .../iteration-2-codex-review.log                   |  491 ------
+ .../2026-04-29-issue-13/iteration-2-codex.log      |  980 -----------
+ .../iteration-3-opencode-review.log                |  433 -----
+ .../iteration-4-claude-review.log                  |   97 -
+ .../2026-04-29-issue-13/iteration-4-claude.log     |   17 -
+ .../iteration-5-codex-review.log                   |  569 ------
+ .../2026-04-29-issue-13/iteration-5-codex.log      | 1138 ------------
+ .../iteration-6-opencode-review.log                |  363 ----
+ .../iteration-7-claude-review.log                  |  115 --
+ .../2026-04-29-issue-13/iteration-7-claude.log     |   36 -
+ .../iteration-8-codex-review.log                   |  548 ------
+ .../2026-04-29-issue-13/iteration-8-codex.log      | 1093 ------------
+ .../iteration-9-opencode-review.log                |  112 --
+ .autoresearch/archive/2026-04-29-issue-13/log.md   |   53 -
+ .../archive/2026-04-29-issue-13/planning.log       |  117 --
+ .../archive/2026-04-29-issue-13/progress.md        |  476 -----
+ .../archive/2026-04-29-issue-13/tasks.json         |   78 -
+ .../archive/2026-04-29-issue-13/terminal.log       |  471 -----
+ .autoresearch/archive/2026-04-29-issue-14/log.md   |   11 -
+ .../archive/2026-04-29-issue-14/planning.log       |   86 -
+ .../archive/2026-04-29-issue-14/progress.md        |    6 -
+ .../archive/2026-04-29-issue-14/terminal.log       |    9 -
+ .../archive/2026-04-29-issue-17-1/.last_score      |    1 +
+ .../2026-04-29-issue-17-1}/.phase                  |    0
+ .../archive/2026-04-29-issue-17-1/hard-gate-1.log  | 1676 ++++++++++++++++++
+ .../archive/2026-04-29-issue-17-1/hard-gate-3.log  | 1851 ++++++++++++++++++++
+ .../2026-04-29-issue-17-1/iteration-1-claude.log   |   36 +
+ .../iteration-2-codex-review.log                   | 1158 ++++++++++++
+ .../iteration-3-opencode-review.log                |  339 ++++
+ .../2026-04-29-issue-17-1/iteration-3-opencode.log |  304 ++++
+ .../iteration-4-claude-review.log                  |   94 +
+ .../iteration-5-codex-review.log                   | 1310 ++++++++++++++
+ .autoresearch/archive/2026-04-29-issue-17-1/log.md |   34 +
+ .../archive/2026-04-29-issue-17-1/planning.log     |   71 +
+ .../archive/2026-04-29-issue-17-1/progress.md      |  239 +++
+ .../archive/2026-04-29-issue-17-1/summary.html     |  128 ++
+ .../archive/2026-04-29-issue-17-1/tasks.json       |   53 +
+ .../archive/2026-04-29-issue-17-1/terminal.log     |  134 ++
+ .autoresearch/results.tsv                          |    4 +-
+ .gitignore                                         |    2 -
+ client/AGENT.md                                    |   48 -
+ cmd/doubletake/AGENT.md                            |   91 -
+ cmd/doubletake/CLAUDE.md                           |   56 +-
+ cmd/doubletake/judge.go                            |  430 +++--
+ cmd/doubletake/judge_test.go                       |  779 ++++++--
+ cmd/doubletake/player.go                           |  241 +--
+ cmd/doubletake/player_test.go                      |  301 +---
+ doubletake                                         |  Bin 0 -> 3739826 bytes
+ game/AGENT.md                                      |   76 -
+ game/CLAUDE.md                                     |   23 +-
+ game/game.go                                       |  123 ++
+ game/game_test.go                                  |  190 ++
+ game/pk.go                                         |  210 +++
+ game/pk_test.go                                    |  409 +++++
+ game/vote.go                                       |  137 --
+ game/vote_test.go                                  |  412 -----
+ server/AGENT.md                                    |   54 -
+ server/CLAUDE.md                                   |   19 +-
+ server/server.go                                   |   65 +-
+ server/server_test.go                              |  158 +-
+ 85 files changed, 9701 insertions(+), 15612 deletions(-)
+[0m
+[0m$ [0mgit log --oneline -20
+123bab8 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+5195ca5 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+4c9521d feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+835900a feat: implement issue #14 T-001 - PK round state management (PKRound)
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+4f99d33 feat: implement issue #9 - #9 裁判等待玩家与启动控制
+7ac7582 Merge pull request #25 from smallnest/feature/issue-8
+3863227 feat: implement issue #8 - #8 玩家通过密码连接并加入房间
+9827b62 Merge pull request #24 from smallnest/feature/issue-7
+b9611a8 feat: implement issue #7 - #7 裁判交互式配置与创建房间
+2878909 feat: implement issue #6 - #6 伪装显示模块 — 日志风格输出
+ac03592 Merge pull request #23 from smallnest/feature/issue-5
+[0m
+[0m$ [0mls cmd/doubletake/
+CLAUDE.md
+judge.go
+judge_test.go
+main.go
+main_test.go
+player.go
+player_test.go
+[0m
+[0m$ [0mgit branch -a
+feature/issue-14
+  feature/issue-15
+  feature/issue-16
+  feature/issue-17
+* feature/issue-18
+  feature/issue-32
+  master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/feature/issue-1
+  remotes/origin/feature/issue-10
+  remotes/origin/feature/issue-11
+  remotes/origin/feature/issue-12
+  remotes/origin/feature/issue-13
+  remotes/origin/feature/issue-14
+  remotes/origin/feature/issue-15
+  remotes/origin/feature/issue-16
+  remotes/origin/feature/issue-17
+  remotes/origin/feature/issue-2
+  remotes/origin/feature/issue-3
+  remotes/origin/feature/issue-4
+  remotes/origin/feature/issue-5
+  remotes/origin/feature/issue-6
+  remotes/origin/feature/issue-7
+  remotes/origin/feature/issue-8
+  remotes/origin/feature/issue-9
+  remotes/origin/master
+[0m
+[0m$ [0mgit log --oneline --all | head -30
+123bab8 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+5195ca5 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+b1a96e2 Merge pull request #35 from smallnest/feature/issue-17
+e0741ba feat: implement issue #17 - #17 断线重连 — 掉线标记与状态恢复
+09d5642 delete some files
+f0cf106 chore: archive autoresearch workflow logs for issue 13, 15, 16, 17, 32
+8ded287 feat: implement issue #17 - 断线标记与重连机制
+80a5b5f Merge pull request #34 from smallnest/feature/issue-16
+a28edd6 feat: implement issue #16 - #16 白板猜词 — guess 命令
+277ac45 Merge pull request #33 from smallnest/feature/issue-15
+9f8124b feat: implement issue #15 - #15 胜负判定 — 游戏结束条件检查
+94a9b66 On feature/issue-14: autoresearch-push-retry-1777438702
+550f97d index on feature/issue-14: c8b0369 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+e7489fd untracked files on feature/issue-14: c8b0369 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+c8b0369 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+984896d delete binary
+4c9521d feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+835900a feat: implement issue #14 T-001 - PK round state management (PKRound)
+9670694 Merge pull request #30 from smallnest/feature/issue-13
+b4dbba7 feat: implement issue #13 - #13 投票环节 — 收集与统计
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+4f99d33 feat: implement issue #9 - #9 裁判等待玩家与启动控制
+[0m
+[0m$ [0mgit stash list
+stash@{0}: On feature/issue-14: autoresearch-push-retry-1777438702
+[0m
+[0m$ [0mgit log --oneline master..HEAD
+123bab8 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+5195ca5 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+4c9521d feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+835900a feat: implement issue #14 T-001 - PK round state management (PKRound)
+[0m
+[0m$ [0mgit diff master -- cmd/doubletake/judge.go cmd/doubletake/judge_test.go cmd/doubletake/player.go cmd/doubletake/player_test.go server/server.go game/game.go
+...output truncated...
+
+Full output saved to: /Users/smallnest/.local/share/opencode/tool-output/tool_dd9dc4752001MPxL1tzCbh82iP
+
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	// PK voting ROUND
++	assertMsgFromAll(t, conns, game.MsgRound)
++
++	// PK voting: P0→P1, P1→P0, P2→P0, P3→P1 → P0=2, P1=2 → tie
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P0
++	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
++	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
++	fmt.Fprintf(conns[2], "PK_VOTE|P0\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
++	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	// RESULT (tie)
++	resultMsg := assertMsgFromAll(t, conns, game.MsgResult)
++	t.Logf("PK round 1 RESULT: %s", resultMsg.Payload)
++
++	// === Round 2: P1 eliminated ===
++
++	// PK_START again
++	assertMsgFromAll(t, conns, game.MsgPKStart)
++
++	// Round 2 desc
++	assertMsgFromAll(t, conns, game.MsgRound) // ROUND|pkNum|P0,P1
++	assertMsgFromAll(t, conns, game.MsgTurn)  // TURN|P0
++	fmt.Fprintf(conns[0], "DESC|P0 desc round 2\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
++	fmt.Fprintf(conns[1], "DESC|P1 desc round 2\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	// PK voting round 2: P0→P1, P1→P0, P2→P1, P3→P1 → P0=1, P1=3 → P1 eliminated
++	assertMsgFromAll(t, conns, game.MsgRound) // ROUND|pkNum|voterList
++	assertMsgFromAll(t, conns, game.MsgTurn)  // TURN|P0
++	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
++	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
++	fmt.Fprintf(conns[2], "PK_VOTE|P1\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
++	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
++	assertMsgFromAll(t, conns, game.MsgDesc)
++
++	// RESULT
++	assertMsgFromAll(t, conns, game.MsgResult)
++
++	// KICK|P1
++	kickMsg := assertMsgFromAll(t, conns, game.MsgKick)
++	if kickMsg.Payload != "P1" {
++		t.Errorf("expected KICK P1, got %s", kickMsg.Payload)
++	}
++
++	eliminated := <-resultCh
++	if eliminated != "P1" {
++		t.Errorf("pkPhase returned %q, want %q", eliminated, "P1")
++	}
++
++	// Verify P1 is not alive
++	for _, p := range players {
++		if p.Name == "P1" && p.Alive {
++			t.Error("P1 should be marked as not alive")
+ 		}
+ 	}
+ }
+@@ -1383,254 +1682,352 @@ func TestDescriptionPhase_NotYourTurn(t *testing.T) {
+ 	}
+ }
+ 
+-// --- Voting phase integration tests ---
+-
+-// setupVotePhaseTest is a test helper that sets up a game through the description phase
+-// and returns the player connections, the voter order (same as speaker order in desc phase),
+-// and a cleanup function. After this returns, all connections are ready for the voting phase.
+-func setupVotePhaseTest(t *testing.T, numPlayers int) ([]net.Conn, []string, func()) {
+-	t.Helper()
+-
+-	conns, cleanup := setupDescPhaseTest(t, numPlayers)
++// --- Judge quit mechanism tests ---
+ 
+-	// Read ROUND + TURN from all connections to learn speaker order.
+-	var speakers []string
+-	for i, conn := range conns {
+-		roundMsg := readMsgFromConn(t, conn)
+-		if roundMsg.Type != game.MsgRound {
+-			t.Fatalf("conn %d: expected ROUND, got %s", i, roundMsg.Type)
+-		}
+-		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+-		speakers = strings.Split(roundParts[1], ",")
++func TestNewStdinSource_QuitCommand(t *testing.T) {
++	input := "hello\nquit\nworld\n"
++	scanner := bufio.NewScanner(strings.NewReader(input))
++	src := newStdinSource(scanner)
+ 
+-		turnMsg := readMsgFromConn(t, conn)
+-		if turnMsg.Type != game.MsgTurn {
+-			t.Fatalf("conn %d: expected TURN, got %s", i, turnMsg.Type)
++	// First line should be delivered via ch.
++	select {
++	case line := <-src.ch:
++		if line != "hello" {
++			t.Errorf("expected 'hello', got %q", line)
+ 		}
++	case <-time.After(time.Second):
++		t.Fatal("timed out waiting for first line")
+ 	}
+ 
+-	// Each speaker describes in order to complete the description phase.
+-	for _, speaker := range speakers {
+-		speakerConn := findConnByName(conns, speaker)
+-		fmt.Fprintf(speakerConn, "DESC|hello from %s\n", speaker)
+-
+-		// All players receive DESC broadcast.
+-		for _, conn := range conns {
+-			readMsgFromConn(t, conn)
+-		}
++	// 'quit' should close the quit channel and NOT send via ch.
++	select {
++	case <-src.quit:
++		// expected
++	case <-time.After(time.Second):
++		t.Fatal("timed out waiting for quit channel")
++	}
+ 
+-		// After DESC, TURN for next speaker (except last).
+-		if speaker != speakers[len(speakers)-1] {
+-			for _, conn := range conns {
+-				readMsgFromConn(t, conn)
+-			}
+-		}
++	// done should also close since the goroutine exits.
++	select {
++	case <-src.done:
++		// expected
++	case <-time.After(time.Second):
++		t.Fatal("timed out waiting for done channel")
+ 	}
+ 
+-	return conns, speakers, cleanup
++	// No more data should arrive on ch.
++	select {
++	case line := <-src.ch:
++		t.Errorf("unexpected data on ch after quit: %q", line)
++	default:
++		// expected
++	}
+ }
+ 
+-func TestVotingPhase_NormalFlow(t *testing.T) {
+-	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+-	defer cleanup()
++func TestNewStdinSource_EOF(t *testing.T) {
++	input := "hello\n"
++	scanner := bufio.NewScanner(strings.NewReader(input))
++	src := newStdinSource(scanner)
+ 
+-	// All players should receive VOTE|1|P0,P1,P2,P3.
+-	voteMsg := readMsgFromConn(t, conns[0])
+-	if voteMsg.Type != game.MsgVote {
+-		t.Fatalf("expected VOTE, got %s: %s", voteMsg.Type, voteMsg.Payload)
+-	}
+-	voteParts := strings.SplitN(voteMsg.Payload, "|", 2)
+-	if len(voteParts) < 2 {
+-		t.Fatalf("malformed VOTE payload: %q", voteMsg.Payload)
+-	}
+-	if voteParts[0] != "1" {
+-		t.Errorf("expected round 1, got %q", voteParts[0])
++	// First line delivered.
++	select {
++	case line := <-src.ch:
++		if line != "hello" {
++			t.Errorf("expected 'hello', got %q", line)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("timed out")
+ 	}
+ 
+-	// All players should receive TURN for the first voter.
+-	turnMsg := readMsgFromConn(t, conns[0])
+-	if turnMsg.Type != game.MsgTurn {
+-		t.Fatalf("expected TURN, got %s: %s", turnMsg.Type, turnMsg.Payload)
++	// EOF should close done channel.
++	select {
++	case <-src.done:
++		// expected
++	case <-time.After(time.Second):
++		t.Fatal("timed out waiting for done on EOF")
+ 	}
+ 
+-	// Consume VOTE + TURN from remaining connections.
+-	for i := 1; i < len(conns); i++ {
+-		msg := readMsgFromConn(t, conns[i])
+-		if msg.Type != game.MsgVote {
+-			t.Errorf("conn %d: expected VOTE, got %s", i, msg.Type)
+-		}
+-		msg = readMsgFromConn(t, conns[i])
+-		if msg.Type != game.MsgTurn {
+-			t.Errorf("conn %d: expected TURN, got %s", i, msg.Type)
+-		}
++	// quit should NOT be closed (EOF is not a quit command).
++	select {
++	case <-src.quit:
++		t.Error("quit channel should not close on plain EOF")
++	default:
++		// expected
+ 	}
++}
+ 
+-	// Each voter votes in order. All vote for voters[0] to ensure a clear elimination
+-	// (nobody votes for themselves since voters[0] votes for voters[1] and others vote for voters[0]).
+-	for vi, voter := range voters {
+-		var target string
+-		if vi == 0 {
+-			target = voters[1] // voters[0] votes for voters[1]
+-		} else {
+-			target = voters[0] // everyone else votes for voters[0]
+-		}
+-		voterConn := findConnByName(conns, voter)
+-		fmt.Fprintf(voterConn, "VOTE|%s\n", target)
+-
+-		// After voting, next voter gets TURN (unless this is the last voter).
+-		if vi < len(voters)-1 {
+-			for _, conn := range conns {
+-				msg := readMsgFromConn(t, conn)
+-				if msg.Type != game.MsgTurn {
+-					t.Fatalf("expected TURN for next voter, got %s: %s", msg.Type, msg.Payload)
+-				}
++func TestNewStdinSource_QuitCaseInsensitive(t *testing.T) {
++	tests := []string{"quit", "QUIT", "Quit", "QuiT"}
++	for _, quitInput := range tests {
++		t.Run(quitInput, func(t *testing.T) {
++			scanner := bufio.NewScanner(strings.NewReader(quitInput + "\n"))
++			src := newStdinSource(scanner)
++
++			select {
++			case <-src.quit:
++				// expected
++			case <-time.After(time.Second):
++				t.Fatal("timed out waiting for quit")
+ 			}
+-		}
++		})
+ 	}
++}
+ 
+-	// All players should receive RESULT with vote tallies.
+-	for i, conn := range conns {
+-		msg := readMsgFromConn(t, conn)
+-		if msg.Type != game.MsgResult {
+-			t.Fatalf("conn %d: expected RESULT, got %s: %s", i, msg.Type, msg.Payload)
+-		}
+-		// voters[0] gets 3 votes (from voters[1], voters[2], voters[3]).
+-		if !strings.Contains(msg.Payload, voters[0]+":3") {
+-			t.Errorf("conn %d: RESULT payload should contain %s:3, got %q", i, voters[0], msg.Payload)
++func TestCollectWordsFromCh_QuitCh(t *testing.T) {
++	out := &bytes.Buffer{}
++	disp := newDisplay(out)
++	stdinCh := make(chan string)
++	stdinDone := make(chan struct{})
++	quitCh := make(chan struct{})
++
++	resultCh := make(chan struct{}, 1)
++	go func() {
++		civilian, undercover := collectWordsFromCh(out, disp, stdinCh, stdinDone, quitCh)
++		if civilian == "" && undercover == "" {
++			resultCh <- struct{}{}
+ 		}
++	}()
++
++	// Trigger quit immediately.
++	close(quitCh)
++
++	select {
++	case <-resultCh:
++		// expected: collectWordsFromCh returned empty
++	case <-time.After(time.Second):
++		t.Fatal("collectWordsFromCh did not return on quit")
+ 	}
+ }
+ 
+-func TestVotingPhase_ValidationRejectsInvalidVote(t *testing.T) {
+-	conns, voters, cleanup := setupVotePhaseTest(t, 4)
+-	defer cleanup()
++func TestCollectWordsFromCh_StdinDone(t *testing.T) {
++	out := &bytes.Buffer{}
++	disp := newDisplay(out)
++	stdinCh := make(chan string)
++	stdinDone := make(chan struct{})
++	quitCh := make(chan struct{})
+ 
+-	// Consume VOTE + TURN from all connections.
+-	var currentVoter string
+-	for i, conn := range conns {
+-		readMsgFromConn(t, conn) // VOTE
+-		msg := readMsgFromConn(t, conn) // TURN
+-		if i == 0 {
+-			currentVoter = msg.Payload
++	resultCh := make(chan struct{}, 1)
++	go func() {
++		civilian, undercover := collectWordsFromCh(out, disp, stdinCh, stdinDone, quitCh)
++		if civilian == "" && undercover == "" {
++			resultCh <- struct{}{}
+ 		}
++	}()
++
++	// Trigger stdin done.
++	close(stdinDone)
++
++	select {
++	case <-resultCh:
++		// expected
++	case <-time.After(time.Second):
++		t.Fatal("collectWordsFromCh did not return on stdinDone")
+ 	}
++}
+ 
+-	voterConn := findConnByName(conns, currentVoter)
++func TestRunJudge_QuitInWaitingPhase(t *testing.T) {
++	// Config input followed by "quit" should cause RunJudge to return.
++	configInput := "4\n1\n0\n"
++	fullInput := configInput + "quit\n"
+ 
+-	// Send empty vote — should get ERROR.
+-	fmt.Fprintf(voterConn, "VOTE|   \n")
+-	msg := readMsgFromConn(t, voterConn)
+-	if msg.Type != game.MsgError {
+-		t.Fatalf("expected ERROR for empty vote, got %s: %s", msg.Type, msg.Payload)
++	ln, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Skipf("cannot listen: %v", err)
+ 	}
+-	if !strings.Contains(msg.Payload, "vote target must not be empty") {
+-		t.Errorf("unexpected error payload: %q", msg.Payload)
++	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
++	ln.Close()
++
++	out := &safeBuffer{}
++	done := make(chan struct{})
++	go func() {
++		RunJudge(out, strings.NewReader(fullInput), port, false)
++		close(done)
++	}()
++
++	select {
++	case <-done:
++		// expected: RunJudge returned
++	case <-time.After(3 * time.Second):
++		t.Fatal("RunJudge did not return after quit in waiting phase")
+ 	}
++}
+ 
+-	// Send self-vote — should get ERROR.
+-	fmt.Fprintf(voterConn, "VOTE|%s\n", currentVoter)
+-	msg = readMsgFromConn(t, voterConn)
+-	if msg.Type != game.MsgError {
+-		t.Fatalf("expected ERROR for self-vote, got %s: %s", msg.Type, msg.Payload)
++func TestRunJudge_EOFInWaitingPhase(t *testing.T) {
++	// Config input then EOF should cause RunJudge to return.
++	configInput := "4\n1\n0\n"
++
++	ln, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Skipf("cannot listen: %v", err)
+ 	}
+-	if !strings.Contains(msg.Payload, "cannot vote for yourself") {
+-		t.Errorf("unexpected error payload: %q", msg.Payload)
++	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
++	ln.Close()
++
++	out := &safeBuffer{}
++	done := make(chan struct{})
++	go func() {
++		RunJudge(out, strings.NewReader(configInput), port, false)
++		close(done)
++	}()
++
++	select {
++	case <-done:
++		// expected
++	case <-time.After(3 * time.Second):
++		t.Fatal("RunJudge did not return after EOF in waiting phase")
+ 	}
++}
+ 
+-	// Send valid vote to proceed.
+-	target := voters[0]
+-	if target == currentVoter {
+-		target = voters[1]
++func TestRunJudge_QuitInCollectWords(t *testing.T) {
++	// Config input + start + enough players + quit during word collection.
++	// We use a pipe to simulate interactive stdin.
++	configInput := "4\n1\n0\n"
++
++	ln, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Skipf("cannot listen: %v", err)
+ 	}
+-	fmt.Fprintf(voterConn, "VOTE|%s\n", target)
++	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
++	ln.Close()
+ 
+-	// Next voter gets TURN.
+-	for _, conn := range conns {
+-		msg := readMsgFromConn(t, conn)
+-		if msg.Type != game.MsgTurn {
+-			t.Fatalf("expected TURN for next voter, got %s: %s", msg.Type, msg.Payload)
++	r, w := io.Pipe()
++	out := &safeBuffer{}
++	done := make(chan struct{})
++	go func() {
++		RunJudge(out, r, port, false)
++		close(done)
++	}()
++
++	// Write config
++	w.Write([]byte(configInput))
++
++	// Simulate 4 players joining
++	for i := 0; i < 4; i++ {
++		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 2*time.Second)
++		if err != nil {
++			w.Close()
++			t.Fatalf("player %d connect failed: %v", i, err)
+ 		}
++		fmt.Fprintf(conn, "JOIN|P%d\n", i)
++		// Keep connection alive
++		_ = conn
+ 	}
++
++	// Wait for all players to be shown as joined
++	waitForOutput(t, out, "P3 joined", 2*time.Second)
++
++	// Send start
++	w.Write([]byte("start\n"))
++
++	// Wait for word prompt
++	waitForOutput(t, out, "平民词语", 2*time.Second)
++
++	// Send quit during word collection
++	w.Write([]byte("quit\n"))
++
++	select {
++	case <-done:
++		// expected: RunJudge returned after quit in collectWords
++	case <-time.After(3 * time.Second):
++		w.Close()
++		t.Fatalf("RunJudge did not return after quit in collectWords, output: %s", out.String())
++	}
++	w.Close()
+ }
+ 
+-func TestVotingPhase_NotYourTurn(t *testing.T) {
+-	conns, voters, cleanup := setupVotePhaseTest(t, 4)
++func TestDescriptionPhase_QuitCh(t *testing.T) {
++	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+ 	defer cleanup()
+ 
+-	// Consume VOTE + TURN from all connections.
+-	var currentVoter string
+-	for i, conn := range conns {
+-		readMsgFromConn(t, conn) // VOTE
+-		msg := readMsgFromConn(t, conn) // TURN
+-		if i == 0 {
+-			currentVoter = msg.Payload
+-		}
+-	}
++	quitCh := make(chan struct{})
++	resultCh := make(chan *descResult, 1)
++	go func() {
++		resultCh <- descriptionPhase(disp, srv, 1, []string{"P0", "P1", "P2", "P3"}, quitCh)
++	}()
+ 
+-	// Find a player who is NOT the current voter and send VOTE from them.
+-	for i, conn := range conns {
+-		name := fmt.Sprintf("P%d", i)
+-		if name != currentVoter {
+-			fmt.Fprintf(conn, "VOTE|%s\n", voters[0])
++	// Consume ROUND + TURN messages so server channels are drained.
++	assertMsgFromAll(t, conns, game.MsgRound)
++	assertMsgFromAll(t, conns, game.MsgTurn)
+ 
+-			// Should get ERROR.
+-			msg := readMsgFromConn(t, conn)
+-			if msg.Type != game.MsgError {
+-				t.Errorf("expected ERROR for not-your-turn, got %s: %s", msg.Type, msg.Payload)
+-			}
+-			if !strings.Contains(msg.Payload, "还没轮到你投票") {
+-				t.Errorf("unexpected error payload: %q", msg.Payload)
+-			}
+-			return
++	// Close quitCh to simulate referee quit.
++	close(quitCh)
++
++	select {
++	case res := <-resultCh:
++		if res != nil {
++			t.Error("expected nil result on quit")
+ 		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("descriptionPhase did not return on quit")
+ 	}
+ }
+ 
+-func TestVotingPhase_ResultBroadcastAndElimination(t *testing.T) {
+-	conns, voters, cleanup := setupVotePhaseTest(t, 4)
++func TestVotingPhase_QuitCh(t *testing.T) {
++	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+ 	defer cleanup()
+ 
+-	// Consume VOTE + TURN from all connections.
+-	for _, conn := range conns {
+-		readMsgFromConn(t, conn) // VOTE
+-		readMsgFromConn(t, conn) // TURN
++	players := []*game.Player{
++		{Name: "P0", Alive: true},
++		{Name: "P1", Alive: true},
++		{Name: "P2", Alive: true},
++		{Name: "P3", Alive: true},
+ 	}
+ 
+-	// All voters vote for voters[0] except voters[0] who votes for voters[1].
+-	// This ensures voters[0] gets 3 votes and is eliminated.
+-	target := voters[0]
+-	for vi, voter := range voters {
+-		var voteTarget string
+-		if vi == 0 {
+-			voteTarget = voters[1]
+-		} else {
+-			voteTarget = target
+-		}
+-		voterConn := findConnByName(conns, voter)
+-		fmt.Fprintf(voterConn, "VOTE|%s\n", voteTarget)
++	quitCh := make(chan struct{})
++	resultCh := make(chan string, 1)
++	go func() {
++		elim, _, _ := votingPhase(disp, srv, 1, players, quitCh)
++		resultCh <- elim
++	}()
+ 
+-		if vi < len(voters)-1 {
+-			for _, conn := range conns {
+-				readMsgFromConn(t, conn) // TURN for next voter
+-			}
++	// Consume VOTE + TURN messages.
++	assertMsgFromAll(t, conns, game.MsgVote)
++	assertMsgFromAll(t, conns, game.MsgTurn)
++
++	// Close quitCh to simulate referee quit.
++	close(quitCh)
++
++	select {
++	case elim := <-resultCh:
++		if elim != "" {
++			t.Errorf("expected empty eliminated on quit, got %q", elim)
+ 		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("votingPhase did not return on quit")
+ 	}
++}
+ 
+-	// Read RESULT from first connection and verify.
+-	resultMsg := readMsgFromConn(t, conns[0])
+-	if resultMsg.Type != game.MsgResult {
+-		t.Fatalf("expected RESULT, got %s: %s", resultMsg.Type, resultMsg.Payload)
+-	}
+-	// Result should show target:3 (3 voters voted for voters[0]).
+-	if !strings.Contains(resultMsg.Payload, target+":3") {
+-		t.Errorf("RESULT should show %s:3, got %q", target, resultMsg.Payload)
++func TestPKPhase_QuitCh(t *testing.T) {
++	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
++	defer cleanup()
++
++	players := []*game.Player{
++		{Name: "P0", Alive: true},
++		{Name: "P1", Alive: true},
++		{Name: "P2", Alive: true},
++		{Name: "P3", Alive: true},
+ 	}
+ 
+-	// Read RESULT from remaining connections (it's a broadcast).
+-	for i := 1; i < len(conns); i++ {
+-		msg := readMsgFromConn(t, conns[i])
+-		if msg.Type != game.MsgResult {
+-			t.Errorf("conn %d: expected RESULT, got %s", i, msg.Type)
++	quitCh := make(chan struct{})
++	resultCh := make(chan string, 1)
++	go func() {
++		resultCh <- pkPhase(disp, srv, []string{"P0", "P1"}, players, quitCh)
++	}()
++
++	// Consume PK_START + ROUND + TURN
++	assertMsgFromAll(t, conns, game.MsgPKStart)
++	assertMsgFromAll(t, conns, game.MsgRound)
++	assertMsgFromAll(t, conns, game.MsgTurn)
++
++	// Close quitCh to simulate referee quit.
++	close(quitCh)
++
++	select {
++	case elim := <-resultCh:
++		if elim != "" {
++			t.Errorf("expected empty eliminated on quit, got %q", elim)
+ 		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("pkPhase did not return on quit")
+ 	}
+ }
+diff --git a/cmd/doubletake/player.go b/cmd/doubletake/player.go
+index 598ff2f..726c097 100644
+--- a/cmd/doubletake/player.go
++++ b/cmd/doubletake/player.go
+@@ -17,22 +17,15 @@ var roleDisplayNames = map[string]string{
+ 	"Blank":      "白板",
+ }
+ 
+-// descPhase tracks the player's state during the description phase.
++// playerPhase tracks the player's state during description and voting phases.
+ type descPhase int
+ 
+ const (
+-	descIdle       descPhase = iota // not in desc phase or waiting for other players
+-	descWaitingInput                // waiting for user to type description
+-	descSubmitted                   // description submitted, waiting for server response
+-)
+-
+-// votePhase tracks the player's state during the voting phase.
+-type votePhase int
+-
+-const (
+-	voteIdle       votePhase = iota // not in vote phase or waiting for other players
+-	voteWaitingInput                // waiting for user to type vote target
+-	voteSubmitted                   // vote submitted, waiting for server response
++	descIdle         descPhase = iota // not in desc phase or waiting for other players
++	descWaitingInput                  // waiting for user to type description
++	descSubmitted                     // description submitted, waiting for server response
++	voteWaitingInput                  // waiting for user to type vote target
++	voteSubmitted                     // vote submitted, waiting for server response
+ )
+ 
+ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
+@@ -81,47 +74,48 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
+ 		return 1
+ 	}
+ 
+-	// descP tracks the description phase state; voteP tracks the voting phase state.
+-	descP := descIdle
+-	voteP := voteIdle
+-	// inVotePhase is set to true when a VOTE message is received,
+-	// indicating we have entered the voting phase.
+-	inVotePhase := false
++	// phase tracks the player's state.
++	phase := descIdle
+ 
+-	// stdinCh is lazily initialized when first needed
+-	// (when we enter a waiting-input state during either phase).
+-	var stdinCh <-chan string
++	// inPK indicates we are in PK mode (PK_START was received).
++	var inPK bool
+ 
+-	for {
+-		waitingInput := descP == descWaitingInput || voteP == voteWaitingInput
++	// pkRoundSpeakers holds the speaker list from the last ROUND message
++	// received during PK mode. Used to distinguish PK description TURN
++	// (player is in speaker list) from PK voting TURN (player is not).
++	var pkRoundSpeakers []string
+ 
+-		// If we need stdin input, start the reader if not already running.
+-		if waitingInput && stdinCh == nil {
+-			ch := make(chan string, 1)
+-			stdinCh = ch
+-			go func() {
+-				for scanner.Scan() {
+-					line := strings.TrimSpace(scanner.Text())
+-					ch <- line
+-				}
+-			}()
++	// stdinCh delivers non-quit stdin lines to desc/vote input handling.
++	// quitCh signals when the user typed "quit".
++	stdinCh := make(chan string, 64)
++	quitCh := make(chan struct{}, 1)
++	go func() {
++		for scanner.Scan() {
++			line := strings.TrimSpace(scanner.Text())
++			if strings.EqualFold(line, "quit") {
++				quitCh <- struct{}{}
++				return
++			}
++			stdinCh <- line
+ 		}
++	}()
+ 
+-		if waitingInput {
++	for {
++		if phase == descWaitingInput || phase == voteWaitingInput {
+ 			// Select between network messages and stdin input.
+ 			select {
+ 			case msg, ok := <-cc.Messages():
+ 				if !ok {
+ 					return 0
+ 				}
+-				if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
++				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &pkRoundSpeakers) {
+ 					return 1
+ 				}
+ 			case line, ok := <-stdinCh:
+ 				if !ok {
+ 					return 0
+ 				}
+-				if descP == descWaitingInput {
++				if phase == descWaitingInput {
+ 					if line == "" {
+ 						fmt.Fprintln(out, "  描述不能为空")
+ 						fmt.Fprint(out, "  请输入描述: ")
+@@ -131,36 +125,53 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
+ 						disp.Warn(fmt.Sprintf("send failed: %v", err))
+ 						return 1
+ 					}
+-					descP = descSubmitted
+-				} else if voteP == voteWaitingInput {
++					phase = descSubmitted
++				} else {
++					// voteWaitingInput
+ 					if line == "" {
+ 						fmt.Fprintln(out, "  投票目标不能为空")
+-						fmt.Fprint(out, "  请输入投票目标: ")
++						fmt.Fprint(out, "  请投票 (输入玩家名): ")
+ 						continue
+ 					}
+-					if err := cc.Send(game.Message{Type: game.MsgVote, Payload: line}); err != nil {
++					msgType := game.MsgVote
++					if inPK {
++						msgType = game.MsgPKVote
++					}
++					if err := cc.Send(game.Message{Type: msgType, Payload: line}); err != nil {
+ 						disp.Warn(fmt.Sprintf("send failed: %v", err))
+ 						return 1
+ 					}
+-					voteP = voteSubmitted
++					phase = voteSubmitted
+ 				}
++			case <-quitCh:
++				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
++					disp.Warn(fmt.Sprintf("send failed: %v", err))
++				}
++				return 0
+ 			}
+ 		} else {
+-			// Simple blocking read from network messages only.
+-			msg, ok := <-cc.Messages()
+-			if !ok {
++			// Select between network messages and quit signal.
++			select {
++			case msg, ok := <-cc.Messages():
++				if !ok {
++					return 0
++				}
++				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &pkRoundSpeakers) {
++					return 1
++				}
++			case <-quitCh:
++				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
++					disp.Warn(fmt.Sprintf("send failed: %v", err))
++				}
+ 				return 0
+ 			}
+-			if !handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase) {
+-				return 1
+-			}
+ 		}
+ 	}
+ }
+ 
+ // handleMessage processes a single network message. It returns false if the
+ // player should exit (fatal error).
+-func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool) bool {
++func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, phase *descPhase, inPK *bool, pkSpeakers *[]string) bool {
+ 	switch msg.Type {
+ 	case game.MsgJoin:
+ 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
+@@ -181,50 +192,80 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
+ 			disp.Data("00", fmt.Sprintf("assigned token: %s [%s]", word, dispLabel))
+ 		}
+ 	case game.MsgRound:
++		if *inPK {
++			parts := strings.SplitN(msg.Payload, "|", 2)
++			if len(parts) >= 2 {
++				*pkSpeakers = strings.Split(parts[1], ",")
++			}
++		}
+ 		handleRoundMsg(disp, msg.Payload)
+-	case game.MsgVote:
+-		handleVoteMsg(disp, msg.Payload)
+-		*voteP = voteIdle
+-		*inVotePhase = true
++	case game.MsgPKStart:
++		disp.Data("00", fmt.Sprintf("PK: tied players %s", msg.Payload))
++		*inPK = true
++		*pkSpeakers = nil
+ 	case game.MsgTurn:
+ 		speaker := msg.Payload
+-		if *inVotePhase {
+-			// In voting phase
+-			if speaker == playerName {
+-				fmt.Fprint(out, "  请输入投票目标: ")
+-				*voteP = voteWaitingInput
++		if *inPK {
++			// Determine if this is PK description or PK voting sub-phase.
++			// In PK desc, the ROUND message contained only tied players as speakers.
++			// In PK voting, the ROUND message contained all alive players.
++			isPKDesc := false
++			for _, s := range *pkSpeakers {
++				if s == speaker {
++					isPKDesc = true
++					break
++				}
++			}
++			if isPKDesc {
++				// PK description phase
++				if speaker == playerName {
++					fmt.Fprint(out, "  请输入PK描述: ")
++					*phase = descWaitingInput
++				} else {
++					disp.Data("00", fmt.Sprintf("等待 %s PK描述...", speaker))
++					*phase = descIdle
++				}
+ 			} else {
++				// PK voting phase
+ 				disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+-				*voteP = voteIdle
++				*phase = voteWaitingInput
+ 			}
++		} else if speaker == playerName {
++			// Our turn — prompt for description
++			fmt.Fprint(out, "  请输入描述: ")
++			*phase = descWaitingInput
+ 		} else {
+-			// In description phase (or pre-phase)
+-			if speaker == playerName {
+-				fmt.Fprint(out, "  请输入描述: ")
+-				*descP = descWaitingInput
+-			} else {
+-				disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
+-				*descP = descIdle
+-			}
++			disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
++			*phase = descIdle
+ 		}
+ 	case game.MsgDesc:
+ 		handleDescMsg(disp, msg.Payload)
+-		// If we were in descSubmitted, our description was accepted
+-		if *descP == descSubmitted {
+-			*descP = descIdle
++		if *phase == descSubmitted {
++			*phase = descIdle
++		} else if *phase == voteSubmitted {
++			*phase = descIdle
++		}
++	case game.MsgVote:
++		handleVoteMsg(disp, msg.Payload)
++		if *phase == voteSubmitted {
++			*phase = descIdle
+ 		}
+ 	case game.MsgResult:
+-		handleResultMsg(disp, msg.Payload)
++		disp.Data("00", fmt.Sprintf("投票结果: %s", msg.Payload))
++		*phase = descIdle
++	case game.MsgKick:
++		disp.Data("00", fmt.Sprintf("淘汰: %s", msg.Payload))
++		*inPK = false
++	case game.MsgQuit:
++		disp.Data("00", fmt.Sprintf("玩家 %s 退出了游戏", msg.Payload))
+ 	case game.MsgError:
+ 		disp.Warn(msg.Payload)
+-		if *descP == descSubmitted || *descP == descWaitingInput {
+-			// In desc phase: re-prompt for input
++		if *phase == descSubmitted || *phase == descWaitingInput {
+ 			fmt.Fprint(out, "  请输入描述: ")
+-			*descP = descWaitingInput
+-		} else if *voteP == voteSubmitted || *voteP == voteWaitingInput {
+-			// In vote phase: re-prompt for input
+-			fmt.Fprint(out, "  请输入投票目标: ")
+-			*voteP = voteWaitingInput
++			*phase = descWaitingInput
++		} else if *phase == voteSubmitted || *phase == voteWaitingInput {
++			fmt.Fprint(out, "  请投票 (输入玩家名): ")
++			*phase = voteWaitingInput
+ 		} else {
+ 			return false
+ 		}
+@@ -248,6 +289,17 @@ func handleRoundMsg(disp *client.Display, payload string) {
+ 	disp.Data("00", fmt.Sprintf("轮次 %s，发言顺序: %s", roundNum, orderStr))
+ }
+ 
++// handleVoteMsg parses and displays a VOTE broadcast.
++// Payload format: "voterName|targetName"
++func handleVoteMsg(disp *client.Display, payload string) {
++	parts := strings.SplitN(payload, "|", 2)
++	if len(parts) < 2 {
++		disp.Data("00", fmt.Sprintf("VOTE %s", payload))
++		return
++	}
++	disp.Data("00", fmt.Sprintf("%s 投票给了 %s", parts[0], parts[1]))
++}
++
+ // handleDescMsg parses and displays a DESC broadcast.
+ // Payload format: "playerName|description"
+ func handleDescMsg(disp *client.Display, payload string) {
+@@ -260,36 +312,3 @@ func handleDescMsg(disp *client.Display, payload string) {
+ 	desc := parts[1]
+ 	disp.Data("00", fmt.Sprintf("%s: %s", playerName, desc))
+ }
+-
+-// handleVoteMsg parses and displays the VOTE broadcast.
+-// Payload format: "roundNum|alivePlayerList"
+-func handleVoteMsg(disp *client.Display, payload string) {
+-	parts := strings.SplitN(payload, "|", 2)
+-	if len(parts) < 2 {
+-		disp.Data("00", fmt.Sprintf("VOTE %s", payload))
+-		return
+-	}
+-	roundNum := parts[0]
+-	playerList := strings.Split(parts[1], ",")
+-	orderStr := strings.Join(playerList, " → ")
+-	disp.Data("00", fmt.Sprintf("投票环节 轮次 %s，可投票: %s", roundNum, orderStr))
+-}
+-
+-// handleResultMsg parses and displays the RESULT broadcast.
+-// Payload format: "playerA:count,playerB:count,..."
+-func handleResultMsg(disp *client.Display, payload string) {
+-	if payload == "" {
+-		disp.Data("00", "投票结果: 无")
+-		return
+-	}
+-	pairs := strings.Split(payload, ",")
+-	disp.Data("00", "投票结果:")
+-	for _, pair := range pairs {
+-		kv := strings.SplitN(pair, ":", 2)
+-		if len(kv) < 2 {
+-			disp.Data("00", fmt.Sprintf("  %s", pair))
+-			continue
+-		}
+-		disp.Data("00", fmt.Sprintf("  %s: %s 票", kv[0], kv[1]))
+-	}
+-}
+diff --git a/cmd/doubletake/player_test.go b/cmd/doubletake/player_test.go
+index ef107d5..ffb8e3c 100644
+--- a/cmd/doubletake/player_test.go
++++ b/cmd/doubletake/player_test.go
+@@ -727,9 +727,7 @@ func TestRunPlayer_DescPhase_ErrorFatal(t *testing.T) {
+ 	<-serverDone
+ }
+ 
+-// TestRunPlayer_VotePhase_OtherPlayerTurn tests that the player correctly
+-// displays VOTE, TURN (other player) messages during the voting phase.
+-func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
++func TestRunPlayer_QuitDuringIdlePhase(t *testing.T) {
+ 	ln, _, roomCode := startTestPlayerServer(t)
+ 	defer ln.Close()
+ 
+@@ -746,198 +744,9 @@ func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+-
+-		// JOIN confirm
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+-		// VOTE message: round 1, alive players
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|Bob,Alice"}))
+-		// TURN for Bob (not Alice)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "Bob"}))
+-		// TURN for Alice (us) — need to read her vote
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "Alice"}))
+-		// Read the VOTE message from Alice
+-		if scanner.Scan() {
+-			// consume the vote
+-		}
+-	}()
+-
+-	out := &bytes.Buffer{}
+-	input := roomCode + "\nAlice\nBob\n"
+-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+-
+-	if exitCode != 0 {
+-		t.Errorf("expected exit code 0, got %d", exitCode)
+-	}
+-	output := out.String()
+-
+-	// Verify VOTE display
+-	if !strings.Contains(output, "投票环节 轮次 1") {
+-		t.Errorf("expected vote round display, got: %s", output)
+-	}
+-	if !strings.Contains(output, "可投票: Bob → Alice") {
+-		t.Errorf("expected alive player list, got: %s", output)
+-	}
+-
+-	// Verify waiting message for other player's turn
+-	if !strings.Contains(output, "等待 Bob 投票...") {
+-		t.Errorf("expected waiting message for Bob voting, got: %s", output)
+-	}
+-
+-	<-serverDone
+-}
+-
+-// TestRunPlayer_VotePhase_OwnTurn tests that the player correctly prompts
+-// for vote input when receiving TURN for itself and sends VOTE|targetName.
+-func TestRunPlayer_VotePhase_OwnTurn(t *testing.T) {
+-	ln, _, roomCode := startTestPlayerServer(t)
+-	defer ln.Close()
+-
+-	serverDone := make(chan struct{})
+-	go func() {
+-		defer close(serverDone)
+-		conn, err := ln.Accept()
+-		if err != nil {
+-			return
+-		}
+-		defer conn.Close()
+-
+-		scanner := bufio.NewScanner(conn)
+-		if !scanner.Scan() {
+-			return
+-		}
+-
+-		// JOIN confirm
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+-		// VOTE message
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
+-		// TURN for P0 (us)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+-		// Read the VOTE message from P0
+-		if !scanner.Scan() {
+-			return
+-		}
+-		msg, err := game.Decode(scanner.Text())
+-		if err != nil {
+-			return
+-		}
+-		if msg.Type != game.MsgVote {
+-			t.Errorf("expected VOTE message, got %s", msg.Type)
+-			return
+-		}
+-		if msg.Payload != "P1" {
+-			t.Errorf("expected VOTE payload 'P1', got '%s'", msg.Payload)
+-			return
+-		}
+-	}()
+-
+-	out := &bytes.Buffer{}
+-	input := roomCode + "\nP0\nP1\n"
+-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+-
+-	if exitCode != 0 {
+-		t.Errorf("expected exit code 0, got %d", exitCode)
+-	}
+-	output := out.String()
+-
+-	// Verify prompt displayed
+-	if !strings.Contains(output, "请输入投票目标:") {
+-		t.Errorf("expected vote prompt, got: %s", output)
+-	}
+-
+-	<-serverDone
+-}
+-
+-// TestRunPlayer_VotePhase_EmptyTargetRetry tests that the player re-prompts
+-// when the user enters an empty vote target (client-side check).
+-func TestRunPlayer_VotePhase_EmptyTargetRetry(t *testing.T) {
+-	ln, _, roomCode := startTestPlayerServer(t)
+-	defer ln.Close()
+-
+-	serverDone := make(chan struct{})
+-	go func() {
+-		defer close(serverDone)
+-		conn, err := ln.Accept()
+-		if err != nil {
+-			return
+-		}
+-		defer conn.Close()
+-
+-		scanner := bufio.NewScanner(conn)
+-		if !scanner.Scan() {
+-			return
+-		}
+-
+-		// JOIN confirm
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+-		// VOTE message
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
+-		// TURN for P0 (us)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+-		// Client-side empty check blocks sending empty, so the first non-empty
+-		// vote will arrive here.
+-		if !scanner.Scan() {
+-			return
+-		}
+-		msg, err := game.Decode(scanner.Text())
+-		if err != nil {
+-			return
+-		}
+-		if msg.Payload != "P1" {
+-			t.Errorf("expected 'P1', got '%s'", msg.Payload)
+-		}
+-	}()
+-
+-	out := &bytes.Buffer{}
+-	// Input: room code, name, empty line (caught client-side), valid target
+-	input := roomCode + "\nP0\n\nP1\n"
+-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+-
+-	if exitCode != 0 {
+-		t.Errorf("expected exit code 0, got %d", exitCode)
+-	}
+-	output := out.String()
+-
+-	// Verify client-side empty warning
+-	if !strings.Contains(output, "投票目标不能为空") {
+-		t.Errorf("expected empty vote target warning, got: %s", output)
+-	}
+-
+-	<-serverDone
+-}
+-
+-// TestRunPlayer_VotePhase_ServerErrorRetry tests that the player re-prompts
+-// when the server rejects a vote with ERROR (server-side rejection).
+-func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
+-	ln, _, roomCode := startTestPlayerServer(t)
+-	defer ln.Close()
+-
+-	serverDone := make(chan struct{})
+-	go func() {
+-		defer close(serverDone)
+-		conn, err := ln.Accept()
+-		if err != nil {
+-			return
+-		}
+-		defer conn.Close()
+-
+-		scanner := bufio.NewScanner(conn)
+-		if !scanner.Scan() {
+-			return
+-		}
+-
+-		// JOIN confirm
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+-		// VOTE message
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
+-		// TURN for P0 (us)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+-		// Read first VOTE (will be rejected)
+-		if !scanner.Scan() {
+-			return
+-		}
+-		// Send ERROR to reject (e.g. "cannot vote for yourself")
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgError, Payload: "cannot vote for yourself"}))
+-		// Read second VOTE
++		// Send JOIN confirmation
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		// Read the QUIT message
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+@@ -945,36 +754,23 @@ func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
+ 		if err != nil {
+ 			return
+ 		}
+-		if msg.Payload != "P1" {
+-			t.Errorf("expected 'P1', got '%s'", msg.Payload)
++		if msg.Type != game.MsgQuit {
++			t.Errorf("expected QUIT message, got %s", msg.Type)
+ 		}
+ 	}()
+ 
+ 	out := &bytes.Buffer{}
+-	// Input: room code, name, self vote (rejected by server), valid target
+-	input := roomCode + "\nP0\nP0\nP1\n"
++	// Input: room code, name, then quit
++	input := roomCode + "\ntestPlayer\nquit\n"
+ 	exitCode := RunPlayer(out, strings.NewReader(input), false)
+ 
+ 	if exitCode != 0 {
+-		t.Errorf("expected exit code 0, got %d", exitCode)
++		t.Errorf("expected exit code 0 on quit, got %d", exitCode)
+ 	}
+-	output := out.String()
+-
+-	// Verify error message displayed
+-	if !strings.Contains(output, "cannot vote for yourself") {
+-		t.Errorf("expected server error message, got: %s", output)
+-	}
+-	// Verify re-prompt
+-	if strings.Count(output, "请输入投票目标:") < 2 {
+-		t.Errorf("expected at least 2 vote prompts, got: %s", output)
+-	}
+-
+ 	<-serverDone
+ }
+ 
+-// TestRunPlayer_VotePhase_ResultDisplay tests that the player correctly
+-// displays the RESULT message with vote tallies.
+-func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
++func TestRunPlayer_QuitFromOtherPlayerNotification(t *testing.T) {
+ 	ln, _, roomCode := startTestPlayerServer(t)
+ 	defer ln.Close()
+ 
+@@ -991,47 +787,28 @@ func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+-
+-		// JOIN confirm
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+-		// VOTE message
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|Bob,Alice"}))
+-		// TURN for Alice (us)
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "Alice"}))
+-		// Read the VOTE from Alice
+-		if scanner.Scan() {
+-			// consume the vote
+-		}
+-		// Send RESULT
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgResult, Payload: "Bob:2,Alice:1"}))
++		// Send JOIN confirmation then QUIT broadcast from another player.
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgQuit, Payload: "otherPlayer"}))
++		// Let the function return — defer conn.Close() closes the connection,
++		// causing the client's receiveLoop to detect EOF and disconnect.
+ 	}()
+ 
+ 	out := &bytes.Buffer{}
+-	input := roomCode + "\nAlice\nBob\n"
++	input := roomCode + "\ntestPlayer\n"
+ 	exitCode := RunPlayer(out, strings.NewReader(input), false)
+ 
+ 	if exitCode != 0 {
+ 		t.Errorf("expected exit code 0, got %d", exitCode)
+ 	}
+ 	output := out.String()
+-
+-	// Verify RESULT display
+-	if !strings.Contains(output, "投票结果:") {
+-		t.Errorf("expected result header, got: %s", output)
++	if !strings.Contains(output, "玩家 otherPlayer 退出了游戏") {
++		t.Errorf("expected quit notification for otherPlayer, got: %s", output)
+ 	}
+-	if !strings.Contains(output, "Bob: 2 票") {
+-		t.Errorf("expected Bob vote count, got: %s", output)
+-	}
+-	if !strings.Contains(output, "Alice: 1 票") {
+-		t.Errorf("expected Alice vote count, got: %s", output)
+-	}
+-
+ 	<-serverDone
+ }
+ 
+-// TestRunPlayer_VotePhase_DescToVoteTransition tests that the player correctly
+-// transitions from description phase to voting phase.
+-func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
++func TestRunPlayer_QuitDuringDescPhase(t *testing.T) {
+ 	ln, _, roomCode := startTestPlayerServer(t)
+ 	defer ln.Close()
+ 
+@@ -1048,22 +825,12 @@ func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+-
+-		// JOIN confirm
++		// JOIN confirm + ROUND + TURN for this player (enters desc phase)
+ 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+-		// Description phase
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+-		// Read DESC from P0
+-		if !scanner.Scan() {
+-			return
+-		}
+-		// Broadcast DESC
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgDesc, Payload: "P0|something"}))
+-		// Voting phase starts
+-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
++		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0,P1"}))
+ 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
+-		// Read VOTE from P0
++		// Read the QUIT message (player may process quit before TURN due to
++		// stdin race with strings.Reader — either path exercises the quit logic)
+ 		if !scanner.Scan() {
+ 			return
+ 		}
+@@ -1071,31 +838,17 @@ func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
+ 		if err != nil {
+ 			return
+ 		}
+-		if msg.Type != game.MsgVote || msg.Payload != "P1" {
+-			t.Errorf("expected VOTE P1, got %s %s", msg.Type, msg.Payload)
++		if msg.Type != game.MsgQuit {
++			t.Errorf("expected QUIT message, got %s", msg.Type)
+ 		}
+ 	}()
+ 
+ 	out := &bytes.Buffer{}
+-	input := roomCode + "\nP0\nsomething\nP1\n"
++	input := roomCode + "\nP0\nquit\n"
+ 	exitCode := RunPlayer(out, strings.NewReader(input), false)
+ 
+ 	if exitCode != 0 {
+-		t.Errorf("expected exit code 0, got %d", exitCode)
++		t.Errorf("expected exit code 0 on quit, got %d", exitCode)
+ 	}
+-	output := out.String()
+-
+-	// Verify desc phase was shown
+-	if !strings.Contains(output, "请输入描述:") {
+-		t.Errorf("expected desc prompt, got: %s", output)
+-	}
+-	// Verify vote phase started
+-	if !strings.Contains(output, "投票环节 轮次 1") {
+-		t.Errorf("expected vote round display, got: %s", output)
+-	}
+-	if !strings.Contains(output, "请输入投票目标:") {
+-		t.Errorf("expected vote prompt, got: %s", output)
+-	}
+-
+ 	<-serverDone
+ }
+diff --git a/game/game.go b/game/game.go
+index 727c704..a566fd2 100644
+--- a/game/game.go
++++ b/game/game.go
+@@ -12,6 +12,18 @@ var ErrEmptyDesc = errors.New("description must not be empty")
+ // ErrNotYourTurn indicates a player tried to describe when it's not their turn.
+ var ErrNotYourTurn = errors.New("it is not your turn")
+ 
++// ErrVoteEmpty indicates the vote target is empty or whitespace only.
++var ErrVoteEmpty = errors.New("vote target must not be empty")
++
++// ErrVoteNotAPlayer indicates the voter is not in the player list.
++var ErrVoteNotAPlayer = errors.New("voter is not a player")
++
++// ErrVoteTargetNotAPlayer indicates the vote target is not in the player list.
++var ErrVoteTargetNotAPlayer = errors.New("vote target is not a player")
++
++// ErrVoteAlreadyVoted indicates the voter has already voted.
++var ErrVoteAlreadyVoted = errors.New("voter has already voted")
++
+ // DescRound manages the description phase of a single round.
+ // Players speak in the order given by SpeakerOrder; the judge records
+ // each description for later review.
+@@ -80,3 +92,114 @@ func (d *DescRound) Description(player string) (string, bool) {
+ 	v, ok := d.Descriptions[player]
+ 	return v, ok
+ }
++
++// VoteRound manages a single round of voting (non-PK).
++// All alive players both vote and can be voted for.
++type VoteRound struct {
++	RoundNum   int
++	Players    []string          // all alive players (voters and targets)
++	Votes      map[string]string // voter → target
++}
++
++// NewVoteRound creates a vote round for the given alive players.
++func NewVoteRound(roundNum int, players []string) (*VoteRound, error) {
++	if len(players) == 0 {
++		return nil, errors.New("players list must not be empty")
++	}
++	seen := make(map[string]bool, len(players))
++	for _, name := range players {
++		if strings.TrimSpace(name) == "" {
++			return nil, errors.New("player name must not be empty")
++		}
++		if seen[name] {
++			return nil, fmt.Errorf("duplicate player name: %s", name)
++		}
++		seen[name] = true
++	}
++	order := make([]string, len(players))
++	copy(order, players)
++	return &VoteRound{
++		RoundNum: roundNum,
++		Players:  order,
++		Votes:    make(map[string]string),
++	}, nil
++}
++
++// CurrentVoter returns the name of the first player who hasn't voted yet.
++func (vr *VoteRound) CurrentVoter() string {
++	for _, name := range vr.Players {
++		if _, voted := vr.Votes[name]; !voted {
++			return name
++		}
++	}
++	return ""
++}
++
++// RecordVote records a vote from a voter for a target player.
++func (vr *VoteRound) RecordVote(voter, target string) error {
++	if strings.TrimSpace(target) == "" {
++		return ErrVoteEmpty
++	}
++	valid := false
++	for _, name := range vr.Players {
++		if name == voter {
++			valid = true
++			break
++		}
++	}
++	if !valid {
++		return ErrVoteNotAPlayer
++	}
++	if _, ok := vr.Votes[voter]; ok {
++		return ErrVoteAlreadyVoted
++	}
++	validTarget := false
++	for _, name := range vr.Players {
++		if name == target {
++			validTarget = true
++			break
++		}
++	}
++	if !validTarget {
++		return ErrVoteTargetNotAPlayer
++	}
++	vr.Votes[voter] = target
++	return nil
++}
++
++// AllVoted returns true when all players have voted.
++func (vr *VoteRound) AllVoted() bool {
++	return len(vr.Votes) == len(vr.Players)
++}
++
++// Tally returns the vote count for each player.
++func (vr *VoteRound) Tally() map[string]int {
++	result := make(map[string]int, len(vr.Players))
++	for _, name := range vr.Players {
++		result[name] = 0
++	}
++	for _, target := range vr.Votes {
++		result[target]++
++	}
++	return result
++}
++
++// FindEliminated returns the player with the most votes and whether there is a tie.
++func (vr *VoteRound) FindEliminated() (player string, tie bool) {
++	tally := vr.Tally()
++	var maxVotes int
++	var topPlayers []string
++	for _, name := range vr.Players {
++		v := tally[name]
++		if v > maxVotes {
++			maxVotes = v
++			topPlayers = []string{name}
++		} else if v == maxVotes && v > 0 {
++			topPlayers = append(topPlayers, name)
++		}
++	}
++	if len(topPlayers) == 1 {
++		return topPlayers[0], false
++	}
++	return "", true
++}
+diff --git a/server/server.go b/server/server.go
+index d832b4c..4bbb8ff 100644
+--- a/server/server.go
++++ b/server/server.go
+@@ -30,6 +30,8 @@ type Server struct {
+ 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
+ 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
+ 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
++	OnPKVoteMsg  chan VoteEvent       // forwards PK_VOTE messages from named players
++	OnQuitMsg    chan QuitEvent       // notifies when a named player quits
+ }
+ 
+ // PlayerJoinEvent carries info about a player that just joined.
+@@ -45,12 +47,17 @@ type DescEvent struct {
+ 	Description string
+ }
+ 
+-// VoteEvent carries a VOTE message received from a named player.
++// VoteEvent carries a VOTE or PK_VOTE message received from a named player.
+ type VoteEvent struct {
+ 	PlayerName string
+ 	Target     string
+ }
+ 
++// QuitEvent carries info about a player that quit the game.
++type QuitEvent struct {
++	PlayerName string
++}
++
+ // NewServer creates a new Server that will listen on the given port.
+ // totalPlayers sets the expected player capacity for join notifications.
+ func NewServer(port string, totalPlayers int) *Server {
+@@ -64,6 +71,8 @@ func NewServer(port string, totalPlayers int) *Server {
+ 		OnPlayerJoin: make(chan PlayerJoinEvent, 64),
+ 		OnDescMsg:    make(chan DescEvent, 64),
+ 		OnVoteMsg:    make(chan VoteEvent, 64),
++		OnPKVoteMsg:  make(chan VoteEvent, 64),
++		OnQuitMsg:    make(chan QuitEvent, 64),
+ 	}
+ }
+ 
+@@ -148,6 +157,11 @@ func (s *Server) handleConn(conn net.Conn) {
+ 			s.handleDesc(player, msg.Payload)
+ 		case game.MsgVote:
+ 			s.handleVote(player, msg.Payload)
++		case game.MsgPKVote:
++			s.handlePKVote(player, msg.Payload)
++		case game.MsgQuit:
++			s.handleQuit(player)
++			return
+ 		}
+ 	}
+ 	if err := scanner.Err(); err != nil {
+@@ -290,16 +304,61 @@ func (s *Server) handleDesc(player *Player, payload string) {
+ 
+ // handleVote processes a VOTE message from a player.
+ // Unnamed players receive an error. Named players' votes are forwarded
+-// to the OnVoteMsg channel for the judge to validate and process.
++// to the OnVoteMsg channel for the judge to process.
+ func (s *Server) handleVote(player *Player, payload string) {
+ 	if player.Name == "" {
+ 		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
+ 		return
+ 	}
+-
+ 	select {
+ 	case s.OnVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
+ 	default:
+ 		log.Printf("OnVoteMsg channel full, dropping VOTE from %s", player.Name)
+ 	}
+ }
++
++// handlePKVote processes a PK_VOTE message from a player.
++func (s *Server) handlePKVote(player *Player, payload string) {
++	if player.Name == "" {
++		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
++		return
++	}
++	select {
++	case s.OnPKVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
++	default:
++		log.Printf("OnPKVoteMsg channel full, dropping PK_VOTE from %s", player.Name)
++	}
++}
++
++// handleQuit processes a QUIT message from a player.
++// For unnamed players, it simply returns (deferred unregister handles cleanup).
++// For named players, it broadcasts QUIT|playerName to other named players,
++// sends a QuitEvent to OnQuitMsg, then returns (deferred unregister removes
++// the player from names and closes the connection).
++func (s *Server) handleQuit(player *Player) {
++	if player.Name == "" {
++		return
++	}
++
++	name := player.Name
++	log.Printf("player %s quit", name)
++
++	// Broadcast QUIT to other named players.
++	s.mu.Lock()
++	for _, p := range s.connections {
++		if p.Conn == player.Conn || p.Name == "" {
++			continue
++		}
++		data := []byte(game.Encode(game.Message{Type: game.MsgQuit, Payload: name}))
++		if _, err := p.Conn.Write(data); err != nil {
++			log.Printf("broadcast QUIT write error to %s: %v", p.Conn.RemoteAddr(), err)
++		}
++	}
++	s.mu.Unlock()
++
++	// Notify judge about the quit event (non-blocking).
++	select {
++	case s.OnQuitMsg <- QuitEvent{PlayerName: name}:
++	default:
++	}
++}
+[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead cmd/doubletake/judge_test.go[90m [offset=1905][0m
+[0m→ [0mRead cmd/doubletake/main.go
+Let me read the remaining test file and check compilation:
+[0m
+[0m$ [0mgo build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo test ./... 2>&1
+ok  	github.com/smallnest/doubletake/client	(cached)
+2026/04/29 23:31:42 server listening on :52880
+2026/04/29 23:31:42 player connected: 127.0.0.1:52885
+2026/04/29 23:31:42 player connected: 127.0.0.1:52884
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52884
+2026/04/29 23:31:42 received from 127.0.0.1:52885: JOIN Alice
+2026/04/29 23:31:42 player 127.0.0.1:52885 joined as Alice
+2026/04/29 23:31:42 connection error from 127.0.0.1:52885: read tcp 127.0.0.1:52880->127.0.0.1:52885: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52885
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52886
+2026/04/29 23:31:42 player connected: 127.0.0.1:52888
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52888
+2026/04/29 23:31:42 player connected: 127.0.0.1:52889
+2026/04/29 23:31:42 received from 127.0.0.1:52889: JOIN Alice
+2026/04/29 23:31:42 player 127.0.0.1:52889 joined as Alice
+2026/04/29 23:31:42 player connected: 127.0.0.1:52890
+2026/04/29 23:31:42 received from 127.0.0.1:52890: JOIN Bob
+2026/04/29 23:31:42 player 127.0.0.1:52890 joined as Bob
+2026/04/29 23:31:42 player connected: 127.0.0.1:52892
+2026/04/29 23:31:42 player connected: 127.0.0.1:52891
+2026/04/29 23:31:42 received from 127.0.0.1:52891: JOIN Charlie
+2026/04/29 23:31:42 player 127.0.0.1:52891 joined as Charlie
+2026/04/29 23:31:42 received from 127.0.0.1:52892: JOIN Dave
+2026/04/29 23:31:42 player 127.0.0.1:52892 joined as Dave
+2026/04/29 23:31:42 connection error from 127.0.0.1:52891: read tcp 127.0.0.1:52886->127.0.0.1:52891: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52891
+2026/04/29 23:31:42 connection error from 127.0.0.1:52892: read tcp 127.0.0.1:52886->127.0.0.1:52892: read: connection reset by peer
+2026/04/29 23:31:42 connection error from 127.0.0.1:52889: read tcp 127.0.0.1:52886->127.0.0.1:52889: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52889
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52892
+2026/04/29 23:31:42 connection error from 127.0.0.1:52890: read tcp 127.0.0.1:52886->127.0.0.1:52890: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52890
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52893
+2026/04/29 23:31:42 player connected: 127.0.0.1:52895
+2026/04/29 23:31:42 player connected: 127.0.0.1:52896
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52895
+2026/04/29 23:31:42 received from 127.0.0.1:52896: JOIN A
+2026/04/29 23:31:42 player 127.0.0.1:52896 joined as A
+2026/04/29 23:31:42 player connected: 127.0.0.1:52897
+2026/04/29 23:31:42 received from 127.0.0.1:52897: JOIN B
+2026/04/29 23:31:42 player 127.0.0.1:52897 joined as B
+2026/04/29 23:31:42 player connected: 127.0.0.1:52898
+2026/04/29 23:31:42 received from 127.0.0.1:52898: JOIN C
+2026/04/29 23:31:42 player 127.0.0.1:52898 joined as C
+2026/04/29 23:31:42 connection error from 127.0.0.1:52898: read tcp 127.0.0.1:52893->127.0.0.1:52898: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52898
+2026/04/29 23:31:42 connection error from 127.0.0.1:52896: read tcp 127.0.0.1:52893->127.0.0.1:52896: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52896
+2026/04/29 23:31:42 connection error from 127.0.0.1:52897: read tcp 127.0.0.1:52893->127.0.0.1:52897: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52897
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52899
+2026/04/29 23:31:42 player connected: 127.0.0.1:52901
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52901
+2026/04/29 23:31:42 player connected: 127.0.0.1:52902
+2026/04/29 23:31:42 received from 127.0.0.1:52902: JOIN A
+2026/04/29 23:31:42 player 127.0.0.1:52902 joined as A
+2026/04/29 23:31:42 player connected: 127.0.0.1:52903
+2026/04/29 23:31:42 received from 127.0.0.1:52903: JOIN B
+2026/04/29 23:31:42 player 127.0.0.1:52903 joined as B
+2026/04/29 23:31:42 player connected: 127.0.0.1:52904
+2026/04/29 23:31:42 received from 127.0.0.1:52904: JOIN C
+2026/04/29 23:31:42 player 127.0.0.1:52904 joined as C
+2026/04/29 23:31:42 player connected: 127.0.0.1:52905
+2026/04/29 23:31:42 received from 127.0.0.1:52905: JOIN D
+2026/04/29 23:31:42 player 127.0.0.1:52905 joined as D
+2026/04/29 23:31:42 connection error from 127.0.0.1:52905: read tcp 127.0.0.1:52899->127.0.0.1:52905: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52905
+2026/04/29 23:31:42 connection error from 127.0.0.1:52902: read tcp 127.0.0.1:52899->127.0.0.1:52902: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52902
+2026/04/29 23:31:42 connection error from 127.0.0.1:52903: read tcp 127.0.0.1:52899->127.0.0.1:52903: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52903
+2026/04/29 23:31:42 connection error from 127.0.0.1:52904: read tcp 127.0.0.1:52899->127.0.0.1:52904: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52904
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52906
+2026/04/29 23:31:42 player connected: 127.0.0.1:52908
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52908
+2026/04/29 23:31:42 player connected: 127.0.0.1:52909
+2026/04/29 23:31:42 received from 127.0.0.1:52909: JOIN A
+2026/04/29 23:31:42 player 127.0.0.1:52909 joined as A
+2026/04/29 23:31:42 player connected: 127.0.0.1:52910
+2026/04/29 23:31:42 received from 127.0.0.1:52910: JOIN B
+2026/04/29 23:31:42 player 127.0.0.1:52910 joined as B
+2026/04/29 23:31:42 player connected: 127.0.0.1:52911
+2026/04/29 23:31:42 received from 127.0.0.1:52911: JOIN C
+2026/04/29 23:31:42 player 127.0.0.1:52911 joined as C
+2026/04/29 23:31:42 player connected: 127.0.0.1:52912
+2026/04/29 23:31:42 received from 127.0.0.1:52912: JOIN D
+2026/04/29 23:31:42 player 127.0.0.1:52912 joined as D
+2026/04/29 23:31:42 connection error from 127.0.0.1:52912: read tcp 127.0.0.1:52906->127.0.0.1:52912: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52912
+2026/04/29 23:31:42 connection error from 127.0.0.1:52911: read tcp 127.0.0.1:52906->127.0.0.1:52911: read: connection reset by peer
+2026/04/29 23:31:42 connection error from 127.0.0.1:52909: read tcp 127.0.0.1:52906->127.0.0.1:52909: read: connection reset by peer
+2026/04/29 23:31:42 connection error from 127.0.0.1:52910: read tcp 127.0.0.1:52906->127.0.0.1:52910: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52911
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52910
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52909
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52913
+2026/04/29 23:31:42 player connected: 127.0.0.1:52915
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52915
+2026/04/29 23:31:42 player connected: 127.0.0.1:52916
+2026/04/29 23:31:42 received from 127.0.0.1:52916: JOIN A
+2026/04/29 23:31:42 player 127.0.0.1:52916 joined as A
+2026/04/29 23:31:42 player connected: 127.0.0.1:52917
+2026/04/29 23:31:42 received from 127.0.0.1:52917: JOIN B
+2026/04/29 23:31:42 player connected: 127.0.0.1:52918
+2026/04/29 23:31:42 player 127.0.0.1:52917 joined as B
+2026/04/29 23:31:42 received from 127.0.0.1:52918: JOIN C
+2026/04/29 23:31:42 player 127.0.0.1:52918 joined as C
+2026/04/29 23:31:42 player connected: 127.0.0.1:52919
+2026/04/29 23:31:42 received from 127.0.0.1:52919: JOIN D
+2026/04/29 23:31:42 player 127.0.0.1:52919 joined as D
+2026/04/29 23:31:42 player connected: 127.0.0.1:52920
+2026/04/29 23:31:42 received from 127.0.0.1:52920: JOIN E
+2026/04/29 23:31:42 player 127.0.0.1:52920 joined as E
+2026/04/29 23:31:42 connection error from 127.0.0.1:52920: read tcp 127.0.0.1:52913->127.0.0.1:52920: read: connection reset by peer
+2026/04/29 23:31:42 connection error from 127.0.0.1:52916: read tcp 127.0.0.1:52913->127.0.0.1:52916: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52916
+2026/04/29 23:31:42 connection error from 127.0.0.1:52919: read tcp 127.0.0.1:52913->127.0.0.1:52919: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52919
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52920
+2026/04/29 23:31:42 connection error from 127.0.0.1:52917: read tcp 127.0.0.1:52913->127.0.0.1:52917: read: connection reset by peer
+2026/04/29 23:31:42 connection error from 127.0.0.1:52918: read tcp 127.0.0.1:52913->127.0.0.1:52918: read: connection reset by peer
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52917
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52918
+2026/04/29 23:31:42 server stopped
+2026/04/29 23:31:42 server listening on :52921
+2026/04/29 23:31:42 player connected: 127.0.0.1:52923
+2026/04/29 23:31:42 player disconnected: 127.0.0.1:52923
+2026/04/29 23:31:42 player connected: 127.0.0.1:52924
+2026/04/29 23:31:42 received from 127.0.0.1:52924: JOIN A
+2026/04/29 23:31:42 player 127.0.0.1:52924 joined as A
+2026/04/29 23:31:42 player connected: 127.0.0.1:52925
+2026/04/29 23:31:42 received from 127.0.0.1:52925: JOIN B
+2026/04/29 23:31:42 player 127.0.0.1:52925 joined as B
+2026/04/29 23:31:42 player connected: 127.0.0.1:52926
+2026/04/29 23:31:42 received from 127.0.0.1:52926: JOIN C
+2026/04/29 23:31:42 player 127.0.0.1:52926 joined as C
+2026/04/29 23:31:42 player connected: 127.0.0.1:52927
+2026/04/29 23:31:42 received from 127.0.0.1:52927: JOIN D
+2026/04/29 23:31:42 player 127.0.0.1:52927 joined as D
+2026/04/29 23:31:43 connection error from 127.0.0.1:52927: read tcp 127.0.0.1:52921->127.0.0.1:52927: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52927
+2026/04/29 23:31:43 connection error from 127.0.0.1:52924: read tcp 127.0.0.1:52921->127.0.0.1:52924: read: connection reset by peer
+2026/04/29 23:31:43 connection error from 127.0.0.1:52925: read tcp 127.0.0.1:52921->127.0.0.1:52925: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52924
+2026/04/29 23:31:43 connection error from 127.0.0.1:52926: read tcp 127.0.0.1:52921->127.0.0.1:52926: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52926
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52925
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :52928
+2026/04/29 23:31:43 player connected: 127.0.0.1:52930
+2026/04/29 23:31:43 player connected: 127.0.0.1:52931
+2026/04/29 23:31:43 received from 127.0.0.1:52931: JOIN Alice
+2026/04/29 23:31:43 player 127.0.0.1:52931 joined as Alice
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52930
+2026/04/29 23:31:43 player connected: 127.0.0.1:52932
+2026/04/29 23:31:43 received from 127.0.0.1:52932: JOIN Bob
+2026/04/29 23:31:43 player 127.0.0.1:52932 joined as Bob
+2026/04/29 23:31:43 player connected: 127.0.0.1:52933
+2026/04/29 23:31:43 received from 127.0.0.1:52933: JOIN Carol
+2026/04/29 23:31:43 player 127.0.0.1:52933 joined as Carol
+2026/04/29 23:31:43 player connected: 127.0.0.1:52934
+2026/04/29 23:31:43 received from 127.0.0.1:52934: JOIN Dave
+2026/04/29 23:31:43 player 127.0.0.1:52934 joined as Dave
+2026/04/29 23:31:43 player connected: 127.0.0.1:52935
+2026/04/29 23:31:43 received from 127.0.0.1:52935: JOIN Eve
+2026/04/29 23:31:43 player 127.0.0.1:52935 joined as Eve
+2026/04/29 23:31:43 player connected: 127.0.0.1:52936
+2026/04/29 23:31:43 received from 127.0.0.1:52936: JOIN Frank
+2026/04/29 23:31:43 player 127.0.0.1:52936 joined as Frank
+2026/04/29 23:31:43 connection error from 127.0.0.1:52935: read tcp 127.0.0.1:52928->127.0.0.1:52935: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52935
+2026/04/29 23:31:43 connection error from 127.0.0.1:52936: read tcp 127.0.0.1:52928->127.0.0.1:52936: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52936
+2026/04/29 23:31:43 connection error from 127.0.0.1:52932: read tcp 127.0.0.1:52928->127.0.0.1:52932: read: connection reset by peer
+2026/04/29 23:31:43 connection error from 127.0.0.1:52931: read tcp 127.0.0.1:52928->127.0.0.1:52931: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52931
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52932
+2026/04/29 23:31:43 connection error from 127.0.0.1:52933: read tcp 127.0.0.1:52928->127.0.0.1:52933: read: connection reset by peer
+2026/04/29 23:31:43 connection error from 127.0.0.1:52934: read tcp 127.0.0.1:52928->127.0.0.1:52934: read: connection reset by peer
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52933
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52934
+2026/04/29 23:31:43 server listening on :52937
+2026/04/29 23:31:43 player connected: 127.0.0.1:52939
+2026/04/29 23:31:43 player connected: 127.0.0.1:52940
+2026/04/29 23:31:43 received from 127.0.0.1:52940: JOIN A
+2026/04/29 23:31:43 player 127.0.0.1:52940 joined as A
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52939
+2026/04/29 23:31:43 player connected: 127.0.0.1:52941
+2026/04/29 23:31:43 received from 127.0.0.1:52941: JOIN B
+2026/04/29 23:31:43 player 127.0.0.1:52941 joined as B
+2026/04/29 23:31:43 player connected: 127.0.0.1:52942
+2026/04/29 23:31:43 received from 127.0.0.1:52942: JOIN C
+2026/04/29 23:31:43 player 127.0.0.1:52942 joined as C
+2026/04/29 23:31:43 player connected: 127.0.0.1:52943
+2026/04/29 23:31:43 received from 127.0.0.1:52943: JOIN D
+2026/04/29 23:31:43 player 127.0.0.1:52943 joined as D
+2026/04/29 23:31:43 player connected: 127.0.0.1:52944
+2026/04/29 23:31:43 received from 127.0.0.1:52944: JOIN E
+2026/04/29 23:31:43 player 127.0.0.1:52944 joined as E
+2026/04/29 23:31:43 connection error from 127.0.0.1:52944: read tcp 127.0.0.1:52937->127.0.0.1:52944: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52944
+2026/04/29 23:31:43 connection error from 127.0.0.1:52941: read tcp 127.0.0.1:52937->127.0.0.1:52941: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52941
+2026/04/29 23:31:43 connection error from 127.0.0.1:52943: read tcp 127.0.0.1:52937->127.0.0.1:52943: read: connection reset by peer
+2026/04/29 23:31:43 connection error from 127.0.0.1:52942: read tcp 127.0.0.1:52937->127.0.0.1:52942: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52942
+2026/04/29 23:31:43 connection error from 127.0.0.1:52940: read tcp 127.0.0.1:52937->127.0.0.1:52940: read: connection reset by peer
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52943
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52940
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :52945
+2026/04/29 23:31:43 player connected: 127.0.0.1:52947
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52947
+2026/04/29 23:31:43 player connected: 127.0.0.1:52948
+2026/04/29 23:31:43 received from 127.0.0.1:52948: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52948 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52949
+2026/04/29 23:31:43 received from 127.0.0.1:52949: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52949 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52950
+2026/04/29 23:31:43 received from 127.0.0.1:52950: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52950 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52951
+2026/04/29 23:31:43 received from 127.0.0.1:52951: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52951 joined as P3
+2026/04/29 23:31:43 received from 127.0.0.1:52950: DESC description from P2
+2026/04/29 23:31:43 received from 127.0.0.1:52951: DESC description from P3
+2026/04/29 23:31:43 received from 127.0.0.1:52948: DESC description from P0
+2026/04/29 23:31:43 received from 127.0.0.1:52949: DESC description from P1
+2026/04/29 23:31:43 connection error from 127.0.0.1:52948: read tcp 127.0.0.1:52945->127.0.0.1:52948: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52948
+2026/04/29 23:31:43 connection error from 127.0.0.1:52949: read tcp 127.0.0.1:52945->127.0.0.1:52949: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52949
+2026/04/29 23:31:43 connection error from 127.0.0.1:52950: read tcp 127.0.0.1:52945->127.0.0.1:52950: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52950
+2026/04/29 23:31:43 connection error from 127.0.0.1:52951: read tcp 127.0.0.1:52945->127.0.0.1:52951: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52951
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :52952
+2026/04/29 23:31:43 player connected: 127.0.0.1:52954
+2026/04/29 23:31:43 player connected: 127.0.0.1:52955
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52954
+2026/04/29 23:31:43 received from 127.0.0.1:52955: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52955 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52956
+2026/04/29 23:31:43 received from 127.0.0.1:52956: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52956 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52957
+2026/04/29 23:31:43 received from 127.0.0.1:52957: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52957 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52958
+2026/04/29 23:31:43 received from 127.0.0.1:52958: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52958 joined as P3
+2026/04/29 23:31:43 received from 127.0.0.1:52955: DESC desc from P0
+2026/04/29 23:31:43 received from 127.0.0.1:52956: DESC desc from P1
+2026/04/29 23:31:43 received from 127.0.0.1:52955: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52956: PK_VOTE P0
+2026/04/29 23:31:43 received from 127.0.0.1:52957: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52958: PK_VOTE P1
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52955
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52956
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52958
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52957
+2026/04/29 23:31:43 server listening on :52959
+2026/04/29 23:31:43 player connected: 127.0.0.1:52961
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52961
+2026/04/29 23:31:43 player connected: 127.0.0.1:52962
+2026/04/29 23:31:43 received from 127.0.0.1:52962: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52962 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52963
+2026/04/29 23:31:43 received from 127.0.0.1:52963: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52963 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52964
+2026/04/29 23:31:43 received from 127.0.0.1:52964: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52964 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52965
+2026/04/29 23:31:43 received from 127.0.0.1:52965: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52965 joined as P3
+2026/04/29 23:31:43 received from 127.0.0.1:52962: DESC P0 desc
+2026/04/29 23:31:43 received from 127.0.0.1:52963: DESC P1 desc
+2026/04/29 23:31:43 received from 127.0.0.1:52962: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52963: PK_VOTE P0
+2026/04/29 23:31:43 received from 127.0.0.1:52964: PK_VOTE P0
+2026/04/29 23:31:43 received from 127.0.0.1:52965: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52962: DESC P0 desc round 2
+2026/04/29 23:31:43 received from 127.0.0.1:52963: DESC P1 desc round 2
+2026/04/29 23:31:43 received from 127.0.0.1:52962: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52963: PK_VOTE P0
+2026/04/29 23:31:43 received from 127.0.0.1:52964: PK_VOTE P1
+2026/04/29 23:31:43 received from 127.0.0.1:52965: PK_VOTE P1
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52962
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52965
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52963
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52964
+2026/04/29 23:31:43 server listening on :52966
+2026/04/29 23:31:43 player connected: 127.0.0.1:52968
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52968
+2026/04/29 23:31:43 player connected: 127.0.0.1:52969
+2026/04/29 23:31:43 received from 127.0.0.1:52969: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52969 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52970
+2026/04/29 23:31:43 received from 127.0.0.1:52970: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52970 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52971
+2026/04/29 23:31:43 received from 127.0.0.1:52971: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52971 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52972
+2026/04/29 23:31:43 received from 127.0.0.1:52972: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52972 joined as P3
+2026/04/29 23:31:43 received from 127.0.0.1:52969: DESC    
+2026/04/29 23:31:43 received from 127.0.0.1:52969: DESC valid description
+2026/04/29 23:31:43 connection error from 127.0.0.1:52972: read tcp 127.0.0.1:52966->127.0.0.1:52972: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52972
+2026/04/29 23:31:43 connection error from 127.0.0.1:52969: read tcp 127.0.0.1:52966->127.0.0.1:52969: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52969
+2026/04/29 23:31:43 connection error from 127.0.0.1:52970: read tcp 127.0.0.1:52966->127.0.0.1:52970: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52970
+2026/04/29 23:31:43 connection error from 127.0.0.1:52971: read tcp 127.0.0.1:52966->127.0.0.1:52971: use of closed network connection
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52971
+2026/04/29 23:31:43 server listening on :52973
+2026/04/29 23:31:43 player connected: 127.0.0.1:52975
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52975
+2026/04/29 23:31:43 player connected: 127.0.0.1:52976
+2026/04/29 23:31:43 received from 127.0.0.1:52976: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52976 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52977
+2026/04/29 23:31:43 received from 127.0.0.1:52977: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52977 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52978
+2026/04/29 23:31:43 received from 127.0.0.1:52978: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52978 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52979
+2026/04/29 23:31:43 received from 127.0.0.1:52979: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52979 joined as P3
+2026/04/29 23:31:43 received from 127.0.0.1:52976: DESC sneaky description
+2026/04/29 23:31:43 connection error from 127.0.0.1:52977: read tcp 127.0.0.1:52973->127.0.0.1:52977: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52977
+2026/04/29 23:31:43 connection error from 127.0.0.1:52978: read tcp 127.0.0.1:52973->127.0.0.1:52978: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52978
+2026/04/29 23:31:43 connection error from 127.0.0.1:52979: read tcp 127.0.0.1:52973->127.0.0.1:52979: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52979
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 connection error from 127.0.0.1:52976: read tcp 127.0.0.1:52973->127.0.0.1:52976: use of closed network connection
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52976
+2026/04/29 23:31:43 server listening on :52980
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :52981
+2026/04/29 23:31:43 server stopped
+--- FAIL: TestRunJudge_QuitInCollectWords (0.00s)
+    judge_test.go:1909: player 0 connect failed: dial tcp 127.0.0.1:52982: connect: connection refused
+2026/04/29 23:31:43 server listening on :52982
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :52984
+2026/04/29 23:31:43 player connected: 127.0.0.1:52986
+2026/04/29 23:31:43 player connected: 127.0.0.1:52987
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52986
+2026/04/29 23:31:43 received from 127.0.0.1:52987: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52987 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52988
+2026/04/29 23:31:43 received from 127.0.0.1:52988: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52988 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52989
+2026/04/29 23:31:43 received from 127.0.0.1:52989: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52989 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52990
+2026/04/29 23:31:43 received from 127.0.0.1:52990: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52990 joined as P3
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52987
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52989
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52988
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52990
+2026/04/29 23:31:43 server listening on :52991
+2026/04/29 23:31:43 player connected: 127.0.0.1:52993
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52993
+2026/04/29 23:31:43 player connected: 127.0.0.1:52994
+2026/04/29 23:31:43 received from 127.0.0.1:52994: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:52994 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:52995
+2026/04/29 23:31:43 received from 127.0.0.1:52995: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:52995 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:52996
+2026/04/29 23:31:43 received from 127.0.0.1:52996: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:52996 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:52997
+2026/04/29 23:31:43 received from 127.0.0.1:52997: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:52997 joined as P3
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52995
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52994
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52997
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:52996
+2026/04/29 23:31:43 server listening on :52998
+2026/04/29 23:31:43 player connected: 127.0.0.1:53000
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:53000
+2026/04/29 23:31:43 player connected: 127.0.0.1:53001
+2026/04/29 23:31:43 received from 127.0.0.1:53001: JOIN P0
+2026/04/29 23:31:43 player 127.0.0.1:53001 joined as P0
+2026/04/29 23:31:43 player connected: 127.0.0.1:53002
+2026/04/29 23:31:43 received from 127.0.0.1:53002: JOIN P1
+2026/04/29 23:31:43 player 127.0.0.1:53002 joined as P1
+2026/04/29 23:31:43 player connected: 127.0.0.1:53003
+2026/04/29 23:31:43 received from 127.0.0.1:53003: JOIN P2
+2026/04/29 23:31:43 player 127.0.0.1:53003 joined as P2
+2026/04/29 23:31:43 player connected: 127.0.0.1:53004
+2026/04/29 23:31:43 received from 127.0.0.1:53004: JOIN P3
+2026/04/29 23:31:43 player 127.0.0.1:53004 joined as P3
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:53002
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:53004
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:53003
+2026/04/29 23:31:43 player disconnected: 127.0.0.1:53001
+2026/04/29 23:31:43 server listening on :8127
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :9000
+2026/04/29 23:31:43 server stopped
+2026/04/29 23:31:43 server listening on :8127
+2026/04/29 23:31:43 server stopped
+FAIL
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	1.458s
+ok  	github.com/smallnest/doubletake/game	(cached)
+ok  	github.com/smallnest/doubletake/server	(cached)
+FAIL
+[0m
+[0m✱ [0mGrep "collectWords[^F]"[90m 11 matches[0m
+[0m✱ [0mGrep "T\.?Logf\("conn \d+: msg"[90m 0 matches[0m
+[0m✱ [0mGrep "_ = stdin"[90m 1 match[0m
+[0m→ [0mRead cmd/doubletake/judge_test.go[90m [offset=1881, limit=60][0m
+Now let me verify the `TestRunJudge_QuitInCollectWords` race condition by looking at it more carefully:
+Now I have a thorough understanding of the implementation. Here is my comprehensive review:
+
+## 审核报告
+
+### Issue
+- 编号: #18
+- 子任务: T-003 — 裁判端支持输入 quit 或 Ctrl+C 关闭整个房间
+
+### 总体评价
+**评分: 87/100**
+
+### 严重问题 (必须修复)
+
+**1. `TestRunJudge_QuitInCollectWords` 存在竞态条件，测试不稳定**
+
+`judge_test.go:1881-1936` — 该测试使用 `io.Pipe()` 写入 config 输入后立即尝试连接 4 名玩家，但没有等待服务端就绪的轮询循环。而 `startJudgeForTestWithStdinRaw` 有等待循环（见 L1067-1074）。没有等待循环时，服务端可能在 `srv.Start()` 的 goroutine 还未开始监听时，测试已尝试 `net.Dial`，导致 `connection refused` 错误，测试失败。
+
+修复方案：添加与服务端就绪的轮询循环，或在测试中复用 `startJudgeForTestWithStdinRaw` 模式。
+
+### 一般问题 (建议修复)
+
+**2. `collectWords` (scanner 版本) 是生产死代码**
+
+`judge.go:97-121` — `collectWords` 函数只被测试代码调用 (`judge_test.go` 中 6 处调用)，`RunJudge` 生产流程使用 `collectWordsFromCh`。建议删除该函数以减少维护负担。
+
+**3. `waitingPhase` 的 `in io.Reader` 参数未使用**
+
+`judge.go:288` — `waitingPhase` 签名的 `in` 参数未在函数体内使用。`RunJudge` 调用时传入了 `in`，但函数内只使用 `stdinSrc`。应移除未使用的参数。
+
+**4. `setupDescPhaseTest` 中 `_ = stdin` 代码异味**
+
+`judge_test.go:1237` — 从 `startJudgeForTestWithStdin` 返回的 `stdin` channel 被显式丢弃。虽有意为之（注释解释），但更好的做法是让 `setupDescPhaseTest` 不返回它。
+
+### 建议改进 (可选)
+
+**5. 缺少端到端验证：quit 后玩家连接确实被断开**
+
+验收条件要求"所有玩家连接断开"，但现有测试只验证 `RunJudge` 返回（即裁判端退出），未验证存活的玩家 TCP 连接确实收到 `QUIT` 广播后关闭。建议新增集成测试：连接玩家 → 裁判 quit → 验证玩家 `conn.Read()` 返回错误。
+
+**6. 缺少 SIGINT 端到端测试**
+
+信号处理代码存在（`judge.go:189-191`），但无测试通过发送 `os.Signal` 验证 Ctrl+C 时的优雅关闭。
+
+### 审核结论
+
+- [x] 需要修改（修复 `TestRunJudge_QuitInCollectWords` 竞态条件后可通过）
+
+| 维度 | 得分 | 说明 |
+|------|------|------|
+| 正确性 (35%) | 88 | 生产代码在 waitingPhase/collectWords/descriptionPhase/votingPhase/pkPhase 中正确响应 quit。`TestRunJudge_QuitInCollectWords` 竞态是测试基础设施问题 |
+| 测试质量 (25%) | 78 | 11 个 quit 相关测试覆盖了 isolation 和 phase 级别，但 1 个测试有竞态条件，缺少 quit 后玩家连接断开的端到端验证 |
+| 代码质量 (20%) | 85 | channel 分离设计清晰，select 模式一致。`collectWords` 死代码、`_ = stdin`、`in` 未使用是扣分项 |
+| 安全性 (10%) | 100 | quit 只做字符串比较，无注入风险 |
+| 性能 (10%) | 100 | 无性能问题 |
+
+**评分: 87/100**
+
+### 自检验证
+
+- [x] 编译通过 (`go build ./...`)
+- [x] `go vet` 无错误 (`go vet ./...`)
+- [x] 大部分测试通过，但 `TestRunJudge_QuitInCollectWords` 因竞态条件失败
+
+---
+
+## Learnings
+
+- **发现**: `TestRunJudge_QuitInCollectWords` 缺少服务端就绪轮询循环，与项目中 `startJudgeForTestWithStdinRaw` 的模式不一致，导致竞态条件
+- **模式**: quitCh 合并 stdin.quit + stdin.done + sigCh 的三路合并模式可复用
+- **经验**: 审核时应运行全部测试验证，不能仅依赖代码阅读——竞态条件在代码审查中不易发现，但测试运行时暴露

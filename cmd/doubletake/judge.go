@@ -176,6 +176,16 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	go srv.Start()
 	defer srv.Stop()
 
+	// Generate and display room hash for password-based connection.
+	localIP, err := game.GetLocalIP()
+	if err == nil {
+		hash, _, err := game.GenerateRoomHash(localIP, port)
+		if err == nil {
+			srv.SetRoomHash(hash)
+			disp.Info("0000", fmt.Sprintf("房间连接密码: %s", hash))
+		}
+	}
+
 	disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
 
 	// waitingPhase blocks until the referee confirms game start.

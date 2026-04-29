@@ -11,61 +11,50 @@ import (
 	"github.com/smallnest/doubletake/game"
 )
 
+// testPassword is a constant used in player tests for the room password.
+const testPassword = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+
 // startTestPlayerServer creates a TCP listener on a random port and returns
-// the listener, address string, and the corresponding room code.
-func startTestPlayerServer(t *testing.T) (net.Listener, string, string) {
+// the listener and address string.
+func startTestPlayerServer(t *testing.T) (net.Listener, string) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
 	addr := ln.Addr().String()
-	roomCode := game.EncodeRoomCode(addr)
-	if roomCode == "" {
-		t.Fatal("failed to encode room code")
-	}
-	t.Logf("test server on %s, room code: %s", addr, roomCode)
-	return ln, addr, roomCode
+	t.Logf("test server on %s", addr)
+	return ln, addr
 }
 
 func TestRunPlayer_EmptyStdin(t *testing.T) {
 	out := &bytes.Buffer{}
-	exitCode := RunPlayer(out, strings.NewReader(""), false)
+	addr := "127.0.0.1:19999"
+	exitCode := RunPlayer(out, strings.NewReader(""), false, addr)
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
 }
 
-func TestRunPlayer_EmptyRoomCode(t *testing.T) {
+func TestRunPlayer_EmptyPassword(t *testing.T) {
 	out := &bytes.Buffer{}
+	addr := "127.0.0.1:19999"
 	input := "\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(out.String(), "room code cannot be empty") {
-		t.Errorf("expected room code error, got: %s", out.String())
-	}
-}
-
-func TestRunPlayer_InvalidRoomCode(t *testing.T) {
-	out := &bytes.Buffer{}
-	input := "!!!\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
-	if exitCode != 1 {
-		t.Errorf("expected exit code 1, got %d", exitCode)
-	}
-	if !strings.Contains(out.String(), "invalid room code") {
-		t.Errorf("expected invalid room code error, got: %s", out.String())
+	if !strings.Contains(out.String(), "password cannot be empty") {
+		t.Errorf("expected password error, got: %s", out.String())
 	}
 }
 
 func TestRunPlayer_ConnectionRefused(t *testing.T) {
 	out := &bytes.Buffer{}
 	// Pick a high port unlikely to be in use
-	roomCode := game.EncodeRoomCode("127.0.0.1:19999")
-	input := roomCode + "\nplayer1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	addr := "127.0.0.1:19999"
+	input := testPassword + "\nplayer1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -75,7 +64,7 @@ func TestRunPlayer_ConnectionRefused(t *testing.T) {
 }
 
 func TestRunPlayer_SuccessfulJoin(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -95,13 +84,14 @@ func TestRunPlayer_SuccessfulJoin(t *testing.T) {
 		if err != nil {
 			return
 		}
-		// Send JOIN confirmation, then let the connection close
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: msg.Payload}))
+		// Extract name from "hash|playerName" and echo back just the name
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -114,7 +104,7 @@ func TestRunPlayer_SuccessfulJoin(t *testing.T) {
 }
 
 func TestRunPlayer_ServerErrorResponse(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -130,13 +120,14 @@ func TestRunPlayer_ServerErrorResponse(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		// Reject the join
+		// Consume the JOIN message, then reject
+		_, _ = game.Decode(scanner.Text())
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgError, Payload: "name taken"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
@@ -149,7 +140,7 @@ func TestRunPlayer_ServerErrorResponse(t *testing.T) {
 }
 
 func TestRunPlayer_EmptyPlayerName(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	// Accept but don't respond — player will fail before sending JOIN
@@ -164,8 +155,8 @@ func TestRunPlayer_EmptyPlayerName(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\n\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\n\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
@@ -177,7 +168,7 @@ func TestRunPlayer_EmptyPlayerName(t *testing.T) {
 }
 
 func TestRunPlayer_StealthMode(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -195,9 +186,9 @@ func TestRunPlayer_StealthMode(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\n"
-	// Only room code, no name — will fail at name prompt
-	exitCode := RunPlayer(out, strings.NewReader(input), true)
+	input := testPassword + "\n"
+	// Only password, no name — will fail at name prompt
+	exitCode := RunPlayer(out, strings.NewReader(input), true, addr)
 
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
@@ -210,7 +201,7 @@ func TestRunPlayer_StealthMode(t *testing.T) {
 }
 
 func TestRunPlayer_NonStealthMode(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -228,8 +219,8 @@ func TestRunPlayer_NonStealthMode(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
@@ -242,7 +233,7 @@ func TestRunPlayer_NonStealthMode(t *testing.T) {
 }
 
 func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -258,14 +249,16 @@ func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -281,7 +274,7 @@ func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
 }
 
 func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -297,14 +290,16 @@ func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Undercover|香蕉"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -317,7 +312,7 @@ func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
 }
 
 func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -333,14 +328,16 @@ func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Blank|你是白板"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -353,7 +350,7 @@ func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
 }
 
 func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -369,14 +366,16 @@ func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
-		
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
+
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRole, Payload: "Civilian|苹果"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), true)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), true, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -394,7 +393,7 @@ func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
 }
 
 func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -410,8 +409,10 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// Send JOIN confirmation, then a READY broadcast, then a ROLE message, then close
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "testPlayer"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgReady, Payload: ""}))
 
@@ -419,8 +420,8 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\ntestPlayer\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\ntestPlayer\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -441,7 +442,7 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 // TestRunPlayer_DescPhase_OtherPlayerTurn tests that the player correctly
 // displays ROUND, TURN (other player), and DESC broadcast messages.
 func TestRunPlayer_DescPhase_OtherPlayerTurn(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -458,8 +459,11 @@ func TestRunPlayer_DescPhase_OtherPlayerTurn(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// ROUND message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|Bob,Alice,Charlie"}))
 		// TURN for Bob (not Alice)
@@ -475,9 +479,9 @@ func TestRunPlayer_DescPhase_OtherPlayerTurn(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	// Input: room code, name, then description for Alice's turn
-	input := roomCode + "\nAlice\n苹果很好吃\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	// Input: password, name, then description for Alice's turn
+	input := testPassword + "\nAlice\n苹果很好吃\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -505,7 +509,7 @@ func TestRunPlayer_DescPhase_OtherPlayerTurn(t *testing.T) {
 // TestRunPlayer_DescPhase_OwnTurn tests that the player correctly prompts
 // for input when receiving TURN for itself and sends the description.
 func TestRunPlayer_DescPhase_OwnTurn(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -522,8 +526,11 @@ func TestRunPlayer_DescPhase_OwnTurn(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// ROUND message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0,P1"}))
 		// TURN for P0 (us)
@@ -532,23 +539,23 @@ func TestRunPlayer_DescPhase_OwnTurn(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		descMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Type != game.MsgDesc {
-			t.Errorf("expected DESC message, got %s", msg.Type)
+		if descMsg.Type != game.MsgDesc {
+			t.Errorf("expected DESC message, got %s", descMsg.Type)
 			return
 		}
-		if msg.Payload != "苹果很好吃" {
-			t.Errorf("expected DESC payload '苹果很好吃', got '%s'", msg.Payload)
+		if descMsg.Payload != "苹果很好吃" {
+			t.Errorf("expected DESC payload '苹果很好吃', got '%s'", descMsg.Payload)
 			return
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nP0\n苹果很好吃\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nP0\n苹果很好吃\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -566,7 +573,7 @@ func TestRunPlayer_DescPhase_OwnTurn(t *testing.T) {
 // TestRunPlayer_DescPhase_EmptyDescRetry tests that the player re-prompts
 // when the user enters an empty description (client-side check).
 func TestRunPlayer_DescPhase_EmptyDescRetry(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -583,8 +590,11 @@ func TestRunPlayer_DescPhase_EmptyDescRetry(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// ROUND message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
 		// TURN for P0 (us)
@@ -594,19 +604,19 @@ func TestRunPlayer_DescPhase_EmptyDescRetry(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		descMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Payload != "valid description" {
-			t.Errorf("expected 'valid description', got '%s'", msg.Payload)
+		if descMsg.Payload != "valid description" {
+			t.Errorf("expected 'valid description', got '%s'", descMsg.Payload)
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	// Input: room code, name, empty line (caught client-side), valid desc
-	input := roomCode + "\nP0\n\nvalid description\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	// Input: password, name, empty line (caught client-side), valid desc
+	input := testPassword + "\nP0\n\nvalid description\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -624,7 +634,7 @@ func TestRunPlayer_DescPhase_EmptyDescRetry(t *testing.T) {
 // TestRunPlayer_DescPhase_ServerErrorRetry tests that the player re-prompts
 // when the server rejects a description with ERROR (server-side rejection).
 func TestRunPlayer_DescPhase_ServerErrorRetry(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -641,8 +651,11 @@ func TestRunPlayer_DescPhase_ServerErrorRetry(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// ROUND message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
 		// TURN for P0 (us)
@@ -657,19 +670,19 @@ func TestRunPlayer_DescPhase_ServerErrorRetry(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		descMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Payload != "valid description" {
-			t.Errorf("expected 'valid description', got '%s'", msg.Payload)
+		if descMsg.Payload != "valid description" {
+			t.Errorf("expected 'valid description', got '%s'", descMsg.Payload)
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	// Input: room code, name, first desc (rejected by server), valid desc
-	input := roomCode + "\nP0\nfirst try\nvalid description\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	// Input: password, name, first desc (rejected by server), valid desc
+	input := testPassword + "\nP0\nfirst try\nvalid description\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -691,7 +704,7 @@ func TestRunPlayer_DescPhase_ServerErrorRetry(t *testing.T) {
 // TestRunPlayer_DescPhase_ErrorFatal tests that non-desc-phase ERROR
 // messages cause the player to exit.
 func TestRunPlayer_DescPhase_ErrorFatal(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -709,12 +722,13 @@ func TestRunPlayer_DescPhase_ErrorFatal(t *testing.T) {
 		}
 
 		// Send ERROR immediately (not during desc phase)
+		_, _ = game.Decode(scanner.Text())
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgError, Payload: "game is full"}))
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nPlayer1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nPlayer1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
@@ -730,7 +744,7 @@ func TestRunPlayer_DescPhase_ErrorFatal(t *testing.T) {
 // TestRunPlayer_VotePhase_OtherPlayerTurn tests that the player correctly
 // displays VOTE, TURN (other player) messages during the voting phase.
 func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -747,8 +761,11 @@ func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// VOTE message: round 1, alive players
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|Bob,Alice"}))
 		// TURN for Bob (not Alice)
@@ -762,8 +779,8 @@ func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nAlice\nBob\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nAlice\nBob\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -789,7 +806,7 @@ func TestRunPlayer_VotePhase_OtherPlayerTurn(t *testing.T) {
 // TestRunPlayer_VotePhase_OwnTurn tests that the player correctly prompts
 // for vote input when receiving TURN for itself and sends VOTE|targetName.
 func TestRunPlayer_VotePhase_OwnTurn(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -806,8 +823,11 @@ func TestRunPlayer_VotePhase_OwnTurn(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// VOTE message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
 		// TURN for P0 (us)
@@ -816,23 +836,23 @@ func TestRunPlayer_VotePhase_OwnTurn(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		voteMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Type != game.MsgVote {
-			t.Errorf("expected VOTE message, got %s", msg.Type)
+		if voteMsg.Type != game.MsgVote {
+			t.Errorf("expected VOTE message, got %s", voteMsg.Type)
 			return
 		}
-		if msg.Payload != "P1" {
-			t.Errorf("expected VOTE payload 'P1', got '%s'", msg.Payload)
+		if voteMsg.Payload != "P1" {
+			t.Errorf("expected VOTE payload 'P1', got '%s'", voteMsg.Payload)
 			return
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nP0\nP1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nP0\nP1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -850,7 +870,7 @@ func TestRunPlayer_VotePhase_OwnTurn(t *testing.T) {
 // TestRunPlayer_VotePhase_EmptyTargetRetry tests that the player re-prompts
 // when the user enters an empty vote target (client-side check).
 func TestRunPlayer_VotePhase_EmptyTargetRetry(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -867,8 +887,11 @@ func TestRunPlayer_VotePhase_EmptyTargetRetry(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// VOTE message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
 		// TURN for P0 (us)
@@ -878,19 +901,19 @@ func TestRunPlayer_VotePhase_EmptyTargetRetry(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		voteMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Payload != "P1" {
-			t.Errorf("expected 'P1', got '%s'", msg.Payload)
+		if voteMsg.Payload != "P1" {
+			t.Errorf("expected 'P1', got '%s'", voteMsg.Payload)
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	// Input: room code, name, empty line (caught client-side), valid target
-	input := roomCode + "\nP0\n\nP1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	// Input: password, name, empty line (caught client-side), valid target
+	input := testPassword + "\nP0\n\nP1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -908,7 +931,7 @@ func TestRunPlayer_VotePhase_EmptyTargetRetry(t *testing.T) {
 // TestRunPlayer_VotePhase_ServerErrorRetry tests that the player re-prompts
 // when the server rejects a vote with ERROR (server-side rejection).
 func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -925,8 +948,11 @@ func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// VOTE message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|P0,P1"}))
 		// TURN for P0 (us)
@@ -941,19 +967,19 @@ func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		voteMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Payload != "P1" {
-			t.Errorf("expected 'P1', got '%s'", msg.Payload)
+		if voteMsg.Payload != "P1" {
+			t.Errorf("expected 'P1', got '%s'", voteMsg.Payload)
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	// Input: room code, name, self vote (rejected by server), valid target
-	input := roomCode + "\nP0\nP0\nP1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	// Input: password, name, self vote (rejected by server), valid target
+	input := testPassword + "\nP0\nP0\nP1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -975,7 +1001,7 @@ func TestRunPlayer_VotePhase_ServerErrorRetry(t *testing.T) {
 // TestRunPlayer_VotePhase_ResultDisplay tests that the player correctly
 // displays the RESULT message with vote tallies.
 func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -992,8 +1018,11 @@ func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "Alice"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// VOTE message
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgVote, Payload: "1|Bob,Alice"}))
 		// TURN for Alice (us)
@@ -1007,8 +1036,8 @@ func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nAlice\nBob\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nAlice\nBob\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -1032,7 +1061,7 @@ func TestRunPlayer_VotePhase_ResultDisplay(t *testing.T) {
 // TestRunPlayer_VotePhase_DescToVoteTransition tests that the player correctly
 // transitions from description phase to voting phase.
 func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
-	ln, _, roomCode := startTestPlayerServer(t)
+	ln, addr := startTestPlayerServer(t)
 	defer ln.Close()
 
 	serverDone := make(chan struct{})
@@ -1049,8 +1078,11 @@ func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
 			return
 		}
 
+		// Consume JOIN, extract name
+		msg, _ := game.Decode(scanner.Text())
+		parts := strings.SplitN(msg.Payload, "|", 2)
 		// JOIN confirm
-		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: "P0"}))
+		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgJoin, Payload: parts[1]}))
 		// Description phase
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgRound, Payload: "1|P0"}))
 		fmt.Fprint(conn, game.Encode(game.Message{Type: game.MsgTurn, Payload: "P0"}))
@@ -1067,18 +1099,18 @@ func TestRunPlayer_VotePhase_DescToVoteTransition(t *testing.T) {
 		if !scanner.Scan() {
 			return
 		}
-		msg, err := game.Decode(scanner.Text())
+		voteMsg, err := game.Decode(scanner.Text())
 		if err != nil {
 			return
 		}
-		if msg.Type != game.MsgVote || msg.Payload != "P1" {
-			t.Errorf("expected VOTE P1, got %s %s", msg.Type, msg.Payload)
+		if voteMsg.Type != game.MsgVote || voteMsg.Payload != "P1" {
+			t.Errorf("expected VOTE P1, got %s %s", voteMsg.Type, voteMsg.Payload)
 		}
 	}()
 
 	out := &bytes.Buffer{}
-	input := roomCode + "\nP0\nsomething\nP1\n"
-	exitCode := RunPlayer(out, strings.NewReader(input), false)
+	input := testPassword + "\nP0\nsomething\nP1\n"
+	exitCode := RunPlayer(out, strings.NewReader(input), false, addr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)

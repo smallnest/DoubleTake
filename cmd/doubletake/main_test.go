@@ -20,13 +20,24 @@ func TestRun_ValidRoleJudge(t *testing.T) {
 
 func TestRun_ValidRolePlayer(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	// Empty stdin — RunPlayer fails immediately on room code prompt
-	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	// Player mode now requires --addr
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player", "--addr", "127.0.0.1:8127"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1 with no input, got %d", exitCode)
 	}
 	if !strings.Contains(stdout.String(), "[sysmon]") {
 		t.Errorf("expected startup banner, got: %s", stdout.String())
+	}
+}
+
+func TestRun_PlayerWithoutAddr(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "--addr is required") {
+		t.Errorf("expected --addr required error, got: %s", stderr.String())
 	}
 }
 
@@ -39,12 +50,14 @@ func TestRun_CustomPort(t *testing.T) {
 	}
 }
 
-func TestRun_DefaultPort(t *testing.T) {
+func TestRun_PlayerModeRequiresAddr(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	// Player with no input → exit 1 (RunPlayer fails on empty stdin)
 	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "--addr") {
+		t.Errorf("expected --addr required error, got: %s", stderr.String())
 	}
 }
 
@@ -139,7 +152,7 @@ func TestRun_UnknownOption(t *testing.T) {
 func TestRun_StealthFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	// Player with stealth — RunPlayer fails on empty stdin but output should lack [INFO]
-	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player", "--stealth"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player", "--stealth", "--addr", "127.0.0.1:8127"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -152,7 +165,7 @@ func TestRun_StealthFlag(t *testing.T) {
 func TestRun_NoStealthByDefault(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	// Player without stealth should contain [INFO]
-	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player"})
+	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--role", "player", "--addr", "127.0.0.1:8127"})
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
@@ -162,14 +175,18 @@ func TestRun_NoStealthByDefault(t *testing.T) {
 	}
 }
 
-func TestRun_StealthInHelp(t *testing.T) {
+func TestRun_HelpFlags(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exitCode := run(&stdout, &stderr, strings.NewReader(""), []string{"doubletake", "--help"})
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
-	if !strings.Contains(stdout.String(), "--stealth") {
-		t.Errorf("help output should mention --stealth, got: %s", stdout.String())
+	output := stdout.String()
+	if !strings.Contains(output, "--stealth") {
+		t.Errorf("help output should mention --stealth, got: %s", output)
+	}
+	if !strings.Contains(output, "--addr") {
+		t.Errorf("help output should mention --addr, got: %s", output)
 	}
 }
 
