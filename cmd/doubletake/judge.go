@@ -6,6 +6,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/smallnest/doubletake/client"
 	"github.com/smallnest/doubletake/game"
@@ -22,6 +23,45 @@ type GameConfig struct {
 	TotalPlayers int // 总人数 (4-10)
 	Undercovers  int // 卧底人数 (1-3)
 	Blanks       int // 白板人数 (0+)
+}
+
+// guessResult represents the outcome of a guess attempt.
+type guessResult int
+
+const (
+	guessIgnored guessResult = iota // not a valid guess (not blank, already guessed, etc.)
+	guessCorrect                    // guess matches civilian word
+	guessWrong                      // guess does not match civilian word
+)
+
+// checkGuess validates a guess attempt from a player.
+// It must be called with playersMu held.
+func checkGuess(evt server.GuessEvent, players []*game.Player, guessedThisRound map[string]bool, civilianWord string) guessResult {
+	// Find the player and validate they are alive and Blank.
+	var player *game.Player
+	for _, p := range players {
+		if p.Name == evt.PlayerName {
+			player = p
+			break
+		}
+	}
+	if player == nil || !player.Alive || player.Role != game.Blank {
+		return guessIgnored
+	}
+
+	// Check if already guessed this round.
+	if guessedThisRound[player.Name] {
+		return guessIgnored
+	}
+	guessedThisRound[player.Name] = true
+
+	// Compare guess with civilian word (case-insensitive, trim spaces).
+	guess := strings.TrimSpace(evt.Word)
+	expected := strings.TrimSpace(civilianWord)
+	if strings.EqualFold(guess, expected) {
+		return guessCorrect
+	}
+	return guessWrong
 }
 
 // readInt reads a line from the scanner, trims whitespace, and parses it as an int.
@@ -195,18 +235,55 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 
 	broadcastReady(disp, srv)
 
+	// Start guess handler goroutine.
+	var playersMu sync.Mutex
+	guessedThisRound := make(map[string]bool)
+	guessDone := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case evt := <-srv.OnGuessMsg:
+				playersMu.Lock()
+				result := checkGuess(evt, players, guessedThisRound, civilianWord)
+				playersMu.Unlock()
+				switch result {
+				case guessCorrect:
+					winPayload := buildWinPayload(game.Blank, players, civilianWord, undercoverWord)
+					srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
+					disp.Info("0000", "白板猜对了！白板获胜")
+				case guessWrong:
+					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+						Type:    game.MsgError,
+						Payload: "猜测错误",
+					})
+				case guessIgnored:
+					// Do nothing.
+				}
+			case <-guessDone:
+				return
+			}
+		}
+	}()
+
 	// Game loop: repeat description + voting until game ends.
 	alivePlayers := getAlivePlayers(players)
 	for roundNum := 1; ; roundNum++ {
+		// Reset guess tracking for new round.
+		playersMu.Lock()
+		guessedThisRound = make(map[string]bool)
+		playersMu.Unlock()
+
 		// Description phase.
 		descResult := descriptionPhase(disp, srv, roundNum, alivePlayers)
 		if descResult == nil {
+			close(guessDone)
 			return cfg
 		}
 
 		// Voting phase.
-		voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players)
+		voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
 		if voteResult == nil {
+			close(guessDone)
 			return cfg
 		}
 
@@ -216,6 +293,7 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 			winPayload := buildWinPayload(winner, players, civilianWord, undercoverWord)
 			srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
 			disp.Info("0000", fmt.Sprintf("游戏结束！%s 获胜", winner))
+			close(guessDone)
 			return cfg
 		}
 
@@ -396,7 +474,7 @@ type voteResult struct {
 // first voter, processes VOTE messages, and broadcasts RESULT when all votes are in.
 // If a tie is detected, it enters the PK phase (pkPhase) to resolve the tie.
 // It returns the eliminated player name (empty if unresolved) or nil on failure.
-func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string, players []*game.Player) *voteResult {
+func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string, players []*game.Player, playersMu *sync.Mutex) *voteResult {
 	round, err := game.NewVoteRound(roundNum, alivePlayers)
 	if err != nil {
 		disp.Warn(fmt.Sprintf("创建投票轮次失败: %v", err))
@@ -475,12 +553,14 @@ func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePl
 	// Find and mark eliminated player.
 	eliminated, _ := round.FindEliminated()
 	if eliminated != "" {
+		playersMu.Lock()
 		for _, p := range players {
 			if p.Name == eliminated {
 				p.Alive = false
 				break
 			}
 		}
+		playersMu.Unlock()
 		return &voteResult{Round: round, Eliminated: eliminated}
 	}
 
@@ -499,14 +579,14 @@ func votingPhase(disp *client.Display, srv *server.Server, roundNum int, alivePl
 		}
 	}
 
-	eliminated = pkPhase(disp, srv, tied, alive, players)
+	eliminated = pkPhase(disp, srv, tied, alive, players, playersMu)
 	return &voteResult{Round: round, Eliminated: eliminated}
 }
 
 // pkPhase runs the PK phase to resolve a voting tie.
 // It loops PK rounds until a single player is eliminated.
 // Returns the name of the eliminated player, or empty if unresolved.
-func pkPhase(disp *client.Display, srv *server.Server, tied []string, alivePlayers []string, players []*game.Player) string {
+func pkPhase(disp *client.Display, srv *server.Server, tied []string, alivePlayers []string, players []*game.Player, playersMu *sync.Mutex) string {
 	pkNum := 1
 	for {
 		disp.Info("0000", fmt.Sprintf("平票！进入 PK 第 %d 轮: %s", pkNum, strings.Join(tied, ", ")))
@@ -648,12 +728,14 @@ func pkPhase(disp *client.Display, srv *server.Server, tied []string, alivePlaye
 		if !tie {
 			// Clear winner — mark eliminated.
 			if eliminated != "" {
+				playersMu.Lock()
 				for _, p := range players {
 					if p.Name == eliminated {
 						p.Alive = false
 						break
 					}
 				}
+				playersMu.Unlock()
 			}
 			return eliminated
 		}

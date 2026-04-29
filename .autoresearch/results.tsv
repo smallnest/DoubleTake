@@ -14,3 +14,4 @@
 2026-04-29T12:58:18+08:00	14	#14 平票 PK 机制 — 多轮 PK 描述+投票	completed	3	false	89	89	feature/issue-14	
 2026-04-29T12:58:59+08:00	14	#14 平票 PK 机制 — 多轮 PK 描述+投票	push_failed	3	true	89	89	feature/issue-14	
 2026-04-29T13:31:24+08:00	15	#15 胜负判定 — 游戏结束条件检查	completed	9	true	94	94	feature/issue-15	
+2026-04-29T13:54:08+08:00	16	#16 白板猜词 — guess 命令	completed	4	true	88	88	feature/issue-16	
