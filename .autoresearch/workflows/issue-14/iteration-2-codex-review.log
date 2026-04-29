@@ -1,11 +1,11 @@
 OpenAI Codex v0.57.0 (research preview)
 --------
 workdir: /Users/smallnest/ai/DoubleTake
-model: mimo-v2.5-pro
-provider: mimo
+model: glm-5.1
+provider: glm
 approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
-session id: 019dd682-2387-7693-99c0-ad0a9e472451
+session id: 019dd97f-c263-7d61-86da-afe515f73d43
 --------
 user
 审核 Issue #14 的实现
@@ -15,26 +15,12 @@ user
 Issue 标题: #14 平票 PK 机制 — 多轮 PK 描述+投票
 
 
+
 ## 子任务审核
 
-子任务进度: 0/4 已完成 | 当前子任务: T-001 - 实现 PK 轮次状态管理（PKRound）
+子任务进度: 4/4 已完成 | 当前子任务:  - 
 
-请审核当前子任务的实现：
-
-- **ID**: T-001
-- **标题**: 实现 PK 轮次状态管理（PKRound）
-- **类型**: code
-- **描述**: 在 game/ 包中新增 pk.go，实现 PKRound 结构体来管理一轮 PK 的状态。PKRound 复用 DescRound 进行平票玩家的描述收集，新增 PK 投票逻辑（仅存活玩家投票，且只能投平票玩家之一）。核心方法包括：NewPKRound 构造函数、CurrentSpeaker（委托给内嵌 DescRound）、RecordPKDesc（委托给 DescRound.RecordDesc）、CurrentVoter、RecordPKVote（验证投票目标是否在平票玩家列表中）、AllVotesDone、Tally、FindEliminated（复用 VoteRound 的统计逻辑但限制在平票玩家范围内）、IsTie 检测。PKRound 应内嵌一个 DescRound 用于描述阶段和一个简化的投票 map 用于 PK 投票阶段。
-- **验收条件**:
-  - PKRound 结构体包含 PK 轮次号、平票玩家列表、存活玩家列表、描述阶段和投票阶段
-  - NewPKRound 验证平票玩家列表非空且无重复
-  - RecordPKVote 验证投票目标必须在平票玩家列表中，否则返回错误
-  - FindEliminated 在平票时返回空字符串和 tie=true，唯一最高票时返回玩家名和 tie=false
-  - 单元测试覆盖：正常 PK 流程、投票给非平票玩家被拒绝、再次平票检测、空目标拒绝
-  - 编译通过，go vet 无错误
-
-
-请针对此子任务的验收条件进行审核。
+所有子任务已完成审核。
 ---
 请按照以下指令执行审核。
 
@@ -64,16 +50,41 @@ Issue 标题: #14 平票 PK 机制 — 多轮 PK 描述+投票
 ## Iteration 1 - 2026-04-29
 
 - **Agent**: claude
-- **类型**: 初始实现 - 实现 PK 轮次状态管理（PKRound）
+- **类型**: 初始实现 - 
 - **评分**: N/A/100
 
 - **经验与发现**:
 
-## Learnings
+The implementation for Issue #14 is already complete and all tests pass. Let me provide a summary:
+## Issue #14 实现状态报告
+### 验收标准检查
+| 需求 | 状态 | 实现位置 |
+|------|------|----------|
+| 投票统计后若存在平票，触发 PK 模式 | ✅ | `cmd/doubletake/judge.go:216` |
+| 广播 PK_START 消息通知所有玩家 | ✅ | `cmd/doubletake/judge.go:485-488` |
+| 仅平票玩家各再描述一次 | ✅ | `cmd/doubletake/judge.go:491` |
+| 所有存活玩家对平票玩家进行 PK 投票 | ✅ | `cmd/doubletake/judge.go:497-541` |
+| PK 投票后仍有平票 → 再进行一轮 PK | ✅ | `cmd/doubletake/judge.go:555-592` |
+| PK 每轮都广播描述内容和投票结果 | ✅ | `cmd/doubletake/judge.go:544-552` |
+| 编译通过，无 lint 错误 | ✅ | `go build ./...` & `go vet ./...` |
+### 测试覆盖
+- **game/pk.go**: 96.6% 覆盖率，15 个单元测试全部通过
+- **cmd/doubletake/judge_test.go**: 集成测试覆盖单轮 PK 和多轮 PK 场景
+### 关键实现文件
+1. **game/pk.go** - PKRound 结构体和相关方法
+2. **game/protocol.go** - MsgPKStart、MsgPKVote 消息类型
+3. **server/server.go** - OnPKVoteMsg channel 和 handlePKVote
+4. **cmd/doubletake/judge.go** - pkPhase 函数实现完整的 PK 流程
+### 测试结果
+```
+✅ go build ./... - 成功
+✅ go vet ./... - 无错误
+✅ go test ./game/ - 15/15 通过
+✅ go test ./cmd/doubletake/ - 2/2 PK 测试通过
+```
+**结论**: Issue #14 的所有功能需求已完整实现
 
-- **模式**: PKRound 通过组合（而非嵌入）DescRound 来复用描述阶段逻辑，保持关注点分离
-- **模式**: 构造函数校验两组不同玩家列表时，需要各自独立的 `seen` map 来检测重复
-- **模式**: FindEliminated 使用遍历 TiedPlayers 而非 map 迭代，保证顺序一致性
+... (内容过长，已截断)
 # Codex Agent
 
 你是一个专业的软件工程师 Agent，既能实现功能，也能审核代码。
@@ -477,13 +488,525 @@ go test ./internal/auth/... -v
 ## 改进报告
 [按格式输出报告]
 ```
+Plan update
+  → 了解项目结构和 Issue #14 需求
+  • 审核 PK 核心逻辑 (game/pk.go)
+  • 审核协议层 (game/protocol.go)
+  • 审核服务端处理 (server/server.go)
+  • 审核裁判流程 (cmd/doubletake/judge.go)
+  • 审核测试覆盖
+  • 编译和测试验证
+  • 输出审核报告和评分
+exec
+find /Users/smallnest/ai/DoubleTake -type f -name '*.go' in /Users/smallnest/ai/DoubleTake succeeded in 64ms:
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/player.go
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/player_test.go
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/main.go
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go
+/Users/smallnest/ai/DoubleTake/cmd/doubletake/main_test.go
+/Users/smallnest/ai/DoubleTake/server/server.go
+/Users/smallnest/ai/DoubleTake/server/server_test.go
+/Users/smallnest/ai/DoubleTake/game/protocol_test.go
+/Users/smallnest/ai/DoubleTake/game/role_test.go
+/Users/smallnest/ai/DoubleTake/game/game_test.go
+/Users/smallnest/ai/DoubleTake/game/network_test.go
+/Users/smallnest/ai/DoubleTake/game/role.go
+/Users/smallnest/ai/DoubleTake/game/protocol.go
+/Users/smallnest/ai/DoubleTake/game/pk_test.go
+/Users/smallnest/ai/DoubleTake/game/game.go
+/Users/smallnest/ai/DoubleTake/game/network.go
+/Users/smallnest/ai/DoubleTake/game/pk.go
+/Users/smallnest/ai/DoubleTake/game/base62.go
+/Users/smallnest/ai/DoubleTake/game/base62_test.go
 codex
-I'll review the T-001 implementation. Let me start by exploring the project structure and the relevant files.
-Reconnecting... 1/5
-Reconnecting... 2/5
-Reconnecting... 3/5
-Reconnecting... 4/5
-Reconnecting... 5/5
-ERROR: unexpected status 400 Bad Request: data:{"error":{"code":"400","message":"unexpected content after document: line 1 column 85 (char 84)","param":"","type":"BadRequest"}}
+我先来阅读一下关键实现文件。
+exec
+cat /Users/smallnest/ai/DoubleTake/game/pk.go in /Users/smallnest/ai/DoubleTake succeeded in 20ms:
+package game
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
+// ErrPKVoteTargetInvalid indicates the voted target is not in the tied players list.
+var ErrPKVoteTargetInvalid = errors.New("vote target must be one of the tied players")
+
+// ErrPKVoteEmpty indicates the vote target is empty or whitespace only.
+var ErrPKVoteEmpty = errors.New("vote target must not be empty")
+
+// ErrPKAlreadyVoted indicates the voter has already cast a vote in this PK round.
+var ErrPKAlreadyVoted = errors.New("voter has already voted in this PK round")
+
+// ErrPKNotAliveVoter indicates the voter is not in the alive players list.
+var ErrPKNotAliveVoter = errors.New("voter is not an alive player")
+
+codex
+让我继续阅读剩余的实现文件。
+exec
+cat /Users/smallnest/ai/DoubleTake/game/protocol.go in /Users/smallnest/ai/DoubleTake succeeded in 32ms:
+package game
+
+import (
+	"errors"
+	"strings"
+)
+
+// ErrInvalidMessage indicates the message format is invalid.
+var ErrInvalidMessage = errors.New("invalid message format")
+
+// Encode converts a Message to the wire format "TYPE|payload\n".
+func Encode(msg Message) string {
+	return msg.Type + "|" + msg.Payload + "\n"
+}
+
+// Decode parses a "TYPE|payload\n" string into a Message.
+// It only splits on the first '|' so payloads may contain '|'.
+func Decode(raw string) (Message, error) {
+	line := strings.TrimRight(raw, "\n")
+	if line == "" {
+exec
+cat /Users/smallnest/ai/DoubleTake/server/server.go in /Users/smallnest/ai/DoubleTake succeeded in 26ms:
+package server
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"net"
+	"sync"
+
+	"github.com/smallnest/doubletake/game"
+)
+
+// Player represents a connected client in the game.
+type Player struct {
+	Conn net.Conn
+	Name string
+}
+
+// Server is a TCP server that manages client connections for the game.
+type Server struct {
+exec
+cat /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 28ms:
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+
+	"github.com/smallnest/doubletake/client"
+	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
+)
+
+// descResult holds the outcome of the description phase.
+type descResult struct {
+	Round *game.DescRound
+}
+
+// GameConfig holds the validated game parameters entered by the referee.
+exec
+cat /Users/smallnest/ai/DoubleTake/game/pk_test.go in /Users/smallnest/ai/DoubleTake succeeded in 13ms:
+package game
+
+import (
+	"strings"
+	"testing"
+)
+
+// ---------- NewPKRound validation ----------
+
+func TestNewPKRound_Success(t *testing.T) {
+	tied := []string{"alice", "bob"}
+	alive := []string{"alice", "bob", "carol"}
+	pk, err := NewPKRound(1, tied, alive)
+	if err != nil {
+		t.Fatalf("NewPKRound error: %v", err)
+	}
+	if pk.PKNum != 1 {
+		t.Errorf("PKNum = %d, want 1", pk.PKNum)
+	}
+	if len(pk.TiedPlayers) != 2 {
+exec
+cat /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge_test.go in /Users/smallnest/ai/DoubleTake succeeded in 36ms:
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"net"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/smallnest/doubletake/client"
+	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
+)
+
+func TestValidateConfig_Valid(t *testing.T) {
+	tests := []struct {
+		name        string
+Plan update
+  ✓ 了解项目结构和 Issue #14 需求
+  ✓ 审核 PK 核心逻辑 (game/pk.go)
+  ✓ 审核协议层 (game/protocol.go)
+  ✓ 审核服务端处理 (server/server.go)
+  ✓ 审核裁判流程 (cmd/doubletake/judge.go)
+  → 审核测试覆盖
+  • 编译和测试验证
+  • 输出审核报告和评分
+codex
+现在让我看看 `pkPhase` 函数以及集成测试文件 `game.go` 文件，以便了解完整上下文。
+exec
+sed -n '1,250p' /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 31ms:
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+
+	"github.com/smallnest/doubletake/client"
+	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
+)
+
+// descResult holds the outcome of the description phase.
+type descResult struct {
+	Round *game.DescRound
+}
+
+// GameConfig holds the validated game parameters entered by the referee.
+exec
+sed -n '200,631p' /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 29ms:
+	if descResult == nil {
+		return cfg
+	}
+	_ = descResult // descriptions recorded for later phases
+
+	// Run voting phase for round 1 with all players.
+	eliminated, tie, voteRound := votingPhase(disp, srv, 1, players)
+	if eliminated != "" {
+		for _, p := range players {
+			if p.Name == eliminated {
+				p.Alive = false
+				break
+			}
+		}
+		disp.Info("0000", fmt.Sprintf("%s 被投票淘汰", eliminated))
+	} else if tie && voteRound != nil {
+		disp.Info("0000", "平票，进入 PK 环节")
+		tiedPlayers := getTiedPlayers(voteRound)
+		pkEliminated := pkPhase(disp, srv, tiedPlayers, players)
+		if pkEliminated != "" {
+codex
+现在让我来完整地阅读 `pkPhase` 函数。
+exec
+sed -n '460,560p' /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 31ms:
+	return tied
+}
+
+// pkPhase runs the PK (tie-break) phase. It loops until a unique eliminated
+// player is found. Each PK round:
+// 1. Broadcasts PK_START|tiedPlayers
+// 2. Runs descriptionPhase for tied players only
+// 3. Collects PK votes from all alive players
+// 4. Broadcasts RESULT|tally
+// 5. Checks for elimination
+func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, players []*game.Player) string {
+	// Build alive players list
+	alivePlayers := make([]string, 0, len(players))
+	for _, p := range players {
+		if p.Alive {
+			alivePlayers = append(alivePlayers, p.Name)
+		}
+	}
+
+	pkNum := 1
+exec
+cat /Users/smallnest/ai/DoubleTake/game/game.go in /Users/smallnest/ai/DoubleTake succeeded in 27ms:
+package game
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// ErrEmptyDesc indicates the submitted description is blank (whitespace only).
+var ErrEmptyDesc = errors.New("description must not be empty")
+
+// ErrNotYourTurn indicates a player tried to describe when it's not their turn.
+var ErrNotYourTurn = errors.New("it is not your turn")
+
+// ErrVoteEmpty indicates the vote target is empty or whitespace only.
+var ErrVoteEmpty = errors.New("vote target must not be empty")
+
+// ErrVoteNotAPlayer indicates the voter is not in the player list.
+var ErrVoteNotAPlayer = errors.New("voter is not a player")
+
+exec
+sed -n '380,520p' /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 33ms:
+	}
+
+	// Broadcast VOTE|roundNum|playerList
+	playerList := strings.Join(alivePlayers, ",")
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgVote,
+		Payload: fmt.Sprintf("%d|%s", roundNum, playerList),
+	})
+
+	// Send TURN to each voter in order
+	for !round.AllVoted() {
+		current := round.CurrentVoter()
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgTurn,
+			Payload: current,
+		})
+
+		evt := <-srv.OnVoteMsg
+
+		if evt.PlayerName != current {
+codex
+现在让我看看 `votingPhase` 以及它是如何连接的。
+exec
+sed -n '340,385p' /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 38ms:
+				Payload: err.Error(),
+			})
+			continue
+		}
+
+		// Valid description: broadcast DESC|playerName|description to all.
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgDesc,
+			Payload: evt.PlayerName + "|" + evt.Description,
+		})
+
+		// Send TURN to the next speaker, if any.
+		if !round.AllDone() {
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgTurn,
+				Payload: round.CurrentSpeaker(),
+			})
+		}
+	}
+
+codex
+现在让我运行测试并检查覆盖率。
+exec
+go build ./... in /Users/smallnest/ai/DoubleTake succeeded in 758ms:
+go: writing stat cache: open /Users/smallnest/go/pkg/mod/cache/download/github.com/smallnest/doubletake/@v/v0.0.0-20260429134432-5195ca55ba4f.info199370157.tmp: operation not permitted
+Plan update
+  ✓ 了解项目结构和 Issue #14 需求
+  ✓ 审核 PK 核心逻辑 (game/pk.go)
+  ✓ 审核协议层 (game/protocol.go)
+  ✓ 审核服务端处理 (server/server.go)
+  ✓ 审核裁判流程 (cmd/doubletake/judge.go)
+  ✓ 审核测试覆盖
+  → 编译和测试验证
+  • 输出审核报告和评分
+exec
+go vet ./... in /Users/smallnest/ai/DoubleTake succeeded in 368ms:
+
+exec
+go test ./game/ -v '-count=1' in /Users/smallnest/ai/DoubleTake succeeded in 1.28s:
+=== RUN   TestRoomCodeRoundTrip
+=== RUN   TestRoomCodeRoundTrip/standard
+=== RUN   TestRoomCodeRoundTrip/localhost
+=== RUN   TestRoomCodeRoundTrip/broadcast
+=== RUN   TestRoomCodeRoundTrip/zeros
+=== RUN   TestRoomCodeRoundTrip/min_port
+=== RUN   TestRoomCodeRoundTrip/low_IP
+--- PASS: TestRoomCodeRoundTrip (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/standard (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/localhost (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/broadcast (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/zeros (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/min_port (0.00s)
+    --- PASS: TestRoomCodeRoundTrip/low_IP (0.00s)
+=== RUN   TestEncodeRoomCode_ProducesBase62
+--- PASS: TestEncodeRoomCode_ProducesBase62 (0.00s)
+=== RUN   TestEncodeRoomCode_InvalidInput
+=== RUN   TestEncodeRoomCode_InvalidInput/empty
+=== RUN   TestEncodeRoomCode_InvalidInput/no_port
+=== RUN   TestEncodeRoomCode_InvalidInput/invalid_IP
+exec
+go test ./game/ '-coverprofile=coverage.out' in /Users/smallnest/ai/DoubleTake succeeded in 747ms:
+ok  	github.com/smallnest/doubletake/game	0.471s	coverage: 96.6% of statements
+exec
+go test ./cmd/doubletake/ -v '-run=PK' '-count=1' '-timeout=30s' in /Users/smallnest/ai/DoubleTake exited 1 in 843ms:
+=== RUN   TestPKPhase_SingleRound
+    judge_test.go:1378: failed to find free port: listen tcp 127.0.0.1:0: bind: operation not permitted
+--- FAIL: TestPKPhase_SingleRound (0.00s)
+=== RUN   TestPKPhase_MultiRound
+    judge_test.go:1485: failed to find free port: listen tcp 127.0.0.1:0: bind: operation not permitted
+--- FAIL: TestPKPhase_MultiRound (0.00s)
+FAIL
+FAIL	github.com/smallnest/doubletake/cmd/doubletake	0.585s
+FAIL
+codex
+集成测试失败，原因是沙箱网络限制，而非代码问题。让我验证非网络测试是否能通过：
+exec
+go test ./cmd/doubletake/ -v '-run=Validate' '-count=1' in /Users/smallnest/ai/DoubleTake succeeded in 451ms:
+=== RUN   TestValidateConfig_Valid
+=== RUN   TestValidateConfig_Valid/minimum_4_players_1_undercover
+=== RUN   TestValidateConfig_Valid/5_players_2_undercovers
+=== RUN   TestValidateConfig_Valid/6_players_1_undercover_1_blank
+=== RUN   TestValidateConfig_Valid/8_players_2_undercovers_1_blank
+=== RUN   TestValidateConfig_Valid/10_players_3_undercovers
+=== RUN   TestValidateConfig_Valid/10_players_2_undercovers_2_blanks
+=== RUN   TestValidateConfig_Valid/7_players_1_undercover_2_blanks
+=== RUN   TestValidateConfig_Valid/9_players_2_undercovers_1_blank
+--- PASS: TestValidateConfig_Valid (0.00s)
+    --- PASS: TestValidateConfig_Valid/minimum_4_players_1_undercover (0.00s)
+    --- PASS: TestValidateConfig_Valid/5_players_2_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/6_players_1_undercover_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/8_players_2_undercovers_1_blank (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_3_undercovers (0.00s)
+    --- PASS: TestValidateConfig_Valid/10_players_2_undercovers_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/7_players_1_undercover_2_blanks (0.00s)
+    --- PASS: TestValidateConfig_Valid/9_players_2_undercovers_1_blank (0.00s)
+=== RUN   TestValidateConfig_TotalOutOfRange
+=== RUN   TestValidateConfig_TotalOutOfRange/too_few_3
+codex
+是的，我已经注意到了——`bind: operation not permitted` 显然是沙箱网络限制。非网络的单元测试和验证测试都通过了，核心逻辑测试覆盖 96.6%。
+
+让我完成最后几个审核点，然后出报告。
+exec
+grep -n maxPKRounds /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 38ms:
+480:	const maxPKRounds = 3
+483:	for pkNum <= maxPKRounds {
+595:	disp.Warn(fmt.Sprintf("PK %d 轮后仍平票，无人淘汰", maxPKRounds))
+codex
+Let me check a few final details before producing the report.
+exec
+grep -n MsgDesc /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 36ms:
+347:			Type:    game.MsgDesc,
+418:			Type:    game.MsgDesc,
+538:				Type:    game.MsgDesc,
+exec
+grep -n broadcastReady /Users/smallnest/ai/DoubleTake/cmd/doubletake/judge.go in /Users/smallnest/ai/DoubleTake succeeded in 35ms:
+196:	broadcastReady(disp, srv)
+599:// broadcastReady sends the READY message to all named players.
+601:// broadcastReady sends the READY message to all named players.
+602:func broadcastReady(disp *client.Display, srv *server.Server) {
+Plan update
+  ✓ 了解项目结构和 Issue #14 需求
+  ✓ 审核 PK 核心逻辑 (game/pk.go)
+  ✓ 审核协议层 (game/protocol.go)
+  ✓ 审核服务端处理 (server/server.go)
+  ✓ 审核裁判流程 (cmd/doubletake/judge.go)
+  ✓ 审核测试覆盖
+  ✓ 编译和测试验证
+  → 输出审核报告和评分
+Plan update
+  ✓ 了解项目结构和 Issue #14 需求
+  ✓ 审核 PK 核心逻辑 (game/pk.go)
+  ✓ 审核协议层 (game/protocol.go)
+  ✓ 审核服务端处理 (server/server.go)
+  ✓ 审核裁判流程 (cmd/doubletake/judge.go)
+  ✓ 审核测试覆盖
+  ✓ 编译和测试验证
+  ✓ 输出审核报告和评分
+codex
+## Issue #14 审核报告 — 平票 PK 机制
+
+### 总体评价: **评分: 88/100**
+
+---
+
+### **正确性 (32/35)**
+
+**满足的需求**
+- 投票统计后若平票，正确触发 PK 模式 — `cmd/doubletake/judge.go:216`
+- 广播 `PK_START` 消息通知所有玩家 — `judge.go:487`
+- 仅平票玩家各再描述一次 — `judge.go:491` 调用 `descriptionPhase(disp, srv, pkNum, currentTied)`
+- 所有存活玩家对平票玩家进行 PK 投票 — `game/pk.go` 的 `VoterOrder` 存所有存活玩家
+- PK 投票后仍平票则再进行一轮 — `judge.go:555-592` 的 `nextTied` 逻辑
+- 每轮广播描述内容和投票结果 — `judge.go:544` 广播 PK 投票，`judge.go:549-552` 广播 RESULT
+- 达到 `maxPKRounds=3` 后安全返回空字符串
+
+**问题**
+- **PK 投票结果广播复用了 `MsgDesc` 类型** (`judge.go:538`)，而非专用的 `MsgPKVote` 或新的 `MsgPKVoteResult`。客户端需根据上下文区分描述和 PK 投票广播，语义不清晰。不阻塞但影响可维护性。
+- **`descriptionPhase` 在 PK 描述阶段会额外广播 `ROUND|pkNum|speakerList`** (`judge.go:310-314`)，这里的 `pkNum` 实际是 PK 轮次号而非游戏轮次号，客户端可能混淆。
+
+---
+
+### **测试质量 (23/25)**
+
+- `game/pk_test.go`: 19 个测试用例，覆盖构造验证、描述阶段、投票阶段、计票、平局判断、全流程。覆盖率 96.6%。
+- `cmd/doubletake/judge_test.go`: 包含 `TestPKPhase_SingleRound` 和 `TestPKPhase_MultiRound` 集成测试，通过 TCP 模拟完整 PK 流程（因沙箱网络限制未能在本环境运行，但代码逻辑正确）。
+- 边界测试充分：空平票列表、重复名称、非存活玩家投票、重复投票、自投、三方平票、零投票等。
+
+**扣分点**
+- 缺少对 `maxPKRounds` 耗尽场景的集成测试（3 轮 PK 后仍平票的路径）。
+- 未测试 PK 阶段收到非当前投票者消息时的错误处理路径（集成层面）。
+
+---
+
+### **代码质量 (18/20)**
+
+**优点**
+- `game/pk.go` 结构清晰，`PKRound` 封装了描述和投票两个子阶段，委托给 `DescRound` 处理描述逻辑。
+- 错误定义清晰，使用 `ErrPKVoteTargetInvalid` 等语义化错误变量。
+- `NewPKRound` 输入验证完整：空列表、空名称、重复名称、平票玩家必须是存活玩家的子集。
+- 切片防御性拷贝，避免外部修改。
+- `FindEliminated` 逻辑与 `VoteRound.FindEliminated` 保持一致。
+
+**问题**
+- `broadcastReady` 函数有重复注释（`judge.go:599-601`）。
+- PK 投票广播消息使用 `MsgDesc` 类型语义不当（同上述正确性部分）。
+
+---
+
+### **安全性 (9/10)**
+
+- 输入验证充分：投票目标必须为平票玩家之一，投票者必须为存活玩家。
+- 未发现注入风险。
+- channel 满时使用 `select default` 丢弃消息，防止阻塞，但可能静默丢消息。这在 `server.go` 的 `handlePKVote` 中已记录日志。
+
+---
+
+### **性能 (6/10)**
+
+- `RecordPKVote` 中验证投票者/目标通过线性扫描 `VoterOrder` 和 `TiedPlayers`，时间复杂度 O(n)。对于 4-10 人的游戏规模完全可接受，无实际问题。
+- `pkPhase` 中 `alivePlayers` 列表在每轮 PK 循环中不更新（已淘汰的玩家在 `pkNum <= maxPKRounds` 范围内理论上不应变化，但若将来扩展多轮游戏则需注意）。
+- `descriptionPhase` 在 PK 中为平票玩家创建新的 `DescRound`，这是正确的做法。
+
+---
+
+### **改进建议**
+
+1. **(建议)** PK 投票广播使用独立的 `MsgPKVoteBroadcast` 类型替代 `MsgDesc`，避免客户端混淆。
+2. **(建议)** 移除 `broadcastReady` 的重复注释。
+3. **(建议)** 增加集成测试覆盖 `maxPKRounds` 耗尽场景（3 轮 PK 后仍平票 → 返回空字符串）。
+
+---
+
+### **验收结论**
+
+所有 Issue #14 核心需求已实现，单元测试覆盖充分（96.6%），`go vet` 无错误。PK 投票广播消息类型复用是主要的设计瑕疵但不影响功能正确性。
+
+## Learnings
+
+- **模式**: PK 阶段通过嵌入 `DescRound` 复用描述逻辑，避免代码重复。
+- **踩坑**: 在沙箱环境中集成测试因网络限制无法运行，需确认是环境问题而非代码缺陷。
+- **经验**: 协议消息类型应按语义细分，复用 `MsgDesc` 广播投票结果会导致客户端解析歧义。
+codex
+审核报告已完成。所有核心需求已实现，单元测试覆盖 96.6%，`go vet` 无错误。主要设计建议是为 PK 投票广播引入专用消息类型而非复用 `MsgDesc`。
+
+如需我修复上述改进建议中的任何一项，请告知。
+审核报告已完成。所有核心需求已实现，单元测试覆盖 96.6%，`go vet` 无错误。主要设计建议是为 PK 投票广播引入专用消息类型而非复用 `MsgDesc`。
+
+如需我修复上述改进建议中的任何一项，请告知。
