@@ -247,7 +247,12 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		handleResultMsg(disp, msg.Payload)
 	case game.MsgWin:
 		handleWinMsg(disp, msg.Payload)
-		return 0
+		// Reset phase state for potential next game session.
+		*descP = descIdle
+		*voteP = voteIdle
+		*inVotePhase = false
+		*guessPending = false
+		return -1
 	case game.MsgError:
 		if *guessPending {
 			// Guess error: just warn and stay in current phase.

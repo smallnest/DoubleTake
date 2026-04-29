@@ -251,128 +251,150 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	roomCode := game.EncodeRoomCode(localIP + ":" + port)
 	disp.Info("0000", fmt.Sprintf("房间已创建，房间码: %s (等待 %d 名玩家加入...)", roomCode, cfg.TotalPlayers))
 
-	// waitingPhase blocks until the referee confirms game start.
 	stdinSrc := newStdinSource(scanner)
+
+	// First game: wait for players to join.
 	waitingPhase(out, in, disp, srv, cfg, stdinSrc)
 
-	// Collect words and assign roles.
-	civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done)
-	names := srv.PlayerNames()
-	players, err := game.AssignRoles(names, cfg.Undercovers, cfg.Blanks)
-	if err != nil {
-		disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
-		return cfg
-	}
-	game.AssignWords(players, civilianWord, undercoverWord)
-	srv.SetGamePlayers(players)
-	sendRoleToPlayers(disp, srv, players)
+	// Session loop: each iteration is one game session.
+	for {
+		// Collect words and assign roles.
+		civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done)
+		names := srv.PlayerNames()
+		players, err := game.AssignRoles(names, cfg.Undercovers, cfg.Blanks)
+		if err != nil {
+			disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
+			return cfg
+		}
+		game.AssignWords(players, civilianWord, undercoverWord)
+		srv.SetGamePlayers(players)
+		sendRoleToPlayers(disp, srv, players)
 
-	broadcastReady(disp, srv)
+		broadcastReady(disp, srv)
 
-	var playersMu sync.Mutex
+		var playersMu sync.Mutex
 
-	// Start reconnect handler goroutine.
-	var currentRound int
-	stopReconnect := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case req := <-srv.OnReconnect:
-				playersMu.Lock()
-				var word string
-				var aliveList []string
-				for _, p := range players {
-					if p.Name == req.PlayerName {
-						if p.Role == game.Blank {
-							word = "你是白板"
-						} else {
-							word = p.Word
+		// Start reconnect handler goroutine.
+		var currentRound int
+		stopReconnect := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case req := <-srv.OnReconnect:
+					playersMu.Lock()
+					var word string
+					var aliveList []string
+					for _, p := range players {
+						if p.Name == req.PlayerName {
+							if p.Role == game.Blank {
+								word = "你是白板"
+							} else {
+								word = p.Word
+							}
+						}
+						if p.Alive {
+							aliveList = append(aliveList, p.Name)
 						}
 					}
-					if p.Alive {
-						aliveList = append(aliveList, p.Name)
+					round := currentRound
+					playersMu.Unlock()
+					req.Response <- server.ReconnectResponse{
+						Round:        round,
+						Word:         word,
+						AlivePlayers: aliveList,
 					}
+				case <-stopReconnect:
+					return
 				}
-				round := currentRound
-				playersMu.Unlock()
-				req.Response <- server.ReconnectResponse{
-					Round:        round,
-					Word:         word,
-					AlivePlayers: aliveList,
-				}
-			case <-stopReconnect:
-				return
 			}
-		}
-	}()
+		}()
 
-	// Start guess handler goroutine.
-	guessedThisRound := make(map[string]bool)
-	guessDone := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case evt := <-srv.OnGuessMsg:
-				playersMu.Lock()
-				result := checkGuess(evt, players, guessedThisRound, civilianWord)
-				playersMu.Unlock()
-				switch result {
-				case guessCorrect:
-					winPayload := buildWinPayload(game.Blank, players, civilianWord, undercoverWord)
-					srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
-					disp.Info("0000", "白板猜对了！白板获胜")
-				case guessWrong:
-					_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-						Type:    game.MsgError,
-						Payload: "猜测错误",
-					})
-				case guessIgnored:
-					// Do nothing.
+		// Start guess handler goroutine.
+		guessedThisRound := make(map[string]bool)
+		guessDone := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case evt := <-srv.OnGuessMsg:
+					playersMu.Lock()
+					result := checkGuess(evt, players, guessedThisRound, civilianWord)
+					playersMu.Unlock()
+					switch result {
+					case guessCorrect:
+						winPayload := buildWinPayload(game.Blank, players, civilianWord, undercoverWord)
+						srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
+						disp.Info("0000", "白板猜对了！白板获胜")
+					case guessWrong:
+						_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+							Type:    game.MsgError,
+							Payload: "猜测错误",
+						})
+					case guessIgnored:
+						// Do nothing.
+					}
+				case <-guessDone:
+					return
 				}
-			case <-guessDone:
-				return
 			}
+		}()
+
+		// Game loop: repeat description + voting until game ends.
+		alivePlayers := getAlivePlayers(players)
+		for roundNum := 1; ; roundNum++ {
+			// Update shared round number for reconnect handler.
+			playersMu.Lock()
+			currentRound = roundNum
+			guessedThisRound = make(map[string]bool)
+			playersMu.Unlock()
+
+			// Description phase.
+			descResult := descriptionPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
+			if descResult == nil {
+				close(stopReconnect)
+				close(guessDone)
+				return cfg
+			}
+
+			// Voting phase.
+			voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
+			if voteResult == nil {
+				close(stopReconnect)
+				close(guessDone)
+				return cfg
+			}
+
+			// Check win condition after elimination.
+			winner, gameOver := game.CheckWinCondition(players)
+			if gameOver {
+				winPayload := buildWinPayload(winner, players, civilianWord, undercoverWord)
+				srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
+				winnerLabel := winner.String()
+				if label, ok := roleDisplayNames[winnerLabel]; ok {
+					winnerLabel = label
+				}
+				disp.Info("0000", fmt.Sprintf("游戏结束！%s 获胜", winnerLabel))
+				close(stopReconnect)
+				close(guessDone)
+				break
+			}
+
+			// Update alive players for next round.
+			alivePlayers = getAlivePlayers(players)
 		}
-	}()
 
-	// Game loop: repeat description + voting until game ends.
-	alivePlayers := getAlivePlayers(players)
-	for roundNum := 1; ; roundNum++ {
-		// Update shared round number for reconnect handler.
-		playersMu.Lock()
-		currentRound = roundNum
-		guessedThisRound = make(map[string]bool)
-		playersMu.Unlock()
-
-		// Description phase.
-		descResult := descriptionPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
-		if descResult == nil {
-			close(stopReconnect)
-			close(guessDone)
+		// Ask referee whether to start a new game.
+		fmt.Fprint(out, "  是否开始新一局？(Y/N): ")
+		select {
+		case confirm := <-stdinSrc.ch:
+			if !strings.EqualFold(confirm, "Y") {
+				disp.Info("0000", "游戏结束，退出")
+				return cfg
+			}
+		case <-stdinSrc.done:
 			return cfg
 		}
 
-		// Voting phase.
-		voteResult := votingPhase(disp, srv, roundNum, alivePlayers, players, &playersMu)
-		if voteResult == nil {
-			close(stopReconnect)
-			close(guessDone)
-			return cfg
-		}
-
-		// Check win condition after elimination.
-		winner, gameOver := game.CheckWinCondition(players)
-		if gameOver {
-			winPayload := buildWinPayload(winner, players, civilianWord, undercoverWord)
-			srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgWin, Payload: winPayload})
-			disp.Info("0000", fmt.Sprintf("游戏结束！%s 获胜", winner))
-			close(stopReconnect)
-			close(guessDone)
-			return cfg
-		}
-
-		// Update alive players for next round.
-		alivePlayers = getAlivePlayers(players)
+		disp.Info("0000", "开始新一局！")
 	}
 }
 
