@@ -30,6 +30,7 @@ type Server struct {
 	OnPlayerJoin chan PlayerJoinEvent // notifies when a named player joins
 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
+	OnGuessMsg   chan GuessEvent      // forwards GUESS messages from named players
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -51,6 +52,12 @@ type VoteEvent struct {
 	Target     string
 }
 
+// GuessEvent carries a GUESS message received from a named player.
+type GuessEvent struct {
+	PlayerName string
+	Word       string
+}
+
 // NewServer creates a new Server that will listen on the given port.
 // totalPlayers sets the expected player capacity for join notifications.
 func NewServer(port string, totalPlayers int) *Server {
@@ -64,6 +71,7 @@ func NewServer(port string, totalPlayers int) *Server {
 		OnPlayerJoin: make(chan PlayerJoinEvent, 64),
 		OnDescMsg:    make(chan DescEvent, 64),
 		OnVoteMsg:    make(chan VoteEvent, 64),
+		OnGuessMsg:   make(chan GuessEvent, 64),
 	}
 }
 
@@ -148,6 +156,8 @@ func (s *Server) handleConn(conn net.Conn) {
 			s.handleDesc(player, msg.Payload)
 		case game.MsgVote:
 			s.handleVote(player, msg.Payload)
+		case game.MsgGuess:
+			s.handleGuess(player, msg.Payload)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -301,5 +311,21 @@ func (s *Server) handleVote(player *Player, payload string) {
 	case s.OnVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
 	default:
 		log.Printf("OnVoteMsg channel full, dropping VOTE from %s", player.Name)
+	}
+}
+
+// handleGuess processes a GUESS message from a player.
+// Unnamed players receive an error. Named players' guesses are forwarded
+// to the OnGuessMsg channel for the judge to validate and process.
+func (s *Server) handleGuess(player *Player, payload string) {
+	if player.Name == "" {
+		s.Send(player.Conn, game.Message{Type: game.MsgError, Payload: "请先加入游戏"})
+		return
+	}
+
+	select {
+	case s.OnGuessMsg <- GuessEvent{PlayerName: player.Name, Word: payload}:
+	default:
+		log.Printf("OnGuessMsg channel full, dropping GUESS from %s", player.Name)
 	}
 }

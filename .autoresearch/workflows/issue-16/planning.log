@@ -1,0 +1,60 @@
+Now I have a complete understanding of the codebase. Let me analyze the issue and produce the subtask breakdown.
+
+**Key observations:**
+- `MsgGuess = "GUESS"` already exists in `protocol.go:43` — the message type is defined but unused
+- Server handles messages via event channels (`OnDescMsg`, `OnVoteMsg`) — GUESS needs the same pattern
+- Judge (`judge.go`) manages game loop and has access to `players` (role info) and `civilianWord`
+- Client (`player.go`) parses user input and needs to handle the `guess` prefix
+- Only one guess per round is allowed — needs tracking state
+
+```json
+{
+  "issueNumber": 16,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "服务端添加 GUESS 消息转发通道",
+      "description": "在 server 包中添加 GuessEvent 结构体和 OnGuessMsg channel，在 handleConn 的 switch 中添加 GUESS 消息路由，实现 handleGuess 方法将已命名玩家的猜测转发到 channel（与 DESC/VOTE 完全对称的模式）。",
+      "acceptanceCriteria": [
+        "server 包新增 GuessEvent 结构体（PlayerName + GuessWord 字段）",
+        "Server 结构体新增 OnGuessMsg channel（缓冲 64）",
+        "handleConn 的 switch 中添加 case game.MsgGuess 路由到 handleGuess",
+        "handleGuess 处理未命名玩家返回 ERROR，已命名玩家转发到 OnGuessMsg",
+        "编译通过，现有测试不破坏"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "裁判端实现 guess 判定逻辑（每轮一次、比对词语、胜负判定）",
+      "description": "在 judge.go 的游戏循环中监听 OnGuessMsg channel，判定猜测者是否为白板角色、该轮是否已猜过、比对猜测词语与平民词语（忽略大小写和前后空格）。猜对则广播 WIN 消息宣布白板获胜并结束游戏；猜错则仅私信该白板"猜测错误"。每轮只允许猜测一次。需要在游戏循环中添加 select 监听 OnGuessMsg（与描述/投票阶段并行），并在每轮开始时重置猜测状态。",
+      "acceptanceCriteria": [
+        "非白板玩家发送 GUESS 消息被忽略（不广播、不通知）",
+        "白板猜对词语（忽略大小写/空格）：广播 WIN 消息，payload 中 winner 为 Blank，游戏结束",
+        "白板猜错词语：仅私信该白板"猜测错误"，不广播",
+        "每轮只允许白板猜测一次，第二次猜测被忽略或提示已猜过",
+        "编译通过，新增逻辑有测试覆盖"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "客户端识别 guess 命令并发送 GUESS 消息",
+      "description": "在 player.go 中，当玩家在任意阶段（描述/投票/idle）输入以 `guess` 开头的文本时，解析出猜测词语并发送 GUESS|<词语> 消息给服务端。收到服务端私信的猜测结果（通过 GUESS 类型消息或自定义反馈消息）后，向玩家显示猜测正确或错误的信息。需要注意 stdin 输入的优先级处理——guess 命令应优先于描述/投票输入处理。",
+      "acceptanceCriteria": [
+        "玩家输入 `guess 苹果` 时客户端发送 GUESS|苹果 消息",
+        "guess 命令在描述阶段和投票阶段均可使用",
+        "服务端返回猜测结果后客户端正确显示提示信息",
+        "编译通过，新增逻辑有测试覆盖"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```

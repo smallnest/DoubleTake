@@ -87,6 +87,8 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 	// inVotePhase is set to true when a VOTE message is received,
 	// indicating we have entered the voting phase.
 	inVotePhase := false
+	// guessPending tracks whether a guess attempt was sent and we're waiting for its response.
+	guessPending := false
 
 	// stdinCh is lazily initialized when first needed
 	// (when we enter a waiting-input state during either phase).
@@ -114,12 +116,26 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 				if !ok {
 					return 0
 				}
-				if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase); code >= 0 {
+				if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase, &guessPending); code >= 0 {
 					return code
 				}
 			case line, ok := <-stdinCh:
 				if !ok {
 					return 0
+				}
+				// Handle "guess <word>" command at any time.
+				if strings.HasPrefix(line, "guess ") {
+					word := strings.TrimSpace(strings.TrimPrefix(line, "guess"))
+					if word == "" {
+						fmt.Fprintln(out, "  猜测词语不能为空")
+						continue
+					}
+					if err := cc.Send(game.Message{Type: game.MsgGuess, Payload: word}); err != nil {
+						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						return 1
+					}
+					guessPending = true
+					continue
 				}
 				if descP == descWaitingInput {
 					if line == "" {
@@ -151,7 +167,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 			if !ok {
 				return 0
 			}
-			if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase); code >= 0 {
+			if code := handleMessage(msg, disp, out, cc, playerName, &descP, &voteP, &inVotePhase, &guessPending); code >= 0 {
 				return code
 			}
 		}
@@ -160,7 +176,11 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 
 // handleMessage processes a single network message.
 // Returns: -1 = continue, 0 = exit normally (e.g. WIN), 1 = exit with error.
-func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool) int {
+func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, descP *descPhase, voteP *votePhase, inVotePhase *bool, guessPending *bool) int {
+	// Reset guessPending on any non-ERROR message (guess was successful or unrelated message).
+	if msg.Type != game.MsgError {
+		*guessPending = false
+	}
 	switch msg.Type {
 	case game.MsgJoin:
 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
@@ -229,16 +249,22 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 		handleWinMsg(disp, msg.Payload)
 		return 0
 	case game.MsgError:
-		disp.Warn(msg.Payload)
-		if *descP == descSubmitted || *descP == descWaitingInput {
+		if *guessPending {
+			// Guess error: just warn and stay in current phase.
+			*guessPending = false
+			disp.Warn(msg.Payload)
+		} else if *descP == descSubmitted || *descP == descWaitingInput {
 			// In desc phase: re-prompt for input
+			disp.Warn(msg.Payload)
 			fmt.Fprint(out, "  请输入描述: ")
 			*descP = descWaitingInput
 		} else if *voteP == voteSubmitted || *voteP == voteWaitingInput {
 			// In vote phase: re-prompt for input
+			disp.Warn(msg.Payload)
 			fmt.Fprint(out, "  请输入投票目标: ")
 			*voteP = voteWaitingInput
 		} else {
+			disp.Warn(msg.Payload)
 			return 1
 		}
 	default:

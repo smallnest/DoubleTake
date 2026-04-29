@@ -12,6 +12,7 @@ import (
 
 	"github.com/smallnest/doubletake/client"
 	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
 )
 
 func TestValidateConfig_Valid(t *testing.T) {
@@ -2284,6 +2285,128 @@ func TestBuildWinPayload(t *testing.T) {
 	}
 	if parts[3] != "香蕉" {
 		t.Errorf("undercover word = %q, want 香蕉", parts[3])
+	}
+}
+
+// --- checkGuess unit tests ---
+
+func TestCheckGuess_CorrectGuess(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true},
+		{Name: "Bob", Role: game.Blank, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "苹果"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessCorrect {
+		t.Errorf("expected guessCorrect, got %d", result)
+	}
+	if !guessed["Bob"] {
+		t.Error("expected Bob to be marked as guessed")
+	}
+}
+
+func TestCheckGuess_CorrectGuess_CaseInsensitive(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Bob", Role: game.Blank, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "APPLE"}
+	result := checkGuess(evt, players, guessed, "apple")
+	if result != guessCorrect {
+		t.Errorf("expected guessCorrect for case-insensitive match, got %d", result)
+	}
+}
+
+func TestCheckGuess_CorrectGuess_TrimSpaces(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Bob", Role: game.Blank, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "  苹果  "}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessCorrect {
+		t.Errorf("expected guessCorrect for trimmed match, got %d", result)
+	}
+}
+
+func TestCheckGuess_WrongGuess(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Bob", Role: game.Blank, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "香蕉"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessWrong {
+		t.Errorf("expected guessWrong, got %d", result)
+	}
+	if !guessed["Bob"] {
+		t.Error("expected Bob to be marked as guessed")
+	}
+}
+
+func TestCheckGuess_Ignored_NotBlank(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true},
+		{Name: "Charlie", Role: game.Undercover, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	// Civilian tries to guess — should be ignored.
+	evt := server.GuessEvent{PlayerName: "Alice", Word: "苹果"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessIgnored {
+		t.Errorf("expected guessIgnored for civilian, got %d", result)
+	}
+
+	// Undercover tries to guess — should be ignored.
+	evt = server.GuessEvent{PlayerName: "Charlie", Word: "苹果"}
+	result = checkGuess(evt, players, guessed, "苹果")
+	if result != guessIgnored {
+		t.Errorf("expected guessIgnored for undercover, got %d", result)
+	}
+}
+
+func TestCheckGuess_Ignored_DeadBlank(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Bob", Role: game.Blank, Alive: false},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "苹果"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessIgnored {
+		t.Errorf("expected guessIgnored for dead blank, got %d", result)
+	}
+}
+
+func TestCheckGuess_Ignored_AlreadyGuessedThisRound(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Bob", Role: game.Blank, Alive: true},
+	}
+	guessed := map[string]bool{"Bob": true}
+
+	evt := server.GuessEvent{PlayerName: "Bob", Word: "苹果"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessIgnored {
+		t.Errorf("expected guessIgnored for already guessed, got %d", result)
+	}
+}
+
+func TestCheckGuess_Ignored_UnknownPlayer(t *testing.T) {
+	players := []*game.Player{
+		{Name: "Alice", Role: game.Civilian, Alive: true},
+	}
+	guessed := make(map[string]bool)
+
+	evt := server.GuessEvent{PlayerName: "Unknown", Word: "苹果"}
+	result := checkGuess(evt, players, guessed, "苹果")
+	if result != guessIgnored {
+		t.Errorf("expected guessIgnored for unknown player, got %d", result)
 	}
 }
 

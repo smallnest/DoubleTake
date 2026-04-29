@@ -1,0 +1,126 @@
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+Now I have a comprehensive picture. Let me compile the review.
+
+## 审核报告
+
+### Issue
+- 编号: #16
+- 标题: 白板猜词 — guess 命令
+- 迭代次数: 1
+
+---
+
+### 总体评价
+
+**评分: 88/100**
+
+实现完整覆盖了所有 Acceptance Criteria，架构清晰，测试覆盖充分。存在少量可改进之处但无严重问题。
+
+---
+
+### 正确性 (35%) — 90/100
+
+**功能完整性** — 全部 6 项 Acceptance Criteria 已实现：
+1. 客户端识别 `guess` 命令前缀，发送 GUESS 消息 (`player.go:127-138`)
+2. 服务端校验白板角色，非白板忽略 (`judge.go:48`)
+3. 比对词语（忽略大小写、前后空格） (`judge.go:59-61`)
+4. 猜对广播 WIN，游戏结束 (`judge.go:249-251`)
+5. 猜错仅通知该白板 (`judge.go:252-255`)
+6. 每轮只允许猜测一次 (`judge.go:53-56`, `judge.go:240-242`)
+
+**边界情况**：
+- 已淘汰白板的猜测被忽略 (`player == nil || !player.Alive`)
+- 未知玩家的猜测被忽略
+- 空词语客户端拦截 (`player.go:129-131`)
+- `guess` 命令不影响描述/投票阶段的状态流转
+
+**并发安全**：`playersMu` mutex 正确保护 `players` 切片和 `guessedThisRound` map，`votingPhase`/`pkPhase` 中标记淘汰时也正确加锁。
+
+无严重正确性问题。
+
+---
+
+### 测试质量 (25%) — 85/100
+
+**已覆盖**：
+- `checkGuess` 单元测试 8 个用例：正确猜测、大小写不敏感、空格 trim、错误猜测、非白板忽略、已淘汰白板忽略、重复猜测忽略、未知玩家忽略
+- 服务端 `TestGuess_UnnamedPlayer` 和 `TestGuess_NamedPlayerForwarded` 2 个用例
+- 编译通过，`go vet` 无警告，全量测试通过
+
+**不足**：
+- 玩家端 (`player_test.go`) 没有 `guess` 命令的集成测试（如：发送 `guess xxx` 后验证 GUESS 消息发送、收到猜测错误后重新提示等）
+- 缺少猜对场景的端到端测试
+
+---
+
+### 代码质量 (20%) — 88/100
+
+**优点**：
+- `guessResult` 类型和常量命名清晰，自文档化
+- `checkGuess` 函数职责单一，可单独测试
+- 与既有模式一致（如 `handleDesc`/`handleVote` 模式）
+- `guessDone` channel 优雅关闭 guess handler goroutine
+
+**可改进**：
+- `player.go:128` 的 `TrimPrefix(line, "guess")` 建议改为 `TrimPrefix(line, "guess ")`（带空格），与 `HasPrefix` 的 `"guess "` 检查保持语义一致，避免依赖后续 `TrimSpace` 兜底
+
+---
+
+### 安全性 (10%) — 95/100
+
+- 无注入风险（纯文本比对）
+- 猜错不广播，保护白板身份
+- 服务端校验玩家身份（必须已加入且有名字）
+
+无安全问题。
+
+---
+
+### 性能 (10%) — 90/100
+
+- 每轮重置 `guessedThisRound` map（避免累积）
+- channel 缓冲 64，不会阻塞
+- 线性查找玩家名（O(n)），玩家数量小（<20），无问题
+
+无性能问题。
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 1: TrimPrefix 语义不够精确
+
+**位置**: `cmd/doubletake/player.go:128`
+
+**问题描述**:
+`TrimPrefix(line, "guess")` 去掉 `"guess"` 后留下前导空格，虽然被后续 `TrimSpace` 兜底，但语义上应直接去掉 `"guess "`（含空格）。
+
+**建议修复**:
+```go
+word := strings.TrimSpace(strings.TrimPrefix(line, "guess "))
+```
+
+---
+
+### 建议改进 (可选)
+
+- 在 `player_test.go` 中增加 guess 命令的集成测试：验证发送 `guess xxx` 后客户端发出 `GUESS|xxx` 消息、收到猜测错误后保持当前阶段
+- 考虑在客户端显示 `guess` 命令的使用提示（如白板玩家加入后提示 "你可随时输入 guess <词语> 猜测平民词语"）
+
+---
+
+### 审核结论
+
+- [x] 通过 - 代码质量达标，可以进入人工审核
+- [ ] 需要修改
+
+**下一步行动**:
+代码已达标。建议可选改进 TrimPrefix 语义和补充玩家端 guess 测试，但不阻塞合并。
+
+---
+
+## Learnings
+
+- **模式**: `checkGuess` 的纯函数设计（接受所有状态作为参数，返回枚举结果）便于单元测试，与 `CheckWinCondition` 风格一致
+- **踩坑**: guess handler goroutine 的生命周期管理通过 `guessDone` channel + `close()` 在多个退出点统一处理，避免 goroutine 泄漏
+- **经验**: 并发访问 `players` 切片时，mutex 需要覆盖所有修改点（包括 `votingPhase` 和 `pkPhase` 中的 `p.Alive = false`），否则会出现数据竞争

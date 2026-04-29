@@ -46,3 +46,35 @@ hint: See the 'Note about fast-forwards' in 'git push --help' for details.
 - 状态: push_failed
 - 分支: feature/issue-14
 - 结束时间: 2026-04-29 12:58:59
+
+---
+
+## ⚠️ 脚本被中断
+
+- **中断信号**: EXIT
+- **退出码**: 0
+- **退出原因**: 正常退出（但 SCRIPT_COMPLETED_NORMALLY 未设置）
+- **中断时间**: 2026-04-29 13:47:17
+- **Issue**: #14
+- **当前迭代**: 0
+- **当前评分**: 0/100
+- **当前分支**: feature/issue-14
+- **最后执行命令**: `create_branch "$ISSUE_NUMBER"`
+
+> 使用 `./run.sh -c 14` 可继续运行
+
+---
+
+## ⚠️ 脚本被中断
+
+- **中断信号**: EXIT
+- **退出码**: 0
+- **退出原因**: 正常退出（但 SCRIPT_COMPLETED_NORMALLY 未设置）
+- **中断时间**: 2026-04-29 13:52:05
+- **Issue**: #14
+- **当前迭代**: 0
+- **当前评分**: 0/100
+- **当前分支**: feature/issue-14
+- **最后执行命令**: `create_branch "$ISSUE_NUMBER"`
+
+> 使用 `./run.sh -c 14` 可继续运行

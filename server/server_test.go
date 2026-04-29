@@ -806,3 +806,53 @@ func TestVote_NamedPlayerForwarded(t *testing.T) {
 		t.Fatal("timed out waiting for VoteEvent")
 	}
 }
+
+func TestGuess_UnnamedPlayer(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Send GUESS without joining — should get ERROR.
+	fmt.Fprintf(conn, "GUESS|苹果\n")
+
+	msg := readMsg(t, conn)
+	if msg.Type != game.MsgError {
+		t.Errorf("expected ERROR for unnamed GUESS, got %s", msg.Type)
+	}
+	if msg.Payload != "请先加入游戏" {
+		t.Errorf("unexpected error payload: %q", msg.Payload)
+	}
+}
+
+func TestGuess_NamedPlayerForwarded(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	fmt.Fprintf(conn, "GUESS|苹果\n")
+
+	select {
+	case evt := <-srv.OnGuessMsg:
+		if evt.PlayerName != "Alice" {
+			t.Errorf("expected player Alice, got %s", evt.PlayerName)
+		}
+		if evt.Word != "苹果" {
+			t.Errorf("expected word 苹果, got %s", evt.Word)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for GuessEvent")
+	}
+}
