@@ -244,7 +244,12 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	go srv.Start()
 	defer srv.Stop()
 
-	disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
+	localIP, err := game.GetLocalIP()
+	if err != nil {
+		localIP = "127.0.0.1"
+	}
+	roomCode := game.EncodeRoomCode(localIP + ":" + port)
+	disp.Info("0000", fmt.Sprintf("房间已创建，房间码: %s (等待 %d 名玩家加入...)", roomCode, cfg.TotalPlayers))
 
 	// waitingPhase blocks until the referee confirms game start.
 	stdinSrc := newStdinSource(scanner)
