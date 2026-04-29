@@ -10,6 +10,10 @@ DoubleTake 是"谁是卧底"游戏的命令行实现，采用裁判 + 玩家的 
 
 ## 安装与构建
 
+可以直接到 [Releases](https://github.com/smallnest/DoubleTake/releases) 页面下载已编译好的对应平台的命令行工具。
+
+也可以从源码编译：
+
 ```bash
 go build -o doubletake ./cmd/doubletake/
 ```
