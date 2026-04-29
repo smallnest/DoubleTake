@@ -41,6 +41,7 @@
 - `PlayerResult` 结构体（Name, Role, Alive）用于 `ShowGameResult` 的参数
 - `ShowGameResult(winnerLabel, results, civilianWord, undercoverWord)` 以伪装格式显示游戏结果：标题行、每个玩家状态行、双方词语行
 - `ShowGameResult` 测试覆盖正常模式和 stealth 模式
+- `ListPlayers` 使用 `fmt.Sprintf("[%d]", idx)` 而非 `string(rune('0'+idx))` 避免 idx>=10 时生成非数字字符
 
 ## 测试约定
 - 使用 `startTestServer` 辅助函数创建临时 TCP 服务器
@@ -48,4 +49,3 @@
 - 覆盖场景：连接成功/失败、发送/接收、断连、多次消息、无效消息
 - Display 测试使用 `bytes.Buffer` 捕获输出，验证格式字符串精确匹配
 - 每个 stealth 模式函数都有对应的独立测试用例（TestInfoStealth, TestWarnStealth, TestDataStealth）
-- `ListPlayers` 使用 `fmt.Sprintf("[%d]", idx)` 而非 `string(rune('0'+idx))` 避免 idx>=10 时生成非数字字符
