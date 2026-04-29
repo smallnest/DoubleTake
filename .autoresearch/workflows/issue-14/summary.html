@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue #14 Summary</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:#f8fafc; color:#334155; line-height:1.6; padding:32px 16px; }
+  .container { max-width:800px; margin:0 auto; }
+  .header { background:white; border-radius:16px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }
+  .header h1 { font-size:24px; font-weight:800; color:#0f172a; margin-bottom:4px; }
+  .header .subtitle { font-size:14px; color:#94a3b8; }
+  .score-ring { width:88px; height:88px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; float:right; margin:-8px 0 0 16px; border:4px solid #3b82f6; color:#3b82f6; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:24px; }
+  .card { background:white; border-radius:12px; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .card .label { font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+  .card .value { font-size:18px; font-weight:700; color:#1e293b; }
+  .section { margin-bottom:24px; }
+  .section h3 { margin:0 0 12px 0; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; }
+  td,th { padding:10px 12px; }
+  tbody tr { border-bottom:1px solid #f1f5f9; }
+  tbody tr:last-child { border-bottom:none; }
+  .footer { text-align:center; padding:24px; color:#94a3b8; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="score-ring">88</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <h1>Issue #14</h1>
+      <span style="display:inline-block;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:700;background:#dcfce7;color:#22c55e;text-transform:uppercase">completed</span>
+    </div>
+    <div class="subtitle">#14 平票 PK 机制 — 多轮 PK 描述+投票</div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">Duration</div><div class="value">1h 5m 2s</div></div>
+    <div class="card"><div class="label">Iterations</div><div class="value">10</div></div>
+    <div class="card"><div class="label">Passing Score</div><div class="value">85</div></div>
+    <div class="card"><div class="label">Branch</div><div class="value" style="font-size:13px">feature/issue-14</div></div>
+  </div>
+
+  
+    <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+      <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:700;color:#1e293b">Subtasks <span style="font-weight:400;color:#94a3b8;font-size:14px">4/4 passed</span></h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #f1f5f9">
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">ID</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Title</th>
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Status</th>
+        </tr></thead>
+        <tbody>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-001</td>
+              <td style="color:#334155">实现 PK 轮次状态管理（PKRound）</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#dcfce7;color:#16a34a">PASS</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-002</td>
+              <td style="color:#334155">服务端添加 PK 消息路由（PK_DESC 和 PK_VOTE）</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#dcfce7;color:#16a34a">PASS</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-003</td>
+              <td style="color:#334155">裁判端实现 PK 流程编排（judge.go）</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#dcfce7;color:#16a34a">PASS</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#475569">T-004</td>
+              <td style="color:#334155">玩家端实现 PK 阶段的 UI 交互</td>
+              <td style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;background:#dcfce7;color:#16a34a">PASS</span></td>
+            </tr></tbody>
+      </table>
+    </div>
+
+  
+    <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+      <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:700;color:#1e293b">Iterations <span style="font-weight:400;color:#94a3b8;font-size:14px">10 total</span></h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #f1f5f9">
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:60px">#</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:100px">Agent</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:120px">Type</th>
+          <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;width:70px">Score</th>
+          <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Key Findings</th>
+        </tr></thead>
+        <tbody>
+            <tr>
+              <td style="text-align:center;font-weight:600">1</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">claude</span></td>
+              <td style="color:#64748b">初始实现 - 实现 PK 轮次状态管理（PKRound）</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">N/A</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: PKRound 通过组合（而非嵌入）DescRound 来复用描述阶段逻辑，保持关注点分离 **模式**: 构造函数校验两组不同玩家列表时，需要各自独立的 `seen` map 来检测重复 **模式**: FindEliminated 使用遍历 TiedPlayers 而非 map 迭代，保证�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">2</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">codex</span></td>
+              <td style="color:#64748b">code</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">0100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: PKRound 通过组合（而非嵌入）DescRound 来复用描述阶段逻辑，保持关注点分离 **模式**: 构造函数校验两组不同玩家列表时，需要各自独立的 `seen` map 来检测重复 **模式**: FindEliminated 使用遍历 TiedPlayers 而非 map 迭代，保证�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">3</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">opencode</span></td>
+              <td style="color:#64748b">审核+修复 - T-002</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">100100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: `FindEliminated` 零票处理依赖 `v &gt; 0` 条件而非单独的空票检查，通过 `topPlayers` 是否为空统一判定平票 **模式**: 构造函数需要独立 `seen` map 分别校验 `tiedPlayers` 和 `alivePlayers` 的重复性，避免跨列表污染 **模式**: 错误变�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">4</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">claude</span></td>
+              <td style="color:#64748b">审核+修复 - T-003</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">95100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: T-002 确认了&quot;时间互斥可复用通道&quot;的设计模式 — PK 与正常阶段不会并发，server 层无需新增通道，judge 端按阶段切换消费者即可 **模式**: `protocol.go` 已定义 `MsgPKVote = &quot;PK_VOTE&quot;` 常量，但 server 层尚未路由该�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">5</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">codex</span></td>
+              <td style="color:#64748b">code</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">0100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: `FindEliminated` 零票处理依赖 `v &gt; 0` 条件而非单独的空票检查，通过 `topPlayers` 是否为空统一判定平票 **模式**: 构造函数需要独立 `seen` map 分别校验 `tiedPlayers` 和 `alivePlayers` 的重复性，避免跨列表污染 **模式**: 错误变�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">6</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">opencode</span></td>
+              <td style="color:#64748b">审核+修复 - T-003</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">20100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: 项目使用 feature branch 工作流，每个 issue 对应独立分支。T-001 已合并但 T-002/T-003 未提交 **踩坑**: server 层和 player 层的消息路由需要在 judge 层功能实现前完成，否则集成测试无法跑通。当前 `server/server.go:136` 的 switch 和 `</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">7</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">claude</span></td>
+              <td style="color:#64748b">审核+修复 - T-003</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">72100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: `pkPhase` 成功复用了 `descriptionPhase` 来处理 PK 描述阶段，避免了代码重复。但这种复用导致 `PKRound.Desc` 成为僵尸对象 — 后续设计需权衡&quot;复用已有函数&quot;与&quot;让状态对象自包含&quot;之间的取舍 **踩坑**: `go vet` 检�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">8</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">codex</span></td>
+              <td style="color:#64748b">code</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">0100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: `pkPhase` 成功复用了 `descriptionPhase` 来处理 PK 描述阶段，避免了代码重复。但这种复用导致 `PKRound.Desc` 成为僵尸对象 — 后续设计需权衡&quot;复用已有函数&quot;与&quot;让状态对象自包含&quot;之间的取舍 **踩坑**: `go vet` 检�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">9</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">opencode</span></td>
+              <td style="color:#64748b">审核+修复 - T-004</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">93100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: `pkPhase` 复用 `descriptionPhase` 时，需注意 `PKRound` 内部的 `Desc` 会成为僵尸对象 — 可通过延迟创建或构造函数拆分解决 **模式**: `getTiedPlayers` 函数与 `VoteRound.FindEliminated` 的顶部投票者查找逻辑本质相同，可以考虑将&quot;�</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-weight:600">10</td>
+              <td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize">claude</span></td>
+              <td style="color:#64748b">审核+修复</td>
+              <td style="text-align:center"><span style="font-weight:700;color:#94a3b8">88100</span></td>
+              <td style="color:#64748b;font-size:13px">**模式**: 玩家端使用 `inPK` (bool) + `pkRoundSpeakers` ([]string) 双标志区分 PK 描述/投票子阶段，通过检查 TURN 消息中的发言者是否在 `pkRoundSpeakers` 中判断当前子阶段类型。这种&quot;上一次 ROUND 消息的内容决定 TURN 的语义&quot;模式在消�</td>
+            </tr></tbody>
+      </table>
+    </div>
+
+  <div class="footer">Generated by autoresearch &middot; 2026-04-29 08:46</div>
+</div>
+</body>
+</html>

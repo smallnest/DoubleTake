@@ -12,6 +12,7 @@ import (
 
 	"github.com/smallnest/doubletake/client"
 	"github.com/smallnest/doubletake/game"
+	"github.com/smallnest/doubletake/server"
 )
 
 func TestValidateConfig_Valid(t *testing.T) {
@@ -1295,8 +1296,305 @@ func TestDescriptionPhase_NormalFlow(t *testing.T) {
 				msg := readMsgFromConn(t, conn)
 				if msg.Type != game.MsgTurn {
 					t.Fatalf("expected TURN for next speaker, got %s: %s", msg.Type, msg.Payload)
-				}
-			}
+		}
+	}
+}
+	}
+}
+
+// --- PK phase integration tests ---
+
+// assertMsgFromAll reads one message from every connection and asserts the type matches.
+func assertMsgFromAll(t *testing.T, conns []net.Conn, expectedType string) game.Message {
+	t.Helper()
+	var firstMsg game.Message
+	for i, conn := range conns {
+		msg := readMsgFromConn(t, conn)
+		if i == 0 {
+			firstMsg = msg
+		}
+		if msg.Type != expectedType {
+			t.Errorf("conn %d: expected %s, got %s: %s", i, expectedType, msg.Type, msg.Payload)
+		}
+	}
+	return firstMsg
+}
+
+// setupPKTestEnv creates a server with connected and named players for direct pkPhase testing.
+func setupPKTestEnv(t *testing.T, numPlayers int) (*server.Server, []net.Conn, *client.Display, func()) {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to find free port: %v", err)
+	}
+	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
+	ln.Close()
+
+	srv := server.NewServer(port, numPlayers)
+	go srv.Start()
+
+	// Wait for server to be ready
+	for i := 0; i < 100; i++ {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 10*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Connect and register players
+	conns := make([]net.Conn, numPlayers)
+	for i := 0; i < numPlayers; i++ {
+		name := fmt.Sprintf("P%d", i)
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+		// Consume JOIN confirmation
+		readerForConn(conn)
+		msg := readMsgFromConn(t, conn)
+		if msg.Type != game.MsgJoin {
+			t.Fatalf("expected JOIN confirmation, got %s", msg.Type)
+		}
+	}
+
+	disp := client.NewDisplay(&bytes.Buffer{}, false)
+
+	cleanup := func() {
+		for _, conn := range conns {
+			conn.Close()
+		}
+		srv.Stop()
+	}
+
+	return srv, conns, disp, cleanup
+}
+
+func TestPKPhase_SingleRound(t *testing.T) {
+	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+	defer cleanup()
+
+	players := []*game.Player{
+		{Name: "P0", Alive: true},
+		{Name: "P1", Alive: true},
+		{Name: "P2", Alive: true},
+		{Name: "P3", Alive: true},
+	}
+
+	tiedPlayers := []string{"P0", "P1"}
+
+	resultCh := make(chan string, 1)
+	go func() {
+		resultCh <- pkPhase(disp, srv, tiedPlayers, players)
+	}()
+
+	// 1. All players receive PK_START|P0,P1
+	assertMsgFromAll(t, conns, game.MsgPKStart)
+
+	// --- Description phase for tied players ---
+	// 2. ROUND|pkNum|P0,P1
+	roundMsg := assertMsgFromAll(t, conns, game.MsgRound)
+	if !strings.Contains(roundMsg.Payload, "P0,P1") {
+		t.Errorf("ROUND should contain P0,P1, got %s", roundMsg.Payload)
+	}
+
+	// 3. TURN|P0 (first tied speaker)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 4. P0 describes
+	fmt.Fprintf(conns[0], "DESC|desc from P0\n")
+
+	// 5. All receive DESC|P0|desc from P0
+	descMsg := assertMsgFromAll(t, conns, game.MsgDesc)
+	if !strings.Contains(descMsg.Payload, "P0") {
+		t.Errorf("DESC should contain P0, got %s", descMsg.Payload)
+	}
+
+	// 6. TURN|P1 (next speaker)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 7. P1 describes
+	fmt.Fprintf(conns[1], "DESC|desc from P1\n")
+
+	// 8. All receive DESC|P1|desc from P1
+	descMsg2 := assertMsgFromAll(t, conns, game.MsgDesc)
+	if !strings.Contains(descMsg2.Payload, "P1") {
+		t.Errorf("DESC should contain P1, got %s", descMsg2.Payload)
+	}
+
+	// --- PK voting phase ---
+	// 9. ROUND|pkNum|voterList (P0,P1,P2,P3)
+	assertMsgFromAll(t, conns, game.MsgRound)
+
+	// 10. TURN|P0 (first voter)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 11. P0 votes for P1
+	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc) // DESC|P0|P1
+
+	// 12. TURN|P1 (second voter)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 13. P1 votes for P0
+	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// 14. TURN|P2
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 15. P2 votes for P1
+	fmt.Fprintf(conns[2], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// 16. TURN|P3
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// 17. P3 votes for P1 → P1 gets 3 votes, P0 gets 1 → P1 eliminated
+	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// 18. RESULT|tally
+	resultMsg := assertMsgFromAll(t, conns, game.MsgResult)
+	t.Logf("PK RESULT: %s", resultMsg.Payload)
+
+	// 19. KICK|P1
+	kickMsg := assertMsgFromAll(t, conns, game.MsgKick)
+	if kickMsg.Payload != "P1" {
+		t.Errorf("expected KICK P1, got %s", kickMsg.Payload)
+	}
+
+	eliminated := <-resultCh
+	if eliminated != "P1" {
+		t.Errorf("pkPhase returned %q, want %q", eliminated, "P1")
+	}
+
+	// Verify P1 is marked as not alive
+	for _, p := range players {
+		if p.Name == "P1" && p.Alive {
+			t.Error("P1 should be marked as not alive")
+		}
+	}
+}
+
+func TestPKPhase_MultiRound(t *testing.T) {
+	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+	defer cleanup()
+
+	players := []*game.Player{
+		{Name: "P0", Alive: true},
+		{Name: "P1", Alive: true},
+		{Name: "P2", Alive: true},
+		{Name: "P3", Alive: true},
+	}
+
+	tiedPlayers := []string{"P0", "P1"}
+
+	resultCh := make(chan string, 1)
+	go func() {
+		resultCh <- pkPhase(disp, srv, tiedPlayers, players)
+	}()
+
+	// === Round 1: tie ===
+
+	// PK_START
+	assertMsgFromAll(t, conns, game.MsgPKStart)
+
+	// Round 1 desc: ROUND
+	roundMsg := assertMsgFromAll(t, conns, game.MsgRound)
+	if !strings.Contains(roundMsg.Payload, "P0,P1") {
+		t.Errorf("ROUND should contain P0,P1, got %s", roundMsg.Payload)
+	}
+
+	// TURN|P0
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	fmt.Fprintf(conns[0], "DESC|P0 desc\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// TURN|P1
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	fmt.Fprintf(conns[1], "DESC|P1 desc\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// PK voting ROUND
+	assertMsgFromAll(t, conns, game.MsgRound)
+
+	// PK voting: P0→P1, P1→P0, P2→P0, P3→P1 → P0=2, P1=2 → tie
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P0
+	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
+	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
+	fmt.Fprintf(conns[2], "PK_VOTE|P0\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
+	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// RESULT (tie)
+	resultMsg := assertMsgFromAll(t, conns, game.MsgResult)
+	t.Logf("PK round 1 RESULT: %s", resultMsg.Payload)
+
+	// === Round 2: P1 eliminated ===
+
+	// PK_START again
+	assertMsgFromAll(t, conns, game.MsgPKStart)
+
+	// Round 2 desc
+	assertMsgFromAll(t, conns, game.MsgRound) // ROUND|pkNum|P0,P1
+	assertMsgFromAll(t, conns, game.MsgTurn)  // TURN|P0
+	fmt.Fprintf(conns[0], "DESC|P0 desc round 2\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
+	fmt.Fprintf(conns[1], "DESC|P1 desc round 2\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// PK voting round 2: P0→P1, P1→P0, P2→P1, P3→P1 → P0=1, P1=3 → P1 eliminated
+	assertMsgFromAll(t, conns, game.MsgRound) // ROUND|pkNum|voterList
+	assertMsgFromAll(t, conns, game.MsgTurn)  // TURN|P0
+	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
+	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
+	fmt.Fprintf(conns[2], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
+	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
+	assertMsgFromAll(t, conns, game.MsgDesc)
+
+	// RESULT
+	assertMsgFromAll(t, conns, game.MsgResult)
+
+	// KICK|P1
+	kickMsg := assertMsgFromAll(t, conns, game.MsgKick)
+	if kickMsg.Payload != "P1" {
+		t.Errorf("expected KICK P1, got %s", kickMsg.Payload)
+	}
+
+	eliminated := <-resultCh
+	if eliminated != "P1" {
+		t.Errorf("pkPhase returned %q, want %q", eliminated, "P1")
+	}
+
+	// Verify P1 is not alive
+	for _, p := range players {
+		if p.Name == "P1" && p.Alive {
+			t.Error("P1 should be marked as not alive")
 		}
 	}
 }

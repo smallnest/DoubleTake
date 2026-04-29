@@ -1,0 +1,32 @@
+Issue #13 的实现已经**完成**。所有代码都已存在且正常运行。以下是验证摘要：
+
+## 实现状态
+
+所有验收标准均已满足：
+
+| 标准 | 状态 | 位置 |
+|---|---|---|
+| 描述环节结束后广播进入投票环节通知 | 完成 | `judge.go:371` - VOTE广播 |
+| 向每个存活玩家发送 VOTE 消息（含存活玩家列表） | 完成 | `judge.go:369-373` - BroadcastToNamedPlayers |
+| 玩家输入要投票的玩家名字 | 完成 | `player.go:135-146` - voteWaitingInput 状态 |
+| 不能投自己 | 完成 | `vote.go:77-79` - ErrVoteSelf |
+| 不能投已出局玩家 | 完成 | `vote.go:84-90` - ErrVoteEliminated |
+| 不能投不存在的玩家 | 完成 | `vote.go:91-92` - ErrVoteUnknown |
+| 校验失败发送 ERROR 要求重新投票 | 完成 | `judge.go:408-413` |
+| 统计票数 | 完成 | `vote.go:105-111` - Tally() |
+| 广播 RESULT 消息公布得票数 | 完成 | `judge.go:426-435` |
+| 票数最高者出局，标记 Alive=false | 完成 | `judge.go:438-446` |
+
+## 质量检查
+
+- **构建**：通过
+- **Vet**：通过
+- **测试**：所有包均通过
+- **覆盖率**：game 94.5%，server 91.7%，cmd/doubletake 89.2%
+
+## 经验总结
+
+- **模式**：`votingPhase` 完全复用了 `descriptionPhase` 的架构模式（NewRound → 广播 → TURN → 循环 channel → Record 校验 → 广播结果），两个阶段共享 `MsgTurn` 和 `MsgError` 消息类型
+- **模式**：server 层只做消息转发，业务校验（投自己/已出局/不存在）集中在 judge 层的 `VoteRound.RecordVote` 中
+- **经验**：`inVotePhase` 布尔标志是区分描述阶段和投票阶段的关键——两个阶段共用 TURN 消息但显示不同提示
+- **经验**：`VoteRound.RecordVote` 需要外部传入 `alivePlayers` 参数来区分“已出局”和“不存在”玩家，这是与 `DescRound.RecordDesc` 的重要区别

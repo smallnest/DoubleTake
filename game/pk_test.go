@@ -264,33 +264,15 @@ func TestPKRound_FindEliminated_UniqueWinner(t *testing.T) {
 }
 
 func TestPKRound_FindEliminated_Tie(t *testing.T) {
-	pk, err := NewPKRound(1, []string{"alice", "bob"}, []string{"alice", "bob", "carol"})
+	// Two tied players, each voted for the other: 1-1 tie.
+	pk, err := NewPKRound(1, []string{"alice", "bob"}, []string{"alice", "bob"})
 	if err != nil {
 		t.Fatalf("NewPKRound error: %v", err)
 	}
 	pk.Votes["alice"] = "bob"
 	pk.Votes["bob"] = "alice"
-	pk.Votes["carol"] = "alice" // removed to make tie
-	// alice: 2, bob: 1 → not a tie, let's fix
 
-	pk2, err := NewPKRound(1, []string{"alice", "bob"}, []string{"alice", "bob", "carol"})
-	if err != nil {
-		t.Fatalf("NewPKRound error: %v", err)
-	}
-	pk2.Votes["alice"] = "bob"
-	pk2.Votes["bob"] = "alice"
-	pk2.Votes["carol"] = "bob" // alice: 1, bob: 2 → not tie either
-	// For a real tie: alice→alice, bob→bob, carol→alice → alice:2, bob:1
-	// Need even number of voters or split equally
-
-	pk3, err := NewPKRound(1, []string{"alice", "bob"}, []string{"alice", "bob"})
-	if err != nil {
-		t.Fatalf("NewPKRound error: %v", err)
-	}
-	pk3.Votes["alice"] = "bob"
-	pk3.Votes["bob"] = "alice"
-
-	player, tie := pk3.FindEliminated()
+	player, tie := pk.FindEliminated()
 	if !tie {
 		t.Error("FindEliminated() tie = false, want true for tied votes")
 	}
@@ -332,7 +314,54 @@ func TestPKRound_FindEliminated_NoVotes(t *testing.T) {
 	}
 }
 
+// ---------- New validation tests ----------
+
+func TestNewPKRound_NilAlivePlayers(t *testing.T) {
+	_, err := NewPKRound(1, []string{"alice"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "alive players list must not be empty") {
+		t.Errorf("expected alive players empty error, got: %v", err)
+	}
+}
+
+func TestNewPKRound_EmptyAlivePlayers(t *testing.T) {
+	_, err := NewPKRound(1, []string{"alice"}, []string{})
+	if err == nil || !strings.Contains(err.Error(), "alive players list must not be empty") {
+		t.Errorf("expected alive players empty error, got: %v", err)
+	}
+}
+
+func TestNewPKRound_TiedPlayerNotInAlive(t *testing.T) {
+	// alice is tied but not in alive players list.
+	_, err := NewPKRound(1, []string{"alice"}, []string{"bob"})
+	if err == nil || !strings.Contains(err.Error(), "tied player") {
+		t.Errorf("expected tied-not-in-alive error, got: %v", err)
+	}
+}
+
+func TestPKRound_SelfVoteAllowed(t *testing.T) {
+	// A tied player can vote for themselves.
+	pk, err := NewPKRound(1, []string{"alice", "bob"}, []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("NewPKRound error: %v", err)
+	}
+	if err := pk.RecordPKVote("alice", "alice"); err != nil {
+		t.Fatalf("RecordPKVote(alice→alice) error: %v", err)
+	}
+	if err := pk.RecordPKVote("bob", "alice"); err != nil {
+		t.Fatalf("RecordPKVote(bob→alice) error: %v", err)
+	}
+	player, tie := pk.FindEliminated()
+	if tie {
+		t.Error("FindEliminated() tie = true, want false")
+	}
+	if player != "alice" {
+		t.Errorf("FindEliminated() player = %q, want %q", player, "alice")
+	}
+}
+
 // ---------- Full PK flow (description + voting) ----------
+
+
 
 func TestPKRound_FullFlow(t *testing.T) {
 	tied := []string{"alice", "bob"}

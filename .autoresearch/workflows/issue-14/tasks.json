@@ -1,0 +1,71 @@
+{
+  "issueNumber": 14,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "实现 PK 轮次状态管理（PKRound）",
+      "description": "在 game/ 包中新增 pk.go，实现 PKRound 结构体来管理一轮 PK 的状态。PKRound 复用 DescRound 进行平票玩家的描述收集，新增 PK 投票逻辑（仅存活玩家投票，且只能投平票玩家之一）。核心方法包括：NewPKRound 构造函数、CurrentSpeaker（委托给内嵌 DescRound）、RecordPKDesc（委托给 DescRound.RecordDesc）、CurrentVoter、RecordPKVote（验证投票目标是否在平票玩家列表中）、AllVotesDone、Tally、FindEliminated（复用 VoteRound 的统计逻辑但限制在平票玩家范围内）、IsTie 检测。PKRound 应内嵌一个 DescRound 用于描述阶段和一个简化的投票 map 用于 PK 投票阶段。",
+      "acceptanceCriteria": [
+        "PKRound 结构体包含 PK 轮次号、平票玩家列表、存活玩家列表、描述阶段和投票阶段",
+        "NewPKRound 验证平票玩家列表非空且无重复",
+        "RecordPKVote 验证投票目标必须在平票玩家列表中，否则返回错误",
+        "FindEliminated 在平票时返回空字符串和 tie=true，唯一最高票时返回玩家名和 tie=false",
+        "单元测试覆盖：正常 PK 流程、投票给非平票玩家被拒绝、再次平票检测、空目标拒绝",
+        "编译通过，go vet 无错误"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-002",
+      "title": "服务端添加 PK 消息路由（PK_DESC 和 PK_VOTE）",
+      "description": "在 server/ 包中添加对 PK 描述和 PK 投票消息的路由支持。新增 OnPKDescMsg 和 OnPKVoteMsg 事件通道（复用已有 OnDescMsg 的 DescEvent 模式和 OnVoteMsg 的 VoteEvent 模式），在 handleConn 的消息路由 switch 中添加 MsgDesc 和 MsgVote 的 PK 上下文判断，或更简单地：在 judge 端 PK 阶段复用已有的 OnDescMsg 和 OnVoteMsg 通道（因为 PK 描述和 PK 投票在时间上与正常阶段互斥，不会冲突）。这样不需要修改 server 层，只需在 judge 端正确编排即可。更新 server/CLAUDE.md 文档说明此设计决策。",
+      "acceptanceCriteria": [
+        "确认 PK 阶段可复用已有的 OnDescMsg 和 OnVoteMsg 通道，不需要新增 server 层代码",
+        "如需新增通道或消息处理，确保并发安全和缓冲区大小合理",
+        "server/ 中的消息路由能正确转发 PK 阶段的 DESC 和 VOTE 消息到 judge 端",
+        "编译通过，现有测试不受影响"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-003",
+      "title": "裁判端实现 PK 流程编排（judge.go）",
+      "description": "在 cmd/doubletake/judge.go 中实现 pkPhase 函数，负责编排多轮 PK 流程。当 votingPhase 返回 eliminated 为空（平票）时调用 pkPhase。pkPhase 逻辑：1) 广播 PK_START|平票玩家列表；2) 调用 descriptionPhase 但仅传入平票玩家列表；3) 调用新的 pkVotingPhase 进行 PK 投票（所有存活玩家投票，但只能投平票玩家之一）；4) 检查结果，如果仍有平票则循环回到步骤 2；5) 分出结果后广播最终淘汰结果并标记玩家。pkVotingPhase 复用 VoteRound 但在 RecordVote 调用时传入平票玩家列表作为合法投票目标。每轮 PK 都广播描述内容和投票结果。",
+      "acceptanceCriteria": [
+        "pkPhase 函数在 votingPhase 检测到平票时被调用",
+        "广播 PK_START 消息，payload 包含平票玩家列表（逗号分隔）",
+        "PK 描述阶段仅平票玩家发言，其余玩家作为听众",
+        "PK 投票阶段所有存活玩家参与，且只能投平票玩家之一",
+        "PK 投票后仍平票则再进行一轮 PK，直到分出唯一最高票",
+        "每轮 PK 广播 DESC 和 RESULT 消息",
+        "最终淘汰的玩家被标记为 Alive=false",
+        "集成测试覆盖：平票触发 PK、单轮 PK 分出结果、多轮 PK 场景",
+        "编译通过，go vet 无错误"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": true
+    },
+    {
+      "id": "T-004",
+      "title": "玩家端实现 PK 阶段的 UI 交互",
+      "description": "在 cmd/doubletake/player.go 中添加 PK 阶段的消息处理。处理 PK_START 消息显示平票信息和 PK 玩家列表。PK 描述阶段：平票玩家看到自己的 TURN 提示并发送描述，非平票玩家看到等待提示。PK 投票阶段：所有存活玩家收到投票提示，但选项限定为平票玩家。复用已有的描述和投票 UI 逻辑（三态状态机 descIdle/descWaitingInput/descSubmitted 和投票状态机），仅需在 PK_START 时切换到 PK 上下文。处理 RESULT 消息显示 PK 投票结果。",
+      "acceptanceCriteria": [
+        "收到 PK_START 消息时显示平票信息和进入 PK 模式提示",
+        "平票玩家在 PK 描述阶段能正常输入和发送描述",
+        "非平票玩家在 PK 描述阶段看到等待提示",
+        "PK 投票阶段玩家只能投票给平票玩家之一",
+        "多轮 PK 时消息正确处理（新一轮 PK_START 重新进入 PK 模式）",
+        "玩家端测试覆盖：PK_START 处理、PK 描述交互、PK 投票交互、多轮 PK 场景",
+        "编译通过，go vet 无错误"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": true
+    }
+  ]
+}

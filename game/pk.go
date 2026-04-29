@@ -29,11 +29,14 @@ type PKRound struct {
 }
 
 // NewPKRound creates a PK round for the given tied players.
-// tiedPlayers must be non-empty with no duplicates.
+// tiedPlayers must be non-empty with no duplicates and a subset of alivePlayers.
 // alivePlayers must be non-empty with no duplicates.
 func NewPKRound(pkNum int, tiedPlayers, alivePlayers []string) (*PKRound, error) {
 	if len(tiedPlayers) == 0 {
 		return nil, errors.New("tied players list must not be empty")
+	}
+	if len(alivePlayers) == 0 {
+		return nil, errors.New("alive players list must not be empty")
 	}
 
 	// Validate tied players: no empty names, no duplicates.
@@ -58,6 +61,13 @@ func NewPKRound(pkNum int, tiedPlayers, alivePlayers []string) (*PKRound, error)
 			return nil, fmt.Errorf("duplicate alive player name: %s", name)
 		}
 		seenAlive[name] = true
+	}
+
+	// Every tied player must also be an alive player.
+	for _, name := range tiedPlayers {
+		if !seenAlive[name] {
+			return nil, fmt.Errorf("tied player %q is not in alive players list", name)
+		}
 	}
 
 	// Create DescRound for tied players only, using pkNum as the round number.
@@ -173,9 +183,9 @@ func (pk *PKRound) Tally() map[string]int {
 	return result
 }
 
-// FindEliminated returns the player with the highest votes and whether there is a tie.
+// FindEliminated returns the player with the most votes and whether there is a tie.
 // If there is a unique highest vote getter, returns (name, false).
-// If tied (two or more players share the top count), returns ("", true).
+// If tied (two or more players share the top count, or no votes cast), returns ("", true).
 func (pk *PKRound) FindEliminated() (player string, tie bool) {
 	tally := pk.Tally()
 
@@ -192,6 +202,7 @@ func (pk *PKRound) FindEliminated() (player string, tie bool) {
 		}
 	}
 
+	// topPlayers is empty when no votes were cast (all zeros); treat as tie.
 	if len(topPlayers) == 1 {
 		return topPlayers[0], false
 	}

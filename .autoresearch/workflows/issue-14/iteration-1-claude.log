@@ -1,0 +1,33 @@
+实现已完成。以下是总结：
+
+## T-001 实现总结
+
+### 创建的文件
+- **`game/pk.go`** — PKRound 结构体及相关方法
+- **`game/pk_test.go`** — 22 个测试用例，覆盖所有场景
+
+### PKRound 设计
+
+| 方法 | 用途 |
+|---|
+| `NewPKRound(pkNum, tiedPlayers, alivePlayers)` | 构造函数，校验两组玩家列表 |
+| `CurrentSpeaker()` | 委托给 DescRound，返回当前发言的平票玩家 |
+| `RecordPKDesc(player, desc)` | 委托给 DescRound.RecordDesc |
+| `DescAllDone()` | 描述阶段是否完成 |
+| `CurrentVoter()` | 返回下一个未投票的存活玩家 |
+| `RecordPKVote(voter, target)` | 投票，校验目标必须在平票列表中 |
+| `AllVotesDone()` | 所有存活玩家是否已投票 |
+| `Tally()` | 返回平票玩家的得票统计 |
+| `FindEliminated()` | 返回 `(player, tie)`，唯一最高票或平局 |
+
+### 自检
+- `go build ./...` — 通过
+- `go vet ./...` — 通过
+- `go test ./game/` — 全部通过，覆盖率 95.5%
+- 错误路径全覆盖：空目标、非平票目标、非存活投票者、重复投票
+
+## Learnings
+
+- **模式**: PKRound 通过组合（而非嵌入）DescRound 来复用描述阶段逻辑，保持关注点分离
+- **模式**: 构造函数校验两组不同玩家列表时，需要各自独立的 `seen` map 来检测重复
+- **模式**: FindEliminated 使用遍历 TiedPlayers 而非 map 迭代，保证顺序一致性

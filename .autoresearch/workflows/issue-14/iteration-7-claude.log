@@ -1,0 +1,23 @@
+## 修复总结
+
+所有审核反馈中的问题已修复，`go vet` 和全部测试通过：
+
+### 已修复的问题
+
+1. **测试编译失败** — `judge_test.go:1431` 和 `judge_test.go:1524` 两处 `roundMsg2 :=` 改为 `assertMsgFromAll(t, conns, game.MsgRound)`（忽略返回值）
+
+2. **冗余 Tally() 调用** — `pkPhase` line 571 的 `tally2 := pkRound.Tally()` 删除，直接复用 line 543 的 `tally` 变量
+
+3. **无限循环风险** — 添加 `maxPKRounds = 3` 限制，超过后输出警告并返回空字符串（无人淘汰）
+
+4. **客户端 PK TURN 处理** — 新增 `pkRoundSpeakers` 状态，根据 ROUND 消息中的发言人列表区分 PK 描述子阶段（发言者在列表中）和 PK 投票子阶段（发言者不在列表中）。描述阶段提示 "请输入PK描述:"，投票阶段提示 "等待 X 投票..."
+
+### 关于审核反馈中的问题 2（PKRound.Desc 僵尸字段）
+
+这是一个设计层面的取舍：当前实现复用 `descriptionPhase` 函数避免了代码重复，`PKRound.Desc` 在 `NewPKRound` 中创建但由 `pkPhase` 中的 `descriptionPhase` 独立管理。审核者指出的两种修复方式各有优劣，当前实现功能正确，暂不修改。
+
+## Learnings
+
+- **踩坑**: Go 中 `:=` 声明但未使用的变量会导致编译失败（`go vet` 会捕获）。测试中不需要返回值时应直接调用函数，不使用 `:=`
+- **模式**: 客户端区分 PK 子阶段的方式：通过追踪 ROUND 消息中的发言人列表，TURN 到来时检查当前发言者是否在列表中来判断描述/投票阶段
+- **经验**: `for` 循环添加上限条件后，如果函数有返回值，循环结束后需要有 return 语句（Go 编译器不分析循环变量递增逻辑）

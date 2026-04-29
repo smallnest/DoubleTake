@@ -45,3 +45,11 @@
 - `OnDescMsg` channel 缓冲大小 64，满时丢弃消息并记录日志
 - `DescEvent` 结构体包含 `PlayerName` 和 `Description` 字段
 - server 层不做描述内容校验（空描述、非当前发言者），这些由 judge 端 `descriptionPhase` 通过 `DescRound.RecordDesc` 处理
+
+## VOTE / PK_VOTE 消息处理
+- `handleVote` 处理 VOTE 消息，转发到 `OnVoteMsg` channel（`VoteEvent{PlayerName, Target}`）
+- `handlePKVote` 处理 PK_VOTE 消息，转发到 `OnPKVoteMsg` channel（`VoteEvent{PlayerName, Target}`）
+- 两个 handler 的模式与 `handleDesc` 完全一致：未命名玩家收到 ERROR，已命名玩家转发到 channel
+- `OnVoteMsg` 和 `OnPKVoteMsg` channel 缓冲大小均为 64，满时丢弃并记录日志
+- `VoteEvent` 结构体包含 `PlayerName` 和 `Target` 字段
+- server 层不做投票合法性校验（空目标、非玩家目标、重复投票），这些由 judge 端通过 `VoteRound.RecordVote` 或 `PKRound.RecordPKVote` 处理

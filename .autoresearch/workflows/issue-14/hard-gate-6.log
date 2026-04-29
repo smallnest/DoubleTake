@@ -1,0 +1,27 @@
+=== 硬门禁检查 (迭代 6) ===
+时间: 2026-04-29 08:30:23
+
+--- 构建 ---
+命令: go build ./...
+
+结果: 通过
+
+--- Lint ---
+命令: go vet ./...
+# github.com/smallnest/doubletake/cmd/doubletake
+# [github.com/smallnest/doubletake/cmd/doubletake]
+vet: cmd/doubletake/judge_test.go:1431:2: declared and not used: roundMsg2
+结果: 失败 (exit code: 1)
+
+
+=== 汇总 ===
+状态: 失败
+## Lint 失败 (go vet ./...)
+
+```
+# github.com/smallnest/doubletake/cmd/doubletake
+# [github.com/smallnest/doubletake/cmd/doubletake]
+vet: cmd/doubletake/judge_test.go:1431:2: declared and not used: roundMsg2
+```
+
+

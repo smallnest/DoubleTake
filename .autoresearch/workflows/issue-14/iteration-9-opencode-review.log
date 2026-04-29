@@ -1,0 +1,175 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead .
+[0m✱ [0mGlob "**/*.go"[90m in . · 24 matches[0m
+[0m→ [0mRead cmd/doubletake/judge.go
+[0m→ [0mRead cmd/doubletake/judge_test.go
+[0m→ [0mRead game/pk.go
+[0m→ [0mRead game/pk_test.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead cmd/doubletake/player.go
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./... 2>&1
+(no output)
+[0m
+Let me verify compilation and vet, and also check the existing protocol test for the PK_VOTE message type:
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./... -count=1 -run 'TestPK' -v 2>&1 | tail -60
+2026/04/29 08:43:23 player 127.0.0.1:64665 joined as P2
+2026/04/29 08:43:23 player connected: 127.0.0.1:64666
+2026/04/29 08:43:23 received from 127.0.0.1:64666: JOIN P3
+2026/04/29 08:43:23 player 127.0.0.1:64666 joined as P3
+2026/04/29 08:43:23 received from 127.0.0.1:64663: DESC P0 desc
+2026/04/29 08:43:23 received from 127.0.0.1:64664: DESC P1 desc
+2026/04/29 08:43:23 received from 127.0.0.1:64663: PK_VOTE P1
+2026/04/29 08:43:23 received from 127.0.0.1:64664: PK_VOTE P0
+2026/04/29 08:43:23 received from 127.0.0.1:64665: PK_VOTE P0
+2026/04/29 08:43:23 received from 127.0.0.1:64666: PK_VOTE P1
+    judge_test.go:1545: PK round 1 RESULT: P0:2,P1:2
+2026/04/29 08:43:23 received from 127.0.0.1:64663: DESC P0 desc round 2
+2026/04/29 08:43:23 received from 127.0.0.1:64664: DESC P1 desc round 2
+2026/04/29 08:43:23 received from 127.0.0.1:64663: PK_VOTE P1
+2026/04/29 08:43:23 received from 127.0.0.1:64664: PK_VOTE P0
+2026/04/29 08:43:23 received from 127.0.0.1:64665: PK_VOTE P1
+2026/04/29 08:43:23 received from 127.0.0.1:64666: PK_VOTE P1
+2026/04/29 08:43:23 player disconnected: 127.0.0.1:64663
+2026/04/29 08:43:23 player disconnected: 127.0.0.1:64665
+2026/04/29 08:43:23 player disconnected: 127.0.0.1:64666
+2026/04/29 08:43:23 player disconnected: 127.0.0.1:64664
+2026/04/29 08:43:23 server stopped
+--- PASS: TestPKPhase_MultiRound (0.03s)
+PASS
+ok  	github.com/smallnest/doubletake/cmd/doubletake	2.238s
+=== RUN   TestPKRound_DescriptionPhase
+--- PASS: TestPKRound_DescriptionPhase (0.00s)
+=== RUN   TestPKRound_DescRejectsEmptyDesc
+--- PASS: TestPKRound_DescRejectsEmptyDesc (0.00s)
+=== RUN   TestPKRound_DescRejectsNotYourTurn
+--- PASS: TestPKRound_DescRejectsNotYourTurn (0.00s)
+=== RUN   TestPKRound_NormalVoteFlow
+--- PASS: TestPKRound_NormalVoteFlow (0.00s)
+=== RUN   TestPKRound_VoteRejectsNonTiedTarget
+--- PASS: TestPKRound_VoteRejectsNonTiedTarget (0.00s)
+=== RUN   TestPKRound_VoteRejectsEmptyTarget
+--- PASS: TestPKRound_VoteRejectsEmptyTarget (0.00s)
+=== RUN   TestPKRound_VoteRejectsNonAliveVoter
+--- PASS: TestPKRound_VoteRejectsNonAliveVoter (0.00s)
+=== RUN   TestPKRound_VoteRejectsDoubleVote
+--- PASS: TestPKRound_VoteRejectsDoubleVote (0.00s)
+=== RUN   TestPKRound_Tally
+--- PASS: TestPKRound_Tally (0.00s)
+=== RUN   TestPKRound_FindEliminated_UniqueWinner
+--- PASS: TestPKRound_FindEliminated_UniqueWinner (0.00s)
+=== RUN   TestPKRound_FindEliminated_Tie
+--- PASS: TestPKRound_FindEliminated_Tie (0.00s)
+=== RUN   TestPKRound_FindEliminated_ThreeWayTie
+--- PASS: TestPKRound_FindEliminated_ThreeWayTie (0.00s)
+=== RUN   TestPKRound_FindEliminated_NoVotes
+--- PASS: TestPKRound_FindEliminated_NoVotes (0.00s)
+=== RUN   TestPKRound_SelfVoteAllowed
+--- PASS: TestPKRound_SelfVoteAllowed (0.00s)
+=== RUN   TestPKRound_FullFlow
+--- PASS: TestPKRound_FullFlow (0.00s)
+PASS
+ok  	github.com/smallnest/doubletake/game	1.764s
+testing: warning: no tests to run
+PASS
+ok  	github.com/smallnest/doubletake/server	0.915s [no tests to run]
+[0m
+[0m→ [0mRead game/protocol_test.go
+[0m✱ [0mGlob "**/progress.md"[90m in . · 15 matches[0m
+Good, build, vet, and all PK tests pass. Let me also check protocol test coverage for PK_VOTE and read the progress.md:
+[0m→ [0mRead .autoresearch/workflows/issue-14/progress.md
+Now I have a complete understanding of the implementation. Here is my review:
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #14
+- 子任务: T-003 — 裁判端实现 PK 流程编排（judge.go）
+- 迭代次数: 9
+
+### 总体评价
+
+**评分: 93/100**
+
+所有验收条件均已满足。`pkPhase` (judge.go:470-597) 逻辑完整正确，集成测试覆盖单轮和多轮 PK 场景，编译和 vet 均无错误。存在少量非阻塞性问题（详见下文）。
+
+---
+
+### 验收条件逐项检查
+
+| # | 验收条件 | 状态 | 证据 |
+|---|---------|------|------|
+| 1 | pkPhase 在 votingPhase 检测到平票时被调用 | ✅ | judge.go:215-218 — `tie && voteRound != nil` 时调用 |
+| 2 | 广播 PK_START，payload 含平票玩家列表 | ✅ | judge.go:485-488 — `strings.Join(currentTied, ",")` |
+| 3 | PK 描述阶段仅平票玩家发言 | ✅ | judge.go:491 — `descriptionPhase(..., currentTied)` |
+| 4 | PK 投票阶段所有存活玩家参与，只能投平票玩家 | ✅ | game/pk.go:154-163 — `RecordPKVote` 校验 target 在 `TiedPlayers` 中 |
+| 5 | 仍平票则循环，直到分出唯一最高票 | ✅ | judge.go:483-592 — `for` 循环 + 重新计算 `currentTied` |
+| 6 | 每轮 PK 广播 DESC 和 RESULT | ✅ | judge.go:537-540 (DESC), 544-552 (RESULT) |
+| 7 | 最终淘汰玩家标记 Alive=false | ✅ | judge.go:558-563 — `p.Alive = false` + KICK 广播 |
+| 8 | 集成测试覆盖单轮、多轮 PK | ✅ | TestPKPhase_SingleRound + TestPKPhase_MultiRound |
+| 9 | 编译通过，go vet 无错误 | ✅ | `go build ./...` + `go vet ./...` 均无输出 |
+
+---
+
+### 严重问题 (必须修复)
+
+无。
+
+---
+
+### 一般问题 (建议修复)
+
+1. **PKRound.Desc 成为僵尸对象** (judge.go:497, game/pk.go:74-77)
+   - `pkPhase` 调用 `descriptionPhase` 直接管理 PK 描述流程，但 `NewPKRound` 内部又创建了一个 `DescRound`，后者从未被使用。
+   - **影响**: 轻微的内存浪费和代码误解。
+   - **建议**: 重构 `NewPKRound` 使其不自动创建 `DescRound`，改为延迟初始化或由调用方注入；或接受该设计取舍（已有文档记录）。
+
+2. **PK 投票广播使用 MsgDesc 类型，语义不清晰** (judge.go:537-540)
+   - PK 投票结果通过 `DESC|voterName|targetName` 广播，客户端会展示为 "P0: P1"，在投票上下文中可读性差。
+   - **建议**: 使用 `MsgPKVote` 作为广播类型，让客户端通过另一个 handler 显示更友好的格式（如 "P0 投给了 P1"）。
+
+3. **缺少 PK 轮次耗尽测试** (judge_test.go)
+   - `maxPKRounds = 3` 耗尽后返回 `""` 的路径无测试覆盖。
+   - **建议**: 添加 `TestPKPhase_MaxRoundsExhausted` 测试，构造 3 轮持续平票的场景。
+
+---
+
+### 建议改进 (可选)
+
+4. **`getTiedPlayers` 与 `VoteRound.FindEliminated` 逻辑重复** (judge.go:439-461)
+   - 两者都实现了"找出最高票者集合"的逻辑。可考虑在 `VoteRound` 上暴露 `TiedPlayers()` 方法避免重复。
+
+5. **RESULT 消息仅显示平票玩家的票数** (judge.go:546-548)
+   - 非平票玩家在 PK 中得票始终为 0，当前不展示。对裁判透明度无影响，但可以考虑完整展示。
+
+---
+
+### 审核结论
+
+- [x] **通过** — 评分达标 (93 ≥ 85)，可进入下一子任务
+
+---
+
+### 实现者自检确认
+
+- [x] 编译/类型检查已执行 — `go build` 通过
+- [x] Lint 检查已执行 — `go vet` 无错误
+- [x] 相关测试已运行 — `TestPK*` 全部通过
+- [x] 测试覆盖充分 — 单元测试（PKRound 构造/描述/投票/Tally/FindEliminated）+ 集成测试（单轮/多轮）
+
+---
+
+## Learnings
+
+- **模式**: `pkPhase` 复用 `descriptionPhase` 时，需注意 `PKRound` 内部的 `Desc` 会成为僵尸对象 — 可通过延迟创建或构造函数拆分解决
+- **模式**: `getTiedPlayers` 函数与 `VoteRound.FindEliminated` 的顶部投票者查找逻辑本质相同，可以考虑将"获取平票者集合"抽象为 `VoteRound` 的公开方法
+- **经验**: 集成测试中 PK 投票的消息序列严格遵循 `TURN → PK_VOTE → DESC广播` 的循环，测试构造需精确匹配

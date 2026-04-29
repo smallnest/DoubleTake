@@ -202,6 +202,25 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	}
 	_ = descResult // descriptions recorded for later phases
 
+	// Run voting phase for round 1 with all players.
+	eliminated, tie, voteRound := votingPhase(disp, srv, 1, players)
+	if eliminated != "" {
+		for _, p := range players {
+			if p.Name == eliminated {
+				p.Alive = false
+				break
+			}
+		}
+		disp.Info("0000", fmt.Sprintf("%s 被投票淘汰", eliminated))
+	} else if tie && voteRound != nil {
+		disp.Info("0000", "平票，进入 PK 环节")
+		tiedPlayers := getTiedPlayers(voteRound)
+		pkEliminated := pkPhase(disp, srv, tiedPlayers, players)
+		if pkEliminated != "" {
+			disp.Info("0000", fmt.Sprintf("%s 在 PK 中被淘汰", pkEliminated))
+		}
+	}
+
 	return cfg
 }
 
@@ -340,6 +359,244 @@ func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, al
 
 	return &descResult{Round: round}
 }
+
+// votingPhase runs a voting round where all alive players vote.
+// It broadcasts VOTE|roundNum|playerList, then sends TURN|playerName to
+// each voter and processes VOTE messages until all have voted.
+// Returns the eliminated player name (empty string if tie), whether a tie occurred,
+// and the VoteRound for further analysis (e.g., getting tied players).
+func votingPhase(disp *client.Display, srv *server.Server, roundNum int, players []*game.Player) (eliminated string, tie bool, voteRound *game.VoteRound) {
+	alivePlayers := make([]string, 0, len(players))
+	for _, p := range players {
+		if p.Alive {
+			alivePlayers = append(alivePlayers, p.Name)
+		}
+	}
+
+	round, err := game.NewVoteRound(roundNum, alivePlayers)
+	if err != nil {
+		disp.Warn(fmt.Sprintf("创建投票轮次失败: %v", err))
+		return "", false, nil
+	}
+
+	// Broadcast VOTE|roundNum|playerList
+	playerList := strings.Join(alivePlayers, ",")
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgVote,
+		Payload: fmt.Sprintf("%d|%s", roundNum, playerList),
+	})
+
+	// Send TURN to each voter in order
+	for !round.AllVoted() {
+		current := round.CurrentVoter()
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgTurn,
+			Payload: current,
+		})
+
+		evt := <-srv.OnVoteMsg
+
+		if evt.PlayerName != current {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: "还没轮到你投票",
+			})
+			continue
+		}
+
+		err := round.RecordVote(evt.PlayerName, evt.Target)
+		if err != nil {
+			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+				Type:    game.MsgError,
+				Payload: err.Error(),
+			})
+			continue
+		}
+
+		// Broadcast vote
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgDesc,
+			Payload: evt.PlayerName + "|" + evt.Target,
+		})
+	}
+
+	// Broadcast RESULT|tally
+	tally := round.Tally()
+	var tallyParts []string
+	for _, name := range alivePlayers {
+		tallyParts = append(tallyParts, fmt.Sprintf("%s:%d", name, tally[name]))
+	}
+	srv.BroadcastToNamedPlayers(game.Message{
+		Type:    game.MsgResult,
+		Payload: strings.Join(tallyParts, ","),
+	})
+
+	eliminated, tie = round.FindEliminated()
+	return eliminated, tie, round
+}
+
+// getTiedPlayers extracts the players with the highest vote count from a VoteRound.
+func getTiedPlayers(voteRound *game.VoteRound) []string {
+	if voteRound == nil {
+		return nil
+	}
+	tally := voteRound.Tally()
+	var maxVotes int
+	for _, name := range voteRound.Players {
+		v := tally[name]
+		if v > maxVotes {
+			maxVotes = v
+		}
+	}
+	if maxVotes == 0 {
+		return nil
+	}
+	var tied []string
+	for _, name := range voteRound.Players {
+		if tally[name] == maxVotes {
+			tied = append(tied, name)
+		}
+	}
+	return tied
+}
+
+// pkPhase runs the PK (tie-break) phase. It loops until a unique eliminated
+// player is found. Each PK round:
+// 1. Broadcasts PK_START|tiedPlayers
+// 2. Runs descriptionPhase for tied players only
+// 3. Collects PK votes from all alive players
+// 4. Broadcasts RESULT|tally
+// 5. Checks for elimination
+func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, players []*game.Player) string {
+	// Build alive players list
+	alivePlayers := make([]string, 0, len(players))
+	for _, p := range players {
+		if p.Alive {
+			alivePlayers = append(alivePlayers, p.Name)
+		}
+	}
+
+	pkNum := 1
+	const maxPKRounds = 3
+	currentTied := tiedPlayers
+
+	for pkNum <= maxPKRounds {
+		// 1. Broadcast PK_START|tiedPlayers
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgPKStart,
+			Payload: strings.Join(currentTied, ","),
+		})
+
+		// 2. Run description phase for tied players only
+		descRes := descriptionPhase(disp, srv, pkNum, currentTied)
+		if descRes == nil {
+			return ""
+		}
+
+		// 3. Collect PK votes from all alive players
+		pkRound, err := game.NewPKRound(pkNum, currentTied, alivePlayers)
+		if err != nil {
+			disp.Warn(fmt.Sprintf("创建 PK 轮次失败: %v", err))
+			return ""
+		}
+
+		// Broadcast ROUND for PK voting (reuse ROUND message type)
+		voterList := strings.Join(alivePlayers, ",")
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgRound,
+			Payload: fmt.Sprintf("%d|%s", pkNum, voterList),
+		})
+
+		for !pkRound.AllVotesDone() {
+			currentVoter := pkRound.CurrentVoter()
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgTurn,
+				Payload: currentVoter,
+			})
+
+			evt := <-srv.OnPKVoteMsg
+
+			if evt.PlayerName != currentVoter {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "还没轮到你投票",
+				})
+				continue
+			}
+
+			err := pkRound.RecordPKVote(evt.PlayerName, evt.Target)
+			if err != nil {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: err.Error(),
+				})
+				continue
+			}
+
+			// Broadcast PK vote
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgDesc,
+				Payload: evt.PlayerName + "|" + evt.Target,
+			})
+		}
+
+		// 4. Broadcast RESULT|tally
+		tally := pkRound.Tally()
+		var tallyParts []string
+		for _, name := range currentTied {
+			tallyParts = append(tallyParts, fmt.Sprintf("%s:%d", name, tally[name]))
+		}
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgResult,
+			Payload: strings.Join(tallyParts, ","),
+		})
+
+		// 5. Check for elimination
+		eliminated, stillTied := pkRound.FindEliminated()
+		if !stillTied {
+			// Unique highest vote getter
+			for _, p := range players {
+				if p.Name == eliminated {
+					p.Alive = false
+					break
+				}
+			}
+			srv.BroadcastToNamedPlayers(game.Message{
+				Type:    game.MsgKick,
+				Payload: eliminated,
+			})
+			return eliminated
+		}
+
+		// Still tied: get new tied players from tally and loop
+		var maxVotes int
+		for _, name := range currentTied {
+			v := tally[name]
+			if v > maxVotes {
+				maxVotes = v
+			}
+		}
+		if maxVotes == 0 {
+			// No votes cast, treat as tie among all tied players
+			pkNum++
+			continue
+		}
+		var nextTied []string
+		for _, name := range currentTied {
+			if tally[name] == maxVotes {
+				nextTied = append(nextTied, name)
+			}
+		}
+		currentTied = nextTied
+		pkNum++
+	}
+
+	// Max PK rounds exhausted without resolution
+	disp.Warn(fmt.Sprintf("PK %d 轮后仍平票，无人淘汰", maxPKRounds))
+	return ""
+}
+
+// broadcastReady sends the READY message to all named players.
 
 // broadcastReady sends the READY message to all named players.
 func broadcastReady(disp *client.Display, srv *server.Server) {

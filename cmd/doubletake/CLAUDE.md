@@ -75,3 +75,28 @@
 - 测试覆盖：其他玩家回合显示等待提示、自己回合提示输入并发送 DESC、空描述客户端拦截、服务端 ERROR 重试、非描述阶段 ERROR 致命退出
 - 服务端模拟 ERROR 重试测试：先读取第一个 DESC（被拒绝），发送 ERROR，再读取第二个有效 DESC
 - 客户端空描述拦截测试：发送空行后客户端本地拦截，服务器只收到有效的描述
+
+## PK 环节约定（裁判端）
+- `pkPhase` 函数在 `votingPhase` 检测到平票时被调用，负责多轮 PK 流程编排
+- PK 流程：PK_START → descriptionPhase(仅平票玩家) → PK投票(所有存活玩家) → RESULT → 检查结果 → 循环或结束
+- `pkPhase` 复用 `descriptionPhase` 处理 PK 描述阶段（仅传入平票玩家列表），PK 投票使用 `srv.OnPKVoteMsg` channel
+- 最大 PK 轮次限制为 3 轮（`maxPKRounds = 3`），超过后返回空字符串（无人淘汰）
+- PK 投票广播使用 `MsgDesc` 类型（与 `votingPhase` 保持一致）
+- `pkPhase` 返回被淘汰玩家名，无淘汰返回空字符串
+
+## PK 环节约定（玩家端）
+- 客户端通过 `inPK` 标志和 `pkRoundSpeakers` 列表区分 PK 描述/投票子阶段
+- 收到 `MsgPKStart` 时设置 `inPK=true`，收到 `MsgKick` 时重置
+- 收到 `MsgRound` 时更新 `pkRoundSpeakers` 列表
+- TURN 消息处理：检查当前发言者是否在 `pkRoundSpeakers` 中 → 是则 PK 描述阶段，否则 PK 投票阶段
+- PK 描述阶段：发言者显示 "请输入PK描述:"，其他玩家显示 "等待 X PK描述..."
+- PK 投票阶段：统一显示 "等待 X 投票..." 并进入 voteWaitingInput
+- PK 投票发送 `MsgPKVote` 类型消息（非 `MsgVote`）
+
+## PK 环节测试约定
+- `setupPKTestEnv` 创建独立的 server + 连接环境，不经过完整的 RunJudge 流程
+- 测试直接调用 `pkPhase` 函数（在 goroutine 中），模拟客户端消息交换
+- 单轮 PK 测试：描述阶段（2 人描述）→ 投票阶段（4 人投票，1 人获 3 票淘汰）
+- 多轮 PK 测试：第一轮平票 → 第二轮分出结果
+- `assertMsgFromAll` 辅助函数：从所有连接读取一条消息并验证类型一致
+- 集成测试中 `roundMsg2` 等不需要使用的返回值不要用 `:=` 接收（Go 不允许未使用变量）

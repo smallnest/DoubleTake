@@ -1,0 +1,196 @@
+我现在对情况有了全面的了解。让我来整理审核报告。
+
+---
+
+## 审核报告
+
+### Issue
+- 编号: #14
+- 标题: 平票 PK 机制 — 多轮 PK 描述+投票
+- 迭代次数: 7 (T-003)
+
+---
+
+### 实现者自检确认
+- [x] 编译/类型检查已执行 — `go build` 通过
+- [ ] Lint 检查 — **未通过**: `go vet` 报告 `judge_test.go:1431` 和 `judge_test.go:1524` 存在声明但未使用的 `roundMsg2` 变量
+- [ ] 相关测试 — **无法运行**: 测试因 `go vet` 错误导致编译失败
+- [ ] 测试覆盖 — 见下文分析
+
+---
+
+### 总体评价
+
+**评分: 72/100**
+
+T-003 的核心功能实现（`pkPhase` 函数）逻辑正确，流程完整，但测试代码存在编译阻塞问题（`go vet` 失败），且有一个逻辑错误：`pkPhase` 中 PK 描述阶段复用了普通 `descriptionPhase`，但该函数从 `srv.OnDescMsg` channel 读取消息，而非使用 `PKRound.Desc` 内嵌的 `DescRound`。这导致 `PKRound.Desc` 被创建但从未被 `pkPhase` 实际使用。此外，客户端对 PK 阶段 TURN 消息的处理不区分描述/投票阶段，统一进入投票模式。
+
+---
+
+### 严重问题 (必须修复)
+
+#### 问题 1: 测试编译失败 — 未使用的变量
+
+**位置**: `cmd/doubletake/judge_test.go:1431`, `judge_test.go:1524`
+
+**问题描述**:
+`go vet` 报告两处 `roundMsg2` 变量声明但未使用，导致测试无法编译运行。
+
+**代码片段**:
+```go
+// Line 1431
+roundMsg2 := assertMsgFromAll(t, conns, game.MsgRound)
+
+// Line 1524
+roundMsg2 := assertMsgFromAll(t, conns, game.MsgRound)
+```
+
+**建议修复**:
+```go
+// 改为忽略返回值
+assertMsgFromAll(t, conns, game.MsgRound)
+```
+
+**原因**: Go 不允许声明但未使用的变量。测试代码因此无法编译，所有集成测试无法运行。
+
+---
+
+#### 问题 2: `pkPhase` 未使用 `PKRound.Desc` — 描述阶段状态未被管理
+
+**位置**: `cmd/doubletake/judge.go:490`
+
+**问题描述**:
+`pkPhase` 调用 `descriptionPhase(disp, srv, pkNum, currentTied)` 处理 PK 描述阶段。`descriptionPhase` 内部创建自己的 `game.DescRound` 并通过 `srv.OnDescMsg` channel 读取消息。之后 `pkPhase` 又创建 `game.NewPKRound()`，PKRound 内嵌了 `DescRound`，但这个 `DescRound` 从未被 `pkPhase` 使用或填充数据 — 描述阶段的状态完全在 `descriptionPhase` 的局部变量中。
+
+这意味着 `PKRound.Desc` 字段是一个"僵尸"对象：被创建、被验证，但从不参与实际流程。验收条件要求"pkVotingPhase 复用 VoteRound"，但当前实现并未严格按需求设计。
+
+**代码片段** (`judge.go:490-496`):
+```go
+// 2. Run description phase for tied players only
+descRes := descriptionPhase(disp, srv, pkNum, currentTied)
+if descRes == nil {
+    return ""
+}
+
+// 3. Collect PK votes from all alive players
+pkRound, err := game.NewPKRound(pkNum, currentTied, alivePlayers)
+```
+
+**建议修复**:
+这是设计问题而非 bug — 当前实现可以正常工作，因为 `descriptionPhase` 已正确处理描述阶段。但 `PKRound.Desc` 字段在此流程中无意义。两种修复方式：
+1. 在 `pkPhase` 中直接管理描述阶段（不调用 `descriptionPhase`，手动使用 `pkRound.Desc`），让 `PKRound` 成为完整的 PK 状态容器
+2. 简化 `PKRound`，移除 `Desc` 字段，因为描述阶段由 `descriptionPhase` 独立管理
+
+---
+
+#### 问题 3: 客户端 PK 阶段 TURN 消息处理不区分描述/投票
+
+**位置**: `cmd/doubletake/player.go:185-188`
+
+**问题描述**:
+当 `inPK` 为 `true` 时，所有 TURN 消息都被当作投票处理，统一设置 `phase = voteWaitingInput`。但 PK 阶段包含描述子阶段（平票玩家发言）和投票子阶段（所有存活玩家投票）。在描述子阶段，TURN 应提示平票玩家输入描述而非投票。
+
+**代码片段** (`player.go:185-188`):
+```go
+if *inPK {
+    // PK voting mode or PK description mode
+    disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+    *phase = voteWaitingInput
+```
+
+**建议修复**:
+需要一种方式区分 PK 描述阶段和 PK 投票阶段。可以用一个额外的状态变量或根据接收到的 ROUND 消息内容判断（ROUND 的 payload 包含发言者列表，可以与当前玩家名比较）：
+
+```go
+if *inPK {
+    if *pkPhase == pkPhaseDesc {
+        if speaker == playerName {
+            fmt.Fprint(out, "  请输入PK描述: ")
+            *phase = descWaitingInput
+        } else {
+            disp.Data("00", fmt.Sprintf("等待 %s PK描述...", speaker))
+            *phase = descIdle
+        }
+    } else {
+        // PK voting phase
+        disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+        *phase = voteWaitingInput
+    }
+}
+```
+
+---
+
+### 一般问题 (建议修复)
+
+#### 问题 4: `pkPhase` 中重复调用 `Tally()`
+
+**位置**: `cmd/doubletake/judge.go:543,571`
+
+**问题描述**:
+`pkPhase` 在投票完成后先调用 `pkRound.Tally()` 生成 RESULT 消息（line 543），然后在平票检查后又调用 `pkRound.Tally()`（line 571）来获取新的平票玩家列表。这是不必要的重复计算。
+
+**代码片段**:
+```go
+// Line 543
+tally := pkRound.Tally()
+
+// Line 571
+tally2 := pkRound.Tally() // redundant
+```
+
+**建议修复**:
+复用第一次的 `tally` 变量来计算新的平票玩家列表。
+
+---
+
+#### 问题 5: `pkPhase` 无限循环风险
+
+**位置**: `cmd/doubletake/judge.go:482`
+
+**问题描述**:
+如果玩家持续平票（每轮都投出相同票数），`pkPhase` 会无限循环。验收条件没有提到退出条件，但生产环境应有最大轮次限制或超时机制。
+
+**建议修复**:
+添加最大 PK 轮次限制（如 3 轮），超过后随机淘汰或双方不淘汰。
+
+---
+
+### 建议改进 (可选)
+
+- `pkPhase` 中的投票广播使用 `MsgDesc` 类型（line 537），这与正常投票阶段一致（`votingPhase` 也使用 `MsgDesc`），但语义上不够清晰。可以考虑使用 `MsgVote` 或 `MsgPKVote` 类型来区分
+- `votingPhase` 中也存在类似问题：投票广播使用 `MsgDesc` 而非 `MsgVote`（line 419）
+
+---
+
+### 审核维度详细评分
+
+| 维度 | 得分 | 权重 | 加权分 |
+|------|------|------|--------|
+| 正确性 | 75 | 35% | 26.25 |
+| 测试质量 | 60 | 25% | 15.00 |
+| 代码质量 | 80 | 20% | 16.00 |
+| 安全性 | 90 | 10% | 9.00 |
+| 性能 | 85 | 10% | 8.50 |
+
+**总分: 74.75 → 72 (取整，扣除因测试无法运行的额外影响)**
+
+---
+
+### 审核结论
+
+- [ ] 需要修改 - 存在必须修复的问题
+
+**下一步行动**:
+1. **修复 `judge_test.go` 中两处未使用变量** — 将 `roundMsg2 :=` 改为 `assertMsgFromAll(t, conns, game.MsgRound)`，使测试可编译运行
+2. **修复客户端 PK 阶段 TURN 处理** — 区分 PK 描述阶段和 PK 投票阶段
+3. **考虑是否清理 `PKRound.Desc` 僵尸字段** — 要么真正使用它，要么移除
+4. 修复后重新运行 `go vet ./...` 和 `go test ./cmd/doubletake/ -run TestPKPhase -v` 验证
+
+---
+
+## Learnings
+
+- **模式**: `pkPhase` 成功复用了 `descriptionPhase` 来处理 PK 描述阶段，避免了代码重复。但这种复用导致 `PKRound.Desc` 成为僵尸对象 — 后续设计需权衡"复用已有函数"与"让状态对象自包含"之间的取舍
+- **踩坑**: `go vet` 检查未使用的变量声明（`declared and not used`）会阻止测试编译。集成测试中使用 `:=` 接收返回值但未使用时，应改为直接调用函数
+- **经验**: 客户端 PK 阶段需要区分描述子阶段和投票子阶段。最简单的方式是根据最近收到的 ROUND 消息 payload 中的列表类型（平票玩家 vs 全体存活玩家）来判断当前子阶段
