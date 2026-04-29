@@ -543,3 +543,44 @@ Let me verify compilation and vet, and also check the existing protocol test for
 - **踩坑**: TURN 消息在 PK 投票阶段对所有玩家都触发了 `voteWaitingInput`，但实际只有当前投票者才应该进入输入状态。这类"广播 TURN 被所有客户端当作给自己的提示"的问题在 CS 架构的回合制游戏中容易遗漏
 - **经验**: judge 端的集成测试（`TestPKPhase_SingleRound`、`TestPKPhase_MultiRound`）覆盖了完整的服务端-客户端消息序列，但无法捕获玩家端 UI 状态机的错误——需要单独的 `player_test.go` 测试用模拟服务端发送消息序列来验证客户端行为
 
+
+## Iteration 3 - 2026-04-29
+
+- **Agent**: opencode
+- **类型**: 审核+修复
+- **评分**: 100/100
+
+- **审核要点**:
+
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m✱ [0mGlob "game/**/*.go"[90m 12 matches[0m
+[0m→ [0mRead .
+[0m→ [0mRead game/pk.go
+[0m→ [0mRead game/pk_test.go
+[0m→ [0mRead game/game.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead game/role.go
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go vet ./game/ 2>&1
+(no output)
+[0m
+[0m$ [0mcd /Users/smallnest/ai/DoubleTake && go test ./game/ -v -run "TestPK" -count=1 2>&1
+=== RUN   TestPKRound_DescriptionPhase
+--- PASS: TestPKRound_DescriptionPhase (0.00s)
+=== RUN   TestPKRound_DescRejectsEmptyDesc
+--- PASS: TestPKRound_DescRejectsEmptyDesc (0.00s)
+=== RUN   TestPKRound_DescRejectsNotYourTurn
+--- PASS: TestPKRound_DescRejectsNotYourTurn (0.00s)
+=== RUN   TestPKRound_NormalVoteFlow
+--- PASS: TestPKRound_NormalVoteFlow 
+
+- **经验与发现**:
+
+## Learnings
+
+- **模式**: `FindEliminated` 零票处理依赖 `v > 0` 条件而非单独的空票检查，通过 `topPlayers` 是否为空统一判定平票
+- **模式**: 构造函数需要独立 `seen` map 分别校验 `tiedPlayers` 和 `alivePlayers` 的重复性，避免跨列表污染
+- **模式**: 错误变量按职责域定义在对应文件（`pk.go` 用 `ErrPK*`，`game.go` 用 `Err*`），符合项目约定
+
