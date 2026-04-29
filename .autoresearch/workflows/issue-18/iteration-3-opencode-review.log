@@ -1,0 +1,385 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead cmd/doubletake/player.go
+[0m→ [0mRead game/protocol.go
+[0m→ [0mRead server/server.go
+[0m→ [0mRead client/client.go
+[0m✱ [0mGlob "**/main_test.go"[90m in . · 1 match[0m
+[0m✱ [0mGlob "**/server_test.go"[90m in . · 1 match[0m
+[0m✱ [0mGlob "**/player_test.go"[90m in . · 1 match[0m
+[0m→ [0mRead cmd/doubletake/player_test.go
+[0m→ [0mRead server/server_test.go
+[0m✱ [0mGlob "**/progress.md"[90m in . · 17 matches[0m
+[0m→ [0mRead cmd/doubletake/main.go
+[0m→ [0mRead .autoresearch/workflows/issue-18/progress.md
+[0m
+[0m$ [0mgo build ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo vet ./... 2>&1
+(no output)
+[0m
+[0m$ [0mgo test ./... 2>&1 | tail -20
+ok  	github.com/smallnest/doubletake/client	(cached)
+ok  	github.com/smallnest/doubletake/cmd/doubletake	19.210s
+ok  	github.com/smallnest/doubletake/game	(cached)
+ok  	github.com/smallnest/doubletake/server	3.195s
+[0m
+[0m$ [0mgit log --oneline -20 2>&1
+123bab8 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+5195ca5 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+4c9521d feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+835900a feat: implement issue #14 T-001 - PK round state management (PKRound)
+b31b251 Merge pull request #29 from smallnest/feature/issue-12
+fd04eec feat: implement issue #12 - #12 描述环节 — 轮流发言与广播
+923c442 feat: implement issue #12 T-001 - description round state management
+a77045f Merge pull request #28 from smallnest/feature/issue-11
+d3f4c1c feat: implement issue #11 - #11 词语输入与分发
+0329ab0 feat: implement issue #11 T-001 - word input and role assignment
+7f754d3 Merge pull request #27 from smallnest/feature/issue-10
+866bdb7 feat: implement issue #10 - #10 角色定义与随机分配
+3b3d6ff Merge pull request #26 from smallnest/feature/issue-9
+4f99d33 feat: implement issue #9 - #9 裁判等待玩家与启动控制
+7ac7582 Merge pull request #25 from smallnest/feature/issue-8
+3863227 feat: implement issue #8 - #8 玩家通过密码连接并加入房间
+9827b62 Merge pull request #24 from smallnest/feature/issue-7
+b9611a8 feat: implement issue #7 - #7 裁判交互式配置与创建房间
+2878909 feat: implement issue #6 - #6 伪装显示模块 — 日志风格输出
+ac03592 Merge pull request #23 from smallnest/feature/issue-5
+[0m
+[0m$ [0mgit branch -a 2>&1
+feature/issue-14
+  feature/issue-15
+  feature/issue-16
+  feature/issue-17
+* feature/issue-18
+  feature/issue-32
+  master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/feature/issue-1
+  remotes/origin/feature/issue-10
+  remotes/origin/feature/issue-11
+  remotes/origin/feature/issue-12
+  remotes/origin/feature/issue-13
+  remotes/origin/feature/issue-14
+  remotes/origin/feature/issue-15
+  remotes/origin/feature/issue-16
+  remotes/origin/feature/issue-17
+  remotes/origin/feature/issue-2
+  remotes/origin/feature/issue-3
+  remotes/origin/feature/issue-4
+  remotes/origin/feature/issue-5
+  remotes/origin/feature/issue-6
+  remotes/origin/feature/issue-7
+  remotes/origin/feature/issue-8
+  remotes/origin/feature/issue-9
+  remotes/origin/master
+[0m
+[0m$ [0mgit log feature/issue-18 --oneline --not master 2>&1 | head -5
+123bab8 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+5195ca5 feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+4c9521d feat: implement issue #14 - #14 平票 PK 机制 — 多轮 PK 描述+投票
+835900a feat: implement issue #14 T-001 - PK round state management (PKRound)
+[0m
+[0m$ [0mgit diff master --stat 2>&1
+.../archive/2026-04-29-issue-12/terminal.log       |   16 -
+ .../2026-04-29-issue-13-1}/.last_score             |    0
+ .../.phase                                         |    0
+ .../2026-04-29-issue-13-1}/hard-gate-1.log         |    0
+ .../2026-04-29-issue-13-1}/hard-gate-2.log         |    0
+ .../2026-04-29-issue-13-1}/iteration-1-claude.log  |    0
+ .../iteration-2-codex-review.log                   |    0
+ .../2026-04-29-issue-13-1}/iteration-2-codex.log   |    0
+ .../iteration-3-opencode-review.log                |    0
+ .../2026-04-29-issue-13-1}/log.md                  |    0
+ .../2026-04-29-issue-13-1}/planning.log            |    0
+ .../2026-04-29-issue-13-1}/progress.md             |    0
+ .../2026-04-29-issue-13-1}/summary.html            |    0
+ .../2026-04-29-issue-13-1}/tasks.json              |    0
+ .../2026-04-29-issue-13-1}/terminal.log            |   16 +
+ .../archive/2026-04-29-issue-13/.last_score        |    1 -
+ .../archive/2026-04-29-issue-13/hard-gate-1.log    | 1043 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-2.log    | 1043 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-4.log    | 1048 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-5.log    | 1048 -----------
+ .../archive/2026-04-29-issue-13/hard-gate-7.log    | 1182 -------------
+ .../archive/2026-04-29-issue-13/hard-gate-8.log    | 1182 -------------
+ .../2026-04-29-issue-13/iteration-1-claude.log     |   34 -
+ .../iteration-10-claude-review.log                 |  138 --
+ .../2026-04-29-issue-13/iteration-10-claude.log    |    7 -
+ .../iteration-2-codex-review.log                   |  491 ------
+ .../2026-04-29-issue-13/iteration-2-codex.log      |  980 -----------
+ .../iteration-3-opencode-review.log                |  433 -----
+ .../iteration-4-claude-review.log                  |   97 -
+ .../2026-04-29-issue-13/iteration-4-claude.log     |   17 -
+ .../iteration-5-codex-review.log                   |  569 ------
+ .../2026-04-29-issue-13/iteration-5-codex.log      | 1138 ------------
+ .../iteration-6-opencode-review.log                |  363 ----
+ .../iteration-7-claude-review.log                  |  115 --
+ .../2026-04-29-issue-13/iteration-7-claude.log     |   36 -
+ .../iteration-8-codex-review.log                   |  548 ------
+ .../2026-04-29-issue-13/iteration-8-codex.log      | 1093 ------------
+ .../iteration-9-opencode-review.log                |  112 --
+ .autoresearch/archive/2026-04-29-issue-13/log.md   |   53 -
+ .../archive/2026-04-29-issue-13/planning.log       |  117 --
+ .../archive/2026-04-29-issue-13/progress.md        |  476 -----
+ .../archive/2026-04-29-issue-13/tasks.json         |   78 -
+ .../archive/2026-04-29-issue-13/terminal.log       |  471 -----
+ .autoresearch/archive/2026-04-29-issue-14/log.md   |   11 -
+ .../archive/2026-04-29-issue-14/planning.log       |   86 -
+ .../archive/2026-04-29-issue-14/progress.md        |    6 -
+ .../archive/2026-04-29-issue-14/terminal.log       |    9 -
+ .../archive/2026-04-29-issue-17-1/.last_score      |    1 +
+ .../2026-04-29-issue-17-1}/.phase                  |    0
+ .../archive/2026-04-29-issue-17-1/hard-gate-1.log  | 1676 ++++++++++++++++++
+ .../archive/2026-04-29-issue-17-1/hard-gate-3.log  | 1851 ++++++++++++++++++++
+ .../2026-04-29-issue-17-1/iteration-1-claude.log   |   36 +
+ .../iteration-2-codex-review.log                   | 1158 ++++++++++++
+ .../iteration-3-opencode-review.log                |  339 ++++
+ .../2026-04-29-issue-17-1/iteration-3-opencode.log |  304 ++++
+ .../iteration-4-claude-review.log                  |   94 +
+ .../iteration-5-codex-review.log                   | 1310 ++++++++++++++
+ .autoresearch/archive/2026-04-29-issue-17-1/log.md |   34 +
+ .../archive/2026-04-29-issue-17-1/planning.log     |   71 +
+ .../archive/2026-04-29-issue-17-1/progress.md      |  239 +++
+ .../archive/2026-04-29-issue-17-1/summary.html     |  128 ++
+ .../archive/2026-04-29-issue-17-1/tasks.json       |   53 +
+ .../archive/2026-04-29-issue-17-1/terminal.log     |  134 ++
+ .autoresearch/results.tsv                          |    4 +-
+ .gitignore                                         |    2 -
+ client/AGENT.md                                    |   48 -
+ cmd/doubletake/AGENT.md                            |   91 -
+ cmd/doubletake/CLAUDE.md                           |   50 +-
+ cmd/doubletake/judge.go                            |  270 ++-
+ cmd/doubletake/judge_test.go                       |  522 +++---
+ cmd/doubletake/player.go                           |  196 ++-
+ cmd/doubletake/player_test.go                      |  373 ----
+ doubletake                                         |  Bin 0 -> 3687714 bytes
+ game/AGENT.md                                      |   76 -
+ game/CLAUDE.md                                     |   23 +-
+ game/game.go                                       |  123 ++
+ game/game_test.go                                  |  190 ++
+ game/pk.go                                         |  210 +++
+ game/pk_test.go                                    |  409 +++++
+ game/vote.go                                       |  137 --
+ game/vote_test.go                                  |  412 -----
+ server/AGENT.md                                    |   54 -
+ server/CLAUDE.md                                   |   19 +-
+ server/server.go                                   |   65 +-
+ server/server_test.go                              |  158 +-
+ 85 files changed, 9222 insertions(+), 15695 deletions(-)
+[0m
+[0m$ [0mgit status 2>&1
+On branch feature/issue-18
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    .autoresearch/workflows/issue-14/.last_score
+	deleted:    .autoresearch/workflows/issue-14/.phase
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-1.log
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-2.log
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-5.log
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-6.log
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-7.log
+	deleted:    .autoresearch/workflows/issue-14/hard-gate-8.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-1-claude.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-10-claude-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-2-codex-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-2-codex.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-3-opencode-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-4-claude-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-5-codex-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-5-codex.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-6-opencode-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-6-opencode.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-7-claude-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-7-claude.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-8-codex-review.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-8-codex.log
+	deleted:    .autoresearch/workflows/issue-14/iteration-9-opencode-review.log
+	deleted:    .autoresearch/workflows/issue-14/log.md
+	deleted:    .autoresearch/workflows/issue-14/planning.log
+	deleted:    .autoresearch/workflows/issue-14/progress.md
+	deleted:    .autoresearch/workflows/issue-14/summary.html
+	deleted:    .autoresearch/workflows/issue-14/tasks.json
+	deleted:    .autoresearch/workflows/issue-14/terminal.log
+	modified:   server/CLAUDE.md
+	modified:   server/server.go
+	modified:   server/server_test.go
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.autoresearch/archive/2026-04-29-issue-14/
+	.autoresearch/workflows/issue-18/
+
+no changes added to commit (use "git add" and/or "git commit -a")
+[0m
+[0m$ [0mgit diff server/server.go 2>&1 | head -80
+diff --git a/server/server.go b/server/server.go
+index fe93346..4bbb8ff 100644
+--- a/server/server.go
++++ b/server/server.go
+@@ -31,6 +31,7 @@ type Server struct {
+ 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
+ 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
+ 	OnPKVoteMsg  chan VoteEvent       // forwards PK_VOTE messages from named players
++	OnQuitMsg    chan QuitEvent       // notifies when a named player quits
+ }
+ 
+ // PlayerJoinEvent carries info about a player that just joined.
+@@ -52,6 +53,11 @@ type VoteEvent struct {
+ 	Target     string
+ }
+ 
++// QuitEvent carries info about a player that quit the game.
++type QuitEvent struct {
++	PlayerName string
++}
++
+ // NewServer creates a new Server that will listen on the given port.
+ // totalPlayers sets the expected player capacity for join notifications.
+ func NewServer(port string, totalPlayers int) *Server {
+@@ -66,6 +72,7 @@ func NewServer(port string, totalPlayers int) *Server {
+ 		OnDescMsg:    make(chan DescEvent, 64),
+ 		OnVoteMsg:    make(chan VoteEvent, 64),
+ 		OnPKVoteMsg:  make(chan VoteEvent, 64),
++		OnQuitMsg:    make(chan QuitEvent, 64),
+ 	}
+ }
+ 
+@@ -152,6 +159,9 @@ func (s *Server) handleConn(conn net.Conn) {
+ 			s.handleVote(player, msg.Payload)
+ 		case game.MsgPKVote:
+ 			s.handlePKVote(player, msg.Payload)
++		case game.MsgQuit:
++			s.handleQuit(player)
++			return
+ 		}
+ 	}
+ 	if err := scanner.Err(); err != nil {
+@@ -319,3 +329,36 @@ func (s *Server) handlePKVote(player *Player, payload string) {
+ 		log.Printf("OnPKVoteMsg channel full, dropping PK_VOTE from %s", player.Name)
+ 	}
+ }
++
++// handleQuit processes a QUIT message from a player.
++// For unnamed players, it simply returns (deferred unregister handles cleanup).
++// For named players, it broadcasts QUIT|playerName to other named players,
++// sends a QuitEvent to OnQuitMsg, then returns (deferred unregister removes
++// the player from names and closes the connection).
++func (s *Server) handleQuit(player *Player) {
++	if player.Name == "" {
++		return
++	}
++
++	name := player.Name
++	log.Printf("player %s quit", name)
++
++	// Broadcast QUIT to other named players.
++	s.mu.Lock()
++	for _, p := range s.connections {
++		if p.Conn == player.Conn || p.Name == "" {
++			continue
++		}
++		data := []byte(game.Encode(game.Message{Type: game.MsgQuit, Payload: name}))
++		if _, err := p.Conn.Write(data); err != nil {
++			log.Printf("broadcast QUIT write error to %s: %v", p.Conn.RemoteAddr(), err)
++		}
++	}
++	s.mu.Unlock()
++
++	// Notify judge about the quit event (non-blocking).
++	select {
++	case s.OnQuitMsg <- QuitEvent{PlayerName: name}:
++	default:
++	}
++}
+[0m
+[0m$ [0mgit diff server/server_test.go 2>&1 | head -20
+diff --git a/server/server_test.go b/server/server_test.go
+index f37968f..946591a 100644
+--- a/server/server_test.go
++++ b/server/server_test.go
+@@ -756,3 +756,173 @@ func TestDesc_NamedPlayerForwarded(t *testing.T) {
+ 		t.Fatal("timed out waiting for DescEvent")
+ 	}
+ }
++
++func TestQuit_NamedPlayerBroadcast(t *testing.T) {
++	srv, port := startTestServer(t)
++	defer srv.Stop()
++
++	// Connect two players and have them join.
++	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
++	if err != nil {
++		t.Fatalf("failed to connect player 1: %v", err)
++	}
++	defer conn1.Close()
++
+[0m
+现在我已掌握完整情况。以下是审核结果：
+
+## 审核报告
+
+### Issue
+- 编号: #18
+- 子任务: T-002 - 玩家端支持 quit 命令主动退出
+- 迭代次数: 2
+
+### 总体评价
+**评分: 41.5/100**
+
+### 严重问题 (必须修复)
+
+**1. 玩家端 quit 功能完全未实现 (正确性 - 致命)**
+
+`cmd/doubletake/player.go` 中没有任何 quit 相关代码：
+- **stdin 无 quit 检测**：在 `descWaitingInput` / `voteWaitingInput` 的 stdin 处理（第 115-146 行）中，未检查输入是否为 `"quit"`；`descIdle` 阶段甚至没有 stdin goroutine 在运行，玩家无法在这些阶段退出
+- **handleMessage 无 MsgQuit 分支**：第 163-263 行的 `handleMessage` switch 中没有 `case game.MsgQuit:`，其他玩家退出时不会收到通知
+
+**2. 无 quit 相关单元测试 (测试质量 - 致命)**
+
+`cmd/doubletake/player_test.go` 中没有任何与 quit 相关的测试用例
+
+### 一般问题 (建议修复)
+
+**3. 缺少空闲阶段的 quit 检测机制 (正确性 - 严重)**
+
+`descIdle` 阶段（第 148-157 行）是阻塞式网络消息读取，没有 stdin goroutine 在运行。玩家在此阶段无法通过输入 `quit` 退出，只能等待网络断开。应在 idle 阶段也启动一个后台 stdin goroutine 检测 quit。
+
+**4. 历史记录：迭代 1 标记为 92/100 但代码未提交**
+
+`progress.md` 中记录了 Iteration 2 评分 92/100，但 `git diff master --stat` 和 `git status` 均显示 `player.go` 和 `player_test.go` 无任何修改。该实现从未被提交到当前分支。
+
+### 各维度得分
+
+| 维度 | 权重 | 得分 | 加权 |
+|------|------|------|------|
+| 正确性 | 35% | 10 | 3.5 |
+| 测试质量 | 25% | 10 | 2.5 |
+| 代码质量 | 20% | 85 | 17.0 |
+| 安全性 | 10% | 90 | 9.0 |
+| 性能 | 10% | 95 | 9.5 |
+| **总分** | **100%** | | **41.5** |
+
+### 审核结论
+- [x] **阻塞** — 功能未实现，需要大幅修改
+
+### 实现者自检确认
+- [x] 代码编译通过 — ✅ `go build ./...` 通过
+- [x] go vet 无错误 — ✅ `go vet ./...` 通过
+- [ ] 实现者已运行相关测试 — ✅ 现有测试通过
+- [ ] 实现者已确认测试覆盖 — ❌ 无 quit 相关测试
+
+建议实现者参照以下模式完成实现：
+1. 在 `handleMessage` 的 switch 中添加 `case game.MsgQuit:`，显示退出通知（如 `"玩家 XXX 退出了游戏"`）
+2. 在 stdin 处理中（descWaitingInput / voteWaitingInput）检测 `quit` 命令，发送 `game.MsgQuit` 后 `return 0`
+3. 在 idle 阶段启动后台 stdin goroutine 检测 quit（可复用现有 stdin goroutine 模式，使用一个 `select` 同时监听网络消息和 stdin channel）
+
+---
+
+## Learnings
+
+- **代码审查发现**: 实际代码与 `progress.md` 记录不一致 — `progress.md` 记录 Iteration 2 评分 92/100，但 T-002 的代码从未被提交。审核必须以实际代码为准，不应仅依赖进度文档。
+- **验证流程**: 审核前应先 `git diff master --stat` 确认哪些文件有改动，再阅读具体实现，避免被进度文档误导。

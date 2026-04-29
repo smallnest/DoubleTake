@@ -93,6 +93,40 @@ func (d *DescRound) Description(player string) (string, bool) {
 	return v, ok
 }
 
+// WinResult represents the outcome of a win condition check.
+type WinResult string
+
+const (
+	WinCivilians  WinResult = "Civilian"   // civilians win: all undercovers eliminated
+	WinUndercover WinResult = "Undercover" // undercovers win: civilians <= undercovers
+)
+
+// CheckWinCondition evaluates whether the game has ended.
+// It returns a non-empty WinResult when the game is over, or "" if the game continues.
+// Civilian win: no undercover players remain alive.
+// Undercover win: number of alive civilians <= number of alive undercovers.
+func CheckWinCondition(players []*Player) WinResult {
+	var aliveCivilian, aliveUndercover int
+	for _, p := range players {
+		if !p.Alive {
+			continue
+		}
+		switch p.Role {
+		case Civilian:
+			aliveCivilian++
+		case Undercover:
+			aliveUndercover++
+		}
+	}
+	if aliveUndercover == 0 {
+		return WinCivilians
+	}
+	if aliveCivilian <= aliveUndercover {
+		return WinUndercover
+	}
+	return ""
+}
+
 // VoteRound manages a single round of voting (non-PK).
 // All alive players both vote and can be voted for.
 type VoteRound struct {

@@ -31,6 +31,7 @@ type Server struct {
 	OnDescMsg    chan DescEvent       // forwards DESC messages from named players
 	OnVoteMsg    chan VoteEvent       // forwards VOTE messages from named players
 	OnPKVoteMsg  chan VoteEvent       // forwards PK_VOTE messages from named players
+	OnQuitMsg    chan QuitEvent       // notifies when a named player quits
 }
 
 // PlayerJoinEvent carries info about a player that just joined.
@@ -52,6 +53,11 @@ type VoteEvent struct {
 	Target     string
 }
 
+// QuitEvent carries info about a player that quit the game.
+type QuitEvent struct {
+	PlayerName string
+}
+
 // NewServer creates a new Server that will listen on the given port.
 // totalPlayers sets the expected player capacity for join notifications.
 func NewServer(port string, totalPlayers int) *Server {
@@ -66,6 +72,7 @@ func NewServer(port string, totalPlayers int) *Server {
 		OnDescMsg:    make(chan DescEvent, 64),
 		OnVoteMsg:    make(chan VoteEvent, 64),
 		OnPKVoteMsg:  make(chan VoteEvent, 64),
+		OnQuitMsg:    make(chan QuitEvent, 64),
 	}
 }
 
@@ -152,6 +159,9 @@ func (s *Server) handleConn(conn net.Conn) {
 			s.handleVote(player, msg.Payload)
 		case game.MsgPKVote:
 			s.handlePKVote(player, msg.Payload)
+		case game.MsgQuit:
+			s.handleQuit(player)
+			return
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -317,5 +327,38 @@ func (s *Server) handlePKVote(player *Player, payload string) {
 	case s.OnPKVoteMsg <- VoteEvent{PlayerName: player.Name, Target: payload}:
 	default:
 		log.Printf("OnPKVoteMsg channel full, dropping PK_VOTE from %s", player.Name)
+	}
+}
+
+// handleQuit processes a QUIT message from a player.
+// For unnamed players, it simply returns (deferred unregister handles cleanup).
+// For named players, it broadcasts QUIT|playerName to other named players,
+// sends a QuitEvent to OnQuitMsg, then returns (deferred unregister removes
+// the player from names and closes the connection).
+func (s *Server) handleQuit(player *Player) {
+	if player.Name == "" {
+		return
+	}
+
+	name := player.Name
+	log.Printf("player %s quit", name)
+
+	// Broadcast QUIT to other named players.
+	s.mu.Lock()
+	for _, p := range s.connections {
+		if p.Conn == player.Conn || p.Name == "" {
+			continue
+		}
+		data := []byte(game.Encode(game.Message{Type: game.MsgQuit, Payload: name}))
+		if _, err := p.Conn.Write(data); err != nil {
+			log.Printf("broadcast QUIT write error to %s: %v", p.Conn.RemoteAddr(), err)
+		}
+	}
+	s.mu.Unlock()
+
+	// Notify judge about the quit event (non-blocking).
+	select {
+	case s.OnQuitMsg <- QuitEvent{PlayerName: name}:
+	default:
 	}
 }

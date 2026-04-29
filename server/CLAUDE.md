@@ -53,3 +53,11 @@
 - `OnVoteMsg` 和 `OnPKVoteMsg` channel 缓冲大小均为 64，满时丢弃并记录日志
 - `VoteEvent` 结构体包含 `PlayerName` 和 `Target` 字段
 - server 层不做投票合法性校验（空目标、非玩家目标、重复投票），这些由 judge 端通过 `VoteRound.RecordVote` 或 `PKRound.RecordPKVote` 处理
+
+## QUIT 消息处理
+- `handleQuit` 处理 QUIT 消息：未命名玩家直接返回（deferred unregister 清理连接），已命名玩家广播 `QUIT|playerName` 给其他已命名玩家
+- `OnQuitMsg` channel 缓冲大小 64，满时丢弃事件（不记录日志，因为退出是低频事件）
+- `QuitEvent` 结构体包含 `PlayerName` 字段
+- handleConn 中收到 MsgQuit 后调用 handleQuit 并 return 退出读取循环，deferred unregister 负责从 names map 中移除并关闭连接
+- 广播 QUIT 时排除发送者自身（`p.Conn == player.Conn`）和未命名玩家（`p.Name == ""`）
+- handleQuit 持锁期间执行 conn.Write 广播（与 Broadcast 模式一致），因最大连接数 <= 10，阻塞风险可忽略

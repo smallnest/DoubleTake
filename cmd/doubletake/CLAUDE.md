@@ -100,3 +100,11 @@
 - 多轮 PK 测试：第一轮平票 → 第二轮分出结果
 - `assertMsgFromAll` 辅助函数：从所有连接读取一条消息并验证类型一致
 - 集成测试中 `roundMsg2` 等不需要使用的返回值不要用 `:=` 接收（Go 不允许未使用变量）
+
+## Quit 退出机制约定
+- quit 检测在 stdin goroutine 中完成，使用独立的 `quitCh` channel 传递 quit 信号（而非复用 `stdinCh`）
+- stdin goroutine 读取每行 stdin，若为 "quit" 则发送信号到 `quitCh` 并返回，否则发送到 `stdinCh`
+- `stdinCh` 缓冲区大小为 64，避免 idle 阶段因无人消费而阻塞 goroutine
+- idle 阶段和 desc/vote 阶段的 select 都包含 `case <-quitCh:`，确保任意阶段都能检测到 quit
+- idle 阶段**不读取 `stdinCh`**，防止非 quit 的 stdin 输入被意外消费
+- `stdinCh` 与 `quitCh` 分离的设计解决了 idle 阶段消费 desc/vote 输入导致后续阶段阻塞的问题

@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/smallnest/doubletake/client"
 	"github.com/smallnest/doubletake/game"
@@ -119,7 +122,8 @@ func collectWords(out io.Writer, disp *client.Display, scanner *bufio.Scanner) (
 
 // collectWordsFromCh reads two words from a channel (same as collectWords but uses channel input).
 // It loops until two different words are entered.
-func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan string, stdinDone <-chan struct{}) (civilianWord, undercoverWord string) {
+// quitCh is checked to allow the referee to quit during word collection.
+func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan string, stdinDone <-chan struct{}, quitCh <-chan struct{}) (civilianWord, undercoverWord string) {
 	for {
 		fmt.Fprint(out, "  平民词语: ")
 		var ok bool
@@ -131,6 +135,8 @@ func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan stri
 			civilianWord = strings.TrimSpace(civilianWord)
 		case <-stdinDone:
 			return "", ""
+		case <-quitCh:
+			return "", ""
 		}
 
 		fmt.Fprint(out, "  卧底词语: ")
@@ -141,6 +147,8 @@ func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan stri
 			}
 			undercoverWord = strings.TrimSpace(undercoverWord)
 		case <-stdinDone:
+			return "", ""
+		case <-quitCh:
 			return "", ""
 		}
 
@@ -160,6 +168,7 @@ func collectWordsFromCh(out io.Writer, disp *client.Display, stdinCh <-chan stri
 type stdinSource struct {
 	ch   <-chan string
 	done <-chan struct{}
+	quit <-chan struct{} // closed when the user types "quit"
 }
 
 // RunJudge runs the referee interactive configuration flow and the waiting phase.
@@ -176,71 +185,182 @@ func RunJudge(out io.Writer, in io.Reader, port string, stealth bool) GameConfig
 	go srv.Start()
 	defer srv.Stop()
 
+	// Set up signal handling for SIGINT/SIGTERM.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
 	disp.Info("0000", fmt.Sprintf("房间已创建，等待 %d 名玩家加入...", cfg.TotalPlayers))
 
 	// waitingPhase blocks until the referee confirms game start.
 	stdinSrc := newStdinSource(scanner)
-	waitingPhase(out, in, disp, srv, cfg, stdinSrc)
 
-	// Collect words and assign roles.
-	civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done)
-	names := srv.PlayerNames()
-	players, err := game.AssignRoles(names, cfg.Undercovers, cfg.Blanks)
-	if err != nil {
-		disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
+	// Create a unified quit channel that merges stdin quit, stdin EOF, and signals.
+	quitCh := make(chan struct{}, 1)
+	go func() {
+		select {
+		case <-stdinSrc.quit:
+		case <-stdinSrc.done:
+		case <-sigCh:
+		}
+		select {
+		case quitCh <- struct{}{}:
+		default:
+		}
+	}()
+
+	waitingPhase(out, in, disp, srv, cfg, stdinSrc, quitCh)
+
+	// Check if quit was triggered during waiting phase.
+	select {
+	case <-quitCh:
 		return cfg
+	default:
 	}
-	game.AssignWords(players, civilianWord, undercoverWord)
-	sendRoleToPlayers(disp, srv, players)
 
-	broadcastReady(disp, srv)
+	// Game loop: each iteration is one full game.
+	// After a game ends, the referee is prompted "再来一局？(Y/N)".
+	var players []*game.Player
+	for {
+		// Collect words and assign roles.
+		civilianWord, undercoverWord := collectWordsFromCh(out, disp, stdinSrc.ch, stdinSrc.done, quitCh)
+		if civilianWord == "" && undercoverWord == "" {
+			return cfg
+		}
+		names := srv.PlayerNames()
+		var err error
+		players, err = game.AssignRoles(names, cfg.Undercovers, cfg.Blanks)
+		if err != nil {
+			disp.Warn(fmt.Sprintf("角色分配失败: %v", err))
+			return cfg
+		}
+		game.AssignWords(players, civilianWord, undercoverWord)
+		sendRoleToPlayers(disp, srv, players)
 
-	// Run description phase for round 1 with all players.
-	descResult := descriptionPhase(disp, srv, 1, names)
-	if descResult == nil {
-		return cfg
-	}
-	_ = descResult // descriptions recorded for later phases
+		broadcastReady(disp, srv)
 
-	// Run voting phase for round 1 with all players.
-	eliminated, tie, voteRound := votingPhase(disp, srv, 1, players)
-	if eliminated != "" {
-		for _, p := range players {
-			if p.Name == eliminated {
-				p.Alive = false
+		// Run game rounds until win condition or quit.
+		gameOver := false
+		for roundNum := 1; ; roundNum++ {
+			aliveNames := collectAliveNames(players)
+
+			// Description phase.
+			descResult := descriptionPhase(disp, srv, roundNum, aliveNames, quitCh)
+			if descResult == nil {
+				return cfg
+			}
+
+			// Voting phase.
+			eliminated, tie, voteRound := votingPhase(disp, srv, roundNum, players, quitCh)
+			if eliminated == "" && !tie {
+				// quit triggered during voting
+				return cfg
+			}
+
+			if eliminated != "" {
+				for _, p := range players {
+					if p.Name == eliminated {
+						p.Alive = false
+						break
+					}
+				}
+				disp.Info("0000", fmt.Sprintf("%s 被投票淘汰", eliminated))
+
+				// Broadcast KICK to all players.
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgKick,
+					Payload: eliminated,
+				})
+			} else if tie && voteRound != nil {
+				disp.Info("0000", "平票，进入 PK 环节")
+				tiedPlayers := getTiedPlayers(voteRound)
+				pkEliminated := pkPhase(disp, srv, tiedPlayers, players, quitCh)
+				if pkEliminated != "" {
+					disp.Info("0000", fmt.Sprintf("%s 在 PK 中被淘汰", pkEliminated))
+				}
+			}
+
+			// Check win condition.
+			if winner := game.CheckWinCondition(players); winner != "" {
+				disp.Info("0000", fmt.Sprintf("游戏结束：%s 获胜！", winner))
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgWin,
+					Payload: string(winner),
+				})
+				gameOver = true
 				break
 			}
 		}
-		disp.Info("0000", fmt.Sprintf("%s 被投票淘汰", eliminated))
-	} else if tie && voteRound != nil {
-		disp.Info("0000", "平票，进入 PK 环节")
-		tiedPlayers := getTiedPlayers(voteRound)
-		pkEliminated := pkPhase(disp, srv, tiedPlayers, players)
-		if pkEliminated != "" {
-			disp.Info("0000", fmt.Sprintf("%s 在 PK 中被淘汰", pkEliminated))
+
+		if !gameOver {
+			return cfg
+		}
+
+		// "再来一局？(Y/N)" prompt.
+		fmt.Fprint(out, "  再来一局？(Y/N): ")
+		var answer string
+		select {
+		case line, ok := <-stdinSrc.ch:
+			if !ok {
+				return cfg
+			}
+			answer = strings.TrimSpace(line)
+		case <-stdinSrc.done:
+			return cfg
+		case <-quitCh:
+			return cfg
+		}
+
+		if strings.EqualFold(answer, "Y") {
+			// Broadcast RESTART to all connected players.
+			srv.BroadcastToNamedPlayers(game.Message{Type: game.MsgRestart})
+			disp.Info("0000", "新一局即将开始...")
+			continue // new game
+		}
+
+		// N or any other input: broadcast quit and stop.
+		srv.BroadcastToNamedPlayers(game.Message{
+			Type:    game.MsgQuit,
+			Payload: "裁判结束了游戏",
+		})
+		return cfg
+	}
+}
+
+// collectAliveNames returns the names of all alive players.
+func collectAliveNames(players []*game.Player) []string {
+	var names []string
+	for _, p := range players {
+		if p.Alive {
+			names = append(names, p.Name)
 		}
 	}
-
-	return cfg
+	return names
 }
 
 // newStdinSource starts a goroutine that reads from scanner and returns a stdinSource.
+// It detects "quit" commands and closes the quit channel accordingly.
 func newStdinSource(scanner *bufio.Scanner) *stdinSource {
 	ch := make(chan string, 1)
 	done := make(chan struct{})
+	quit := make(chan struct{})
 	go func() {
 		defer close(done)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
+			if strings.EqualFold(line, "quit") {
+				close(quit)
+				return
+			}
 			ch <- line
 		}
 	}()
-	return &stdinSource{ch: ch, done: done}
+	return &stdinSource{ch: ch, done: done, quit: quit}
 }
 
 // waitingPhase displays player join events and reads stdin for "start" commands.
-// It blocks until the referee confirms game start or stdin is closed.
-func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server.Server, cfg GameConfig, stdinSrc *stdinSource) {
+// It blocks until the referee confirms game start, stdin is closed, or quit is received.
+func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server.Server, cfg GameConfig, stdinSrc *stdinSource, quitCh <-chan struct{}) {
 	for {
 		select {
 		case evt := <-srv.OnPlayerJoin:
@@ -270,6 +390,8 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 						continue
 					case <-stdinSrc.done:
 						return
+					case <-quitCh:
+						return
 					}
 					continue
 				}
@@ -279,6 +401,8 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 
 		case <-stdinSrc.done:
 			return
+		case <-quitCh:
+			return
 		}
 	}
 }
@@ -286,7 +410,8 @@ func waitingPhase(out io.Writer, in io.Reader, disp *client.Display, srv *server
 // descriptionPhase runs the description phase for one round.
 // It broadcasts ROUND|roundNum|speakerOrder, then sends TURN|playerName to the
 // first speaker and processes DESC messages until all players have spoken.
-func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string) *descResult {
+// quitCh allows the referee to quit mid-phase.
+func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, alivePlayers []string, quitCh <-chan struct{}) *descResult {
 	round, err := game.NewDescRound(roundNum, alivePlayers)
 	if err != nil {
 		disp.Warn(fmt.Sprintf("创建描述轮次失败: %v", err))
@@ -307,53 +432,57 @@ func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, al
 	})
 
 	for !round.AllDone() {
-		evt := <-srv.OnDescMsg
-		current := round.CurrentSpeaker()
+		select {
+		case evt := <-srv.OnDescMsg:
+			current := round.CurrentSpeaker()
 
-		// If all done (shouldn't happen due to loop condition), break.
-		if current == "" {
-			break
-		}
+			// If all done (shouldn't happen due to loop condition), break.
+			if current == "" {
+				break
+			}
 
-		// Check if it's this player's turn.
-		if evt.PlayerName != current {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: "还没轮到你发言",
-			})
-			continue
-		}
+			// Check if it's this player's turn.
+			if evt.PlayerName != current {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "还没轮到你发言",
+				})
+				continue
+			}
 
-		// Try to record the description.
-		err := round.RecordDesc(evt.PlayerName, evt.Description)
-		if err == game.ErrEmptyDesc {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: "描述不能为空，请重新输入",
-			})
-			continue
-		}
-		// ErrNotYourTurn shouldn't happen here since we checked above, but handle defensively.
-		if err != nil {
-			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
-				Type:    game.MsgError,
-				Payload: err.Error(),
-			})
-			continue
-		}
+			// Try to record the description.
+			err := round.RecordDesc(evt.PlayerName, evt.Description)
+			if err == game.ErrEmptyDesc {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: "描述不能为空，请重新输入",
+				})
+				continue
+			}
+			// ErrNotYourTurn shouldn't happen here since we checked above, but handle defensively.
+			if err != nil {
+				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
+					Type:    game.MsgError,
+					Payload: err.Error(),
+				})
+				continue
+			}
 
-		// Valid description: broadcast DESC|playerName|description to all.
-		srv.BroadcastToNamedPlayers(game.Message{
-			Type:    game.MsgDesc,
-			Payload: evt.PlayerName + "|" + evt.Description,
-		})
-
-		// Send TURN to the next speaker, if any.
-		if !round.AllDone() {
+			// Valid description: broadcast DESC|playerName|description to all.
 			srv.BroadcastToNamedPlayers(game.Message{
-				Type:    game.MsgTurn,
-				Payload: round.CurrentSpeaker(),
+				Type:    game.MsgDesc,
+				Payload: evt.PlayerName + "|" + evt.Description,
 			})
+
+			// Send TURN to the next speaker, if any.
+			if !round.AllDone() {
+				srv.BroadcastToNamedPlayers(game.Message{
+					Type:    game.MsgTurn,
+					Payload: round.CurrentSpeaker(),
+				})
+			}
+		case <-quitCh:
+			return nil
 		}
 	}
 
@@ -365,7 +494,8 @@ func descriptionPhase(disp *client.Display, srv *server.Server, roundNum int, al
 // each voter and processes VOTE messages until all have voted.
 // Returns the eliminated player name (empty string if tie), whether a tie occurred,
 // and the VoteRound for further analysis (e.g., getting tied players).
-func votingPhase(disp *client.Display, srv *server.Server, roundNum int, players []*game.Player) (eliminated string, tie bool, voteRound *game.VoteRound) {
+// quitCh allows the referee to quit mid-phase.
+func votingPhase(disp *client.Display, srv *server.Server, roundNum int, players []*game.Player, quitCh <-chan struct{}) (eliminated string, tie bool, voteRound *game.VoteRound) {
 	alivePlayers := make([]string, 0, len(players))
 	for _, p := range players {
 		if p.Alive {
@@ -394,7 +524,12 @@ func votingPhase(disp *client.Display, srv *server.Server, roundNum int, players
 			Payload: current,
 		})
 
-		evt := <-srv.OnVoteMsg
+		var evt server.VoteEvent
+		select {
+		case evt = <-srv.OnVoteMsg:
+		case <-quitCh:
+			return "", false, nil
+		}
 
 		if evt.PlayerName != current {
 			_ = srv.SendToPlayer(evt.PlayerName, game.Message{
@@ -415,7 +550,7 @@ func votingPhase(disp *client.Display, srv *server.Server, roundNum int, players
 
 		// Broadcast vote
 		srv.BroadcastToNamedPlayers(game.Message{
-			Type:    game.MsgDesc,
+			Type:    game.MsgVoteBroadcast,
 			Payload: evt.PlayerName + "|" + evt.Target,
 		})
 	}
@@ -467,7 +602,8 @@ func getTiedPlayers(voteRound *game.VoteRound) []string {
 // 3. Collects PK votes from all alive players
 // 4. Broadcasts RESULT|tally
 // 5. Checks for elimination
-func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, players []*game.Player) string {
+// quitCh allows the referee to quit mid-phase.
+func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, players []*game.Player, quitCh <-chan struct{}) string {
 	// Build alive players list
 	alivePlayers := make([]string, 0, len(players))
 	for _, p := range players {
@@ -488,7 +624,7 @@ func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, pla
 		})
 
 		// 2. Run description phase for tied players only
-		descRes := descriptionPhase(disp, srv, pkNum, currentTied)
+		descRes := descriptionPhase(disp, srv, pkNum, currentTied, quitCh)
 		if descRes == nil {
 			return ""
 		}
@@ -514,7 +650,12 @@ func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, pla
 				Payload: currentVoter,
 			})
 
-			evt := <-srv.OnPKVoteMsg
+			var evt server.VoteEvent
+			select {
+			case evt = <-srv.OnPKVoteMsg:
+			case <-quitCh:
+				return ""
+			}
 
 			if evt.PlayerName != currentVoter {
 				_ = srv.SendToPlayer(evt.PlayerName, game.Message{
@@ -535,7 +676,7 @@ func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, pla
 
 			// Broadcast PK vote
 			srv.BroadcastToNamedPlayers(game.Message{
-				Type:    game.MsgDesc,
+				Type:    game.MsgVoteBroadcast,
 				Payload: evt.PlayerName + "|" + evt.Target,
 			})
 		}
@@ -595,8 +736,6 @@ func pkPhase(disp *client.Display, srv *server.Server, tiedPlayers []string, pla
 	disp.Warn(fmt.Sprintf("PK %d 轮后仍平票，无人淘汰", maxPKRounds))
 	return ""
 }
-
-// broadcastReady sends the READY message to all named players.
 
 // broadcastReady sends the READY message to all named players.
 func broadcastReady(disp *client.Display, srv *server.Server) {

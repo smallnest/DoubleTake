@@ -1,0 +1,90 @@
+Now I have a thorough understanding of the codebase. Let me analyze the issue and produce the subtask breakdown.
+
+Key observations:
+- `MsgRestart` and `MsgQuit` constants already exist in `protocol.go` (lines 49-50)
+- The server has no QUIT handler in `handleConn` (line 146-156)
+- `RunJudge` currently has no game-over check or restart loop
+- Player (`player.go`) has no `quit` command detection
+- Issue #15 (win condition) is listed as dependency but `CheckWinCondition` doesn't exist on this branch — the game loop in `RunJudge` doesn't even check for game-over yet
+
+```json
+{
+  "issueNumber": 18,
+  "subtasks": [
+    {
+      "id": "T-001",
+      "title": "服务端处理 QUIT 消息与玩家退出通知",
+      "description": "在 server/server.go 的 handleConn 消息路由中新增 QUIT 消息处理：收到 QUIT 后标记该玩家已离开（从 names map 中移除），关闭连接，广播 QUIT|playerName 给其他存活玩家通知该玩家已退出。同时在 server 中新增 OnQuitMsg channel（类型为包含 PlayerName 的事件结构体），供 judge 端感知玩家退出事件。",
+      "acceptanceCriteria": [
+        "server handleConn 能正确路由 MsgQuit 消息到 handleQuit 处理函数",
+        "收到 QUIT 后玩家从 names map 中移除，连接被关闭",
+        "收到 QUIT 后广播 QUIT|playerName 给其他已命名玩家",
+        "OnQuitMsg channel 能将退出事件传递给 judge 端",
+        "编译通过，go vet 无错误",
+        "新增单元测试覆盖 QUIT 处理逻辑"
+      ],
+      "priority": 1,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "玩家端支持 quit 命令主动退出",
+      "description": "在 cmd/doubletake/player.go 的主消息循环中，检测用户输入 'quit' 命令：在 descWaitingInput 和 voteWaitingInput 阶段的 stdin 处理中，若输入为 'quit' 则发送 QUIT 消息给服务端并优雅退出（返回退出码 0）。在其他空闲阶段（descIdle），也应通过 stdin goroutine 检测 quit 命令。玩家收到服务端发来的 QUIT|playerName 消息时，若不是自己则显示该玩家已退出的提示。",
+      "acceptanceCriteria": [
+        "玩家在任意阶段输入 quit 后发送 QUIT 消息给服务端并退出",
+        "发送 QUIT 后客户端连接被正确关闭",
+        "玩家收到其他玩家的 QUIT 退出通知时显示提示信息",
+        "编译通过，go vet 无错误",
+        "新增单元测试覆盖 quit 命令处理"
+      ],
+      "priority": 2,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "裁判端支持输入 quit 或 Ctrl+C 关闭整个房间",
+      "description": "在 cmd/doubletake/judge.go 的 RunJudge 主流程中，在所有交互阶段（waitingPhase、collectWordsFromCh、descriptionPhase、votingPhase 等）检测裁判输入 'quit' 命令或 stdin EOF（Ctrl+C）。输入 quit 或 EOF 时：调用 srv.Stop() 关闭服务端（自动断开所有玩家连接），函数返回。同时处理信号中断（SIGINT/SIGTERM），通过 signal.Notify 捕获并触发优雅关闭。",
+      "acceptanceCriteria": [
+        "裁判在等待阶段输入 quit 后服务端关闭，所有玩家连接断开",
+        "裁判在游戏进行中输入 quit 后服务端关闭，所有玩家连接断开",
+        "裁判按 Ctrl+C（EOF）后服务端正常关闭",
+        "关闭后程序正常退出，无 goroutine 泄漏",
+        "编译通过，go vet 无错误",
+        "新增测试覆盖裁判 quit 退出流程"
+      ],
+      "priority": 3,
+      "type": "code",
+      "passes": false
+    },
+    {
+      "id": "T-004",
+      "title": "游戏结束后裁判端提示再来一局并实现 RESTART 流程",
+      "description": "在 RunJudge 中实现完整的游戏循环：(1) 游戏结束（votingPhase 返回淘汰者或 PK 阶段结束后）裁判端显示 '再来一局？(Y/N)' 提示；(2) 输入 Y 时：广播 RESTART 消息给所有存活玩家，裁判重新输入两个词语，重新调用 AssignRoles 和 AssignWords 随机分配角色，发送 ROLE 给每个玩家，然后广播 READY 开始新一局——保留所有 TCP 连接不变；(3) 输入 N 时：广播关闭通知后调用 srv.Stop() 关闭服务端，所有玩家连接断开；(4) 玩家端收到 RESTART 消息后自动进入等待新词语/角色分配状态，显示提示信息。同时需要在 RunJudge 中整合 CheckWinCondition 调用（依赖 #15 的逻辑），使游戏能正确检测胜负并触发结束。",
+      "acceptanceCriteria": [
+        "游戏结束后裁判端显示 '再来一局？(Y/N)' 提示",
+        "输入 Y 后广播 RESTART 给所有存活玩家",
+        "再来一局时裁判重新输入两个词语并重新分配角色",
+        "再来一局时保留玩家 TCP 连接，不需要重新加入",
+        "玩家收到 RESTART 后自动等待新词语分配并显示新角色",
+        "输入 N 后服务端关闭，所有玩家连接断开",
+        "编译通过，go vet 无错误，所有测试通过",
+        "新增集成测试覆盖再来一局完整流程"
+      ],
+      "priority": 4,
+      "type": "code",
+      "passes": false
+    }
+  ]
+}
+```
+
+**拆分说明：**
+
+- **T-001**（服务端 QUIT 处理）：基础设施层，其他子任务依赖它。服务端需要先能处理 QUIT 消息。
+- **T-002**（玩家端 quit）：依赖 T-001 的服务端 QUIT 处理。玩家发 QUIT 时服务端需要能正确处理。
+- **T-003**（裁判端 quit/Ctrl+C）：与 T-002 并行可做，但逻辑更复杂（涉及信号处理和所有阶段的 quit 检测）。
+- **T-004**（RESTART 流程）：最复杂的子任务，依赖 T-001 的基础设施。涉及游戏循环重构、裁判端 Y/N 交互、RESTART 广播、词语重新输入、角色重新分配、玩家端状态重置。
+
+注意：由于 `CheckWinCondition` 在当前分支上不存在（issue #15 的实现可能在其他分支），T-004 需要同时实现或引入胜负判定逻辑，才能让游戏循环正确结束并触发"再来一局"提示。

@@ -1,0 +1,31 @@
+All fixes completed. Here's the summary:
+
+## Changes Made
+
+### 1. `cmd/doubletake/player.go` — Vote phase TURN handling fix
+- **Re-added `inVoteRound` state variable** to track whether the player is in a voting round
+- **`MsgVote` handler**: sets `inVoteRound = true` when receiving a vote round announcement
+- **`MsgRound` handler**: resets `inVoteRound = false` (description round)
+- **`MsgTurn` handler**: now distinguishes vote vs description turns:
+  - Vote turn (self): prompts "请投票 (输入玩家名):" → `voteWaitingInput`
+  - Vote turn (other): displays "等待 X 投票..."
+  - Desc turn (self): prompts "请输入描述:" → `descWaitingInput`
+  - Desc turn (other): displays "等待 X 描述..."
+- **`MsgRestart` handler**: resets `inVoteRound = false`
+- Updated `handleMessage` signature to accept `inVoteRound *bool`
+
+### 2. `cmd/doubletake/judge_test.go`
+- **Updated `handleMessage` calls** in `TestPlayerHandleMsg_Restart` and `TestPlayerHandleMsg_VoteBroadcast` to pass the new `inVoteRound` parameter
+- **Added `inVoteRound` assertions** to the restart test
+- **Fixed `TestRunJudge_QuitInCollectWords` race condition**: added server-ready polling loop before connecting players
+
+### Verification
+- `go vet ./...` — passes
+- `go build -o doubletake ./cmd/doubletake/` — passes
+- `go test ./...` — all 4 packages pass
+
+## Learnings
+
+- **模式**: `handleMessage` 函数签名变更时，需要同步更新所有调用方（包括测试文件中的直接调用）。使用 `grep` 查找所有调用点可避免遗漏。
+- **踩坑**: `inVoteRound` 变量被声明但未使用的原因是它从未被传递给 `handleMessage` —— 这不是多余的变量，而是未完成的实现。`go vet` 报告的 "declared and not used" 有时指向未完成的功能而非真正的死代码。
+- **经验**: `TestRunJudge_QuitInCollectWords` 的竞态条件是因为测试直接使用 `net.Dial` 连接而没有等待服务端就绪。`startJudgeForTestWithStdinRaw` 中的端口轮询模式（最多 100 次，每次 20ms）是项目中处理此问题的标准方式。

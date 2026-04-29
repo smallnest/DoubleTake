@@ -80,28 +80,31 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 	// inPK indicates we are in PK mode (PK_START was received).
 	var inPK bool
 
+	// inVoteRound indicates we are in a voting round (VOTE was received).
+	// Used to distinguish description TURN from voting TURN.
+	var inVoteRound bool
+
 	// pkRoundSpeakers holds the speaker list from the last ROUND message
 	// received during PK mode. Used to distinguish PK description TURN
 	// (player is in speaker list) from PK voting TURN (player is not).
 	var pkRoundSpeakers []string
 
-	// stdinCh is lazily initialized when first needed
-	// (when we enter descWaitingInput during the desc phase).
-	var stdinCh <-chan string
+	// stdinCh delivers non-quit stdin lines to desc/vote input handling.
+	// quitCh signals when the user typed "quit".
+	stdinCh := make(chan string, 64)
+	quitCh := make(chan struct{}, 1)
+	go func() {
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if strings.EqualFold(line, "quit") {
+				quitCh <- struct{}{}
+				return
+			}
+			stdinCh <- line
+		}
+	}()
 
 	for {
-		// If we need stdin input, start the reader if not already running.
-		if (phase == descWaitingInput || phase == voteWaitingInput) && stdinCh == nil {
-			ch := make(chan string, 1)
-			stdinCh = ch
-			go func() {
-				for scanner.Scan() {
-					line := strings.TrimSpace(scanner.Text())
-					ch <- line
-				}
-			}()
-		}
-
 		if phase == descWaitingInput || phase == voteWaitingInput {
 			// Select between network messages and stdin input.
 			select {
@@ -109,7 +112,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 				if !ok {
 					return 0
 				}
-				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &pkRoundSpeakers) {
+				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &inVoteRound, &pkRoundSpeakers) {
 					return 1
 				}
 			case line, ok := <-stdinCh:
@@ -144,15 +147,27 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 					}
 					phase = voteSubmitted
 				}
-			}
-		} else {
-			// Simple blocking read from network messages only.
-			msg, ok := <-cc.Messages()
-			if !ok {
+			case <-quitCh:
+				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
+					disp.Warn(fmt.Sprintf("send failed: %v", err))
+				}
 				return 0
 			}
-			if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &pkRoundSpeakers) {
-				return 1
+		} else {
+			// Select between network messages and quit signal.
+			select {
+			case msg, ok := <-cc.Messages():
+				if !ok {
+					return 0
+				}
+				if !handleMessage(msg, disp, out, cc, playerName, &phase, &inPK, &inVoteRound, &pkRoundSpeakers) {
+					return 1
+				}
+			case <-quitCh:
+				if err := cc.Send(game.Message{Type: game.MsgQuit}); err != nil {
+					disp.Warn(fmt.Sprintf("send failed: %v", err))
+				}
+				return 0
 			}
 		}
 	}
@@ -160,7 +175,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 
 // handleMessage processes a single network message. It returns false if the
 // player should exit (fatal error).
-func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, phase *descPhase, inPK *bool, pkSpeakers *[]string) bool {
+func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *client.Client, playerName string, phase *descPhase, inPK *bool, inVoteRound *bool, pkSpeakers *[]string) bool {
 	switch msg.Type {
 	case game.MsgJoin:
 		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
@@ -181,6 +196,7 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 			disp.Data("00", fmt.Sprintf("assigned token: %s [%s]", word, dispLabel))
 		}
 	case game.MsgRound:
+		*inVoteRound = false
 		if *inPK {
 			parts := strings.SplitN(msg.Payload, "|", 2)
 			if len(parts) >= 2 {
@@ -216,35 +232,60 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 				}
 			} else {
 				// PK voting phase
-				disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
-				*phase = voteWaitingInput
+				if speaker == playerName {
+					fmt.Fprint(out, "  请投票 (输入玩家名): ")
+					*phase = voteWaitingInput
+				} else {
+					disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+					*phase = descIdle
+				}
 			}
 		} else if speaker == playerName {
-			// Our turn — prompt for description
-			fmt.Fprint(out, "  请输入描述: ")
-			*phase = descWaitingInput
+			// Our turn
+			if *inVoteRound {
+				fmt.Fprint(out, "  请投票 (输入玩家名): ")
+				*phase = voteWaitingInput
+			} else {
+				fmt.Fprint(out, "  请输入描述: ")
+				*phase = descWaitingInput
+			}
 		} else {
-			disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
+			if *inVoteRound {
+				disp.Data("00", fmt.Sprintf("等待 %s 投票...", speaker))
+			} else {
+				disp.Data("00", fmt.Sprintf("等待 %s 描述...", speaker))
+			}
 			*phase = descIdle
 		}
 	case game.MsgDesc:
 		handleDescMsg(disp, msg.Payload)
 		if *phase == descSubmitted {
 			*phase = descIdle
-		} else if *phase == voteSubmitted {
-			*phase = descIdle
 		}
-	case game.MsgVote:
-		handleVoteMsg(disp, msg.Payload)
+	case game.MsgVoteBroadcast:
+		handleVoteBroadcastMsg(disp, msg.Payload)
 		if *phase == voteSubmitted {
 			*phase = descIdle
 		}
+	case game.MsgVote:
+		*inVoteRound = true
+		handleVoteMsg(disp, msg.Payload)
 	case game.MsgResult:
 		disp.Data("00", fmt.Sprintf("投票结果: %s", msg.Payload))
 		*phase = descIdle
 	case game.MsgKick:
 		disp.Data("00", fmt.Sprintf("淘汰: %s", msg.Payload))
 		*inPK = false
+	case game.MsgWin:
+		disp.Info("0000", fmt.Sprintf("游戏结束：%s 获胜！", msg.Payload))
+	case game.MsgRestart:
+		disp.Info("0000", "新一局即将开始，等待裁判分配词语...")
+		*phase = descIdle
+		*inPK = false
+		*inVoteRound = false
+		*pkSpeakers = nil
+	case game.MsgQuit:
+		disp.Data("00", fmt.Sprintf("玩家 %s 退出了游戏", msg.Payload))
 	case game.MsgError:
 		disp.Warn(msg.Payload)
 		if *phase == descSubmitted || *phase == descWaitingInput {
@@ -276,12 +317,26 @@ func handleRoundMsg(disp *client.Display, payload string) {
 	disp.Data("00", fmt.Sprintf("轮次 %s，发言顺序: %s", roundNum, orderStr))
 }
 
-// handleVoteMsg parses and displays a VOTE broadcast.
-// Payload format: "voterName|targetName"
+// handleVoteMsg parses and displays a VOTE round announcement.
+// Payload format: "roundNum|playerList"
 func handleVoteMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("VOTE %s", payload))
+		disp.Data("00", fmt.Sprintf("投票轮次 %s", payload))
+		return
+	}
+	roundNum := parts[0]
+	players := strings.Split(parts[1], ",")
+	playerStr := strings.Join(players, " → ")
+	disp.Data("00", fmt.Sprintf("投票轮次 %s，投票者: %s", roundNum, playerStr))
+}
+
+// handleVoteBroadcastMsg parses and displays a VOTE_BC broadcast.
+// Payload format: "voterName|targetName"
+func handleVoteBroadcastMsg(disp *client.Display, payload string) {
+	parts := strings.SplitN(payload, "|", 2)
+	if len(parts) < 2 {
+		disp.Data("00", fmt.Sprintf("VOTE_BC %s", payload))
 		return
 	}
 	disp.Data("00", fmt.Sprintf("%s 投票给了 %s", parts[0], parts[1]))

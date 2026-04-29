@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"io"
 	"testing"
 	"time"
 
@@ -1296,11 +1297,11 @@ func TestDescriptionPhase_NormalFlow(t *testing.T) {
 				msg := readMsgFromConn(t, conn)
 				if msg.Type != game.MsgTurn {
 					t.Fatalf("expected TURN for next speaker, got %s: %s", msg.Type, msg.Payload)
-		}
-	}
-}
-	}
-}
+ 				}
+ 			}
+ 		}
+ 	}
+ }
 
 // --- PK phase integration tests ---
 
@@ -1389,7 +1390,7 @@ func TestPKPhase_SingleRound(t *testing.T) {
 
 	resultCh := make(chan string, 1)
 	go func() {
-		resultCh <- pkPhase(disp, srv, tiedPlayers, players)
+		resultCh <- pkPhase(disp, srv, tiedPlayers, players, make(chan struct{}))
 	}()
 
 	// 1. All players receive PK_START|P0,P1
@@ -1435,28 +1436,28 @@ func TestPKPhase_SingleRound(t *testing.T) {
 
 	// 11. P0 votes for P1
 	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc) // DESC|P0|P1
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast) // VOTE_BC|P0|P1
 
 	// 12. TURN|P1 (second voter)
 	assertMsgFromAll(t, conns, game.MsgTurn)
 
 	// 13. P1 votes for P0
 	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	// 14. TURN|P2
 	assertMsgFromAll(t, conns, game.MsgTurn)
 
 	// 15. P2 votes for P1
 	fmt.Fprintf(conns[2], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	// 16. TURN|P3
 	assertMsgFromAll(t, conns, game.MsgTurn)
 
 	// 17. P3 votes for P1 → P1 gets 3 votes, P0 gets 1 → P1 eliminated
 	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	// 18. RESULT|tally
 	resultMsg := assertMsgFromAll(t, conns, game.MsgResult)
@@ -1496,7 +1497,7 @@ func TestPKPhase_MultiRound(t *testing.T) {
 
 	resultCh := make(chan string, 1)
 	go func() {
-		resultCh <- pkPhase(disp, srv, tiedPlayers, players)
+		resultCh <- pkPhase(disp, srv, tiedPlayers, players, make(chan struct{}))
 	}()
 
 	// === Round 1: tie ===
@@ -1526,19 +1527,19 @@ func TestPKPhase_MultiRound(t *testing.T) {
 	// PK voting: P0→P1, P1→P0, P2→P0, P3→P1 → P0=2, P1=2 → tie
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P0
 	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
 	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
 	fmt.Fprintf(conns[2], "PK_VOTE|P0\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
 	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	// RESULT (tie)
 	resultMsg := assertMsgFromAll(t, conns, game.MsgResult)
@@ -1563,19 +1564,19 @@ func TestPKPhase_MultiRound(t *testing.T) {
 	assertMsgFromAll(t, conns, game.MsgRound) // ROUND|pkNum|voterList
 	assertMsgFromAll(t, conns, game.MsgTurn)  // TURN|P0
 	fmt.Fprintf(conns[0], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P1
 	fmt.Fprintf(conns[1], "PK_VOTE|P0\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P2
 	fmt.Fprintf(conns[2], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	assertMsgFromAll(t, conns, game.MsgTurn) // TURN|P3
 	fmt.Fprintf(conns[3], "PK_VOTE|P1\n")
-	assertMsgFromAll(t, conns, game.MsgDesc)
+	assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
 
 	// RESULT
 	assertMsgFromAll(t, conns, game.MsgResult)
@@ -1678,5 +1679,1113 @@ func TestDescriptionPhase_NotYourTurn(t *testing.T) {
 			}
 			return
 		}
+	}
+}
+
+// --- Judge quit mechanism tests ---
+
+func TestNewStdinSource_QuitCommand(t *testing.T) {
+	input := "hello\nquit\nworld\n"
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	src := newStdinSource(scanner)
+
+	// First line should be delivered via ch.
+	select {
+	case line := <-src.ch:
+		if line != "hello" {
+			t.Errorf("expected 'hello', got %q", line)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first line")
+	}
+
+	// 'quit' should close the quit channel and NOT send via ch.
+	select {
+	case <-src.quit:
+		// expected
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for quit channel")
+	}
+
+	// done should also close since the goroutine exits.
+	select {
+	case <-src.done:
+		// expected
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for done channel")
+	}
+
+	// No more data should arrive on ch.
+	select {
+	case line := <-src.ch:
+		t.Errorf("unexpected data on ch after quit: %q", line)
+	default:
+		// expected
+	}
+}
+
+func TestNewStdinSource_EOF(t *testing.T) {
+	input := "hello\n"
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	src := newStdinSource(scanner)
+
+	// First line delivered.
+	select {
+	case line := <-src.ch:
+		if line != "hello" {
+			t.Errorf("expected 'hello', got %q", line)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	}
+
+	// EOF should close done channel.
+	select {
+	case <-src.done:
+		// expected
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for done on EOF")
+	}
+
+	// quit should NOT be closed (EOF is not a quit command).
+	select {
+	case <-src.quit:
+		t.Error("quit channel should not close on plain EOF")
+	default:
+		// expected
+	}
+}
+
+func TestNewStdinSource_QuitCaseInsensitive(t *testing.T) {
+	tests := []string{"quit", "QUIT", "Quit", "QuiT"}
+	for _, quitInput := range tests {
+		t.Run(quitInput, func(t *testing.T) {
+			scanner := bufio.NewScanner(strings.NewReader(quitInput + "\n"))
+			src := newStdinSource(scanner)
+
+			select {
+			case <-src.quit:
+				// expected
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for quit")
+			}
+		})
+	}
+}
+
+func TestCollectWordsFromCh_QuitCh(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	stdinCh := make(chan string)
+	stdinDone := make(chan struct{})
+	quitCh := make(chan struct{})
+
+	resultCh := make(chan struct{}, 1)
+	go func() {
+		civilian, undercover := collectWordsFromCh(out, disp, stdinCh, stdinDone, quitCh)
+		if civilian == "" && undercover == "" {
+			resultCh <- struct{}{}
+		}
+	}()
+
+	// Trigger quit immediately.
+	close(quitCh)
+
+	select {
+	case <-resultCh:
+		// expected: collectWordsFromCh returned empty
+	case <-time.After(time.Second):
+		t.Fatal("collectWordsFromCh did not return on quit")
+	}
+}
+
+func TestCollectWordsFromCh_StdinDone(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := newDisplay(out)
+	stdinCh := make(chan string)
+	stdinDone := make(chan struct{})
+	quitCh := make(chan struct{})
+
+	resultCh := make(chan struct{}, 1)
+	go func() {
+		civilian, undercover := collectWordsFromCh(out, disp, stdinCh, stdinDone, quitCh)
+		if civilian == "" && undercover == "" {
+			resultCh <- struct{}{}
+		}
+	}()
+
+	// Trigger stdin done.
+	close(stdinDone)
+
+	select {
+	case <-resultCh:
+		// expected
+	case <-time.After(time.Second):
+		t.Fatal("collectWordsFromCh did not return on stdinDone")
+	}
+}
+
+func TestRunJudge_QuitInWaitingPhase(t *testing.T) {
+	// Config input followed by "quit" should cause RunJudge to return.
+	configInput := "4\n1\n0\n"
+	fullInput := configInput + "quit\n"
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot listen: %v", err)
+	}
+	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
+	ln.Close()
+
+	out := &safeBuffer{}
+	done := make(chan struct{})
+	go func() {
+		RunJudge(out, strings.NewReader(fullInput), port, false)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// expected: RunJudge returned
+	case <-time.After(3 * time.Second):
+		t.Fatal("RunJudge did not return after quit in waiting phase")
+	}
+}
+
+func TestRunJudge_EOFInWaitingPhase(t *testing.T) {
+	// Config input then EOF should cause RunJudge to return.
+	configInput := "4\n1\n0\n"
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot listen: %v", err)
+	}
+	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
+	ln.Close()
+
+	out := &safeBuffer{}
+	done := make(chan struct{})
+	go func() {
+		RunJudge(out, strings.NewReader(configInput), port, false)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// expected
+	case <-time.After(3 * time.Second):
+		t.Fatal("RunJudge did not return after EOF in waiting phase")
+	}
+}
+
+func TestRunJudge_QuitInCollectWords(t *testing.T) {
+	// Config input + start + enough players + quit during word collection.
+	// We use a pipe to simulate interactive stdin.
+	configInput := "4\n1\n0\n"
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot listen: %v", err)
+	}
+	port := fmt.Sprintf("%d", ln.Addr().(*net.TCPAddr).Port)
+	ln.Close()
+
+	r, w := io.Pipe()
+	out := &safeBuffer{}
+	done := make(chan struct{})
+	go func() {
+		RunJudge(out, r, port, false)
+		close(done)
+	}()
+
+	// Write config
+	w.Write([]byte(configInput))
+
+	// Wait for server to be ready
+	for i := 0; i < 100; i++ {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 10*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Simulate 4 players joining
+	for i := 0; i < 4; i++ {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 2*time.Second)
+		if err != nil {
+			w.Close()
+			t.Fatalf("player %d connect failed: %v", i, err)
+		}
+		fmt.Fprintf(conn, "JOIN|P%d\n", i)
+		// Keep connection alive
+		_ = conn
+	}
+
+	// Wait for all players to be shown as joined
+	waitForOutput(t, out, "P3 joined", 2*time.Second)
+
+	// Send start
+	w.Write([]byte("start\n"))
+
+	// Wait for word prompt
+	waitForOutput(t, out, "平民词语", 2*time.Second)
+
+	// Send quit during word collection
+	w.Write([]byte("quit\n"))
+
+	select {
+	case <-done:
+		// expected: RunJudge returned after quit in collectWords
+	case <-time.After(3 * time.Second):
+		w.Close()
+		t.Fatalf("RunJudge did not return after quit in collectWords, output: %s", out.String())
+	}
+	w.Close()
+}
+
+func TestDescriptionPhase_QuitCh(t *testing.T) {
+	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+	defer cleanup()
+
+	quitCh := make(chan struct{})
+	resultCh := make(chan *descResult, 1)
+	go func() {
+		resultCh <- descriptionPhase(disp, srv, 1, []string{"P0", "P1", "P2", "P3"}, quitCh)
+	}()
+
+	// Consume ROUND + TURN messages so server channels are drained.
+	assertMsgFromAll(t, conns, game.MsgRound)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// Close quitCh to simulate referee quit.
+	close(quitCh)
+
+	select {
+	case res := <-resultCh:
+		if res != nil {
+			t.Error("expected nil result on quit")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("descriptionPhase did not return on quit")
+	}
+}
+
+func TestVotingPhase_QuitCh(t *testing.T) {
+	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+	defer cleanup()
+
+	players := []*game.Player{
+		{Name: "P0", Alive: true},
+		{Name: "P1", Alive: true},
+		{Name: "P2", Alive: true},
+		{Name: "P3", Alive: true},
+	}
+
+	quitCh := make(chan struct{})
+	resultCh := make(chan string, 1)
+	go func() {
+		elim, _, _ := votingPhase(disp, srv, 1, players, quitCh)
+		resultCh <- elim
+	}()
+
+	// Consume VOTE + TURN messages.
+	assertMsgFromAll(t, conns, game.MsgVote)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// Close quitCh to simulate referee quit.
+	close(quitCh)
+
+	select {
+	case elim := <-resultCh:
+		if elim != "" {
+			t.Errorf("expected empty eliminated on quit, got %q", elim)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("votingPhase did not return on quit")
+	}
+}
+
+func TestPKPhase_QuitCh(t *testing.T) {
+	srv, conns, disp, cleanup := setupPKTestEnv(t, 4)
+	defer cleanup()
+
+	players := []*game.Player{
+		{Name: "P0", Alive: true},
+		{Name: "P1", Alive: true},
+		{Name: "P2", Alive: true},
+		{Name: "P3", Alive: true},
+	}
+
+	quitCh := make(chan struct{})
+	resultCh := make(chan string, 1)
+	go func() {
+		resultCh <- pkPhase(disp, srv, []string{"P0", "P1"}, players, quitCh)
+	}()
+
+	// Consume PK_START + ROUND + TURN
+	assertMsgFromAll(t, conns, game.MsgPKStart)
+	assertMsgFromAll(t, conns, game.MsgRound)
+	assertMsgFromAll(t, conns, game.MsgTurn)
+
+	// Close quitCh to simulate referee quit.
+	close(quitCh)
+
+	select {
+	case elim := <-resultCh:
+		if elim != "" {
+			t.Errorf("expected empty eliminated on quit, got %q", elim)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("pkPhase did not return on quit")
+	}
+}
+
+// --- Win condition unit tests ---
+
+func TestCheckWinCondition_CiviliansWin(t *testing.T) {
+	players := []*game.Player{
+		{Name: "P0", Role: game.Civilian, Alive: true},
+		{Name: "P1", Role: game.Civilian, Alive: true},
+		{Name: "P2", Role: game.Undercover, Alive: false}, // eliminated
+	}
+	if got := game.CheckWinCondition(players); got != game.WinCivilians {
+		t.Errorf("expected WinCivilians, got %q", got)
+	}
+}
+
+func TestCheckWinCondition_UndercoversWin(t *testing.T) {
+	// 1 civilian, 1 undercover alive → undercover wins
+	players := []*game.Player{
+		{Name: "P0", Role: game.Civilian, Alive: true},
+		{Name: "P1", Role: game.Undercover, Alive: true},
+		{Name: "P2", Role: game.Civilian, Alive: false},
+	}
+	if got := game.CheckWinCondition(players); got != game.WinUndercover {
+		t.Errorf("expected WinUndercover, got %q", got)
+	}
+}
+
+func TestCheckWinCondition_GameContinues(t *testing.T) {
+	players := []*game.Player{
+		{Name: "P0", Role: game.Civilian, Alive: true},
+		{Name: "P1", Role: game.Civilian, Alive: true},
+		{Name: "P2", Role: game.Undercover, Alive: true},
+	}
+	if got := game.CheckWinCondition(players); got != "" {
+		t.Errorf("expected empty (game continues), got %q", got)
+	}
+}
+
+func TestCheckWinCondition_BlankIgnored(t *testing.T) {
+	// Blank doesn't count as civilian or undercover
+	// 1 civilian, 1 undercover, 1 blank → undercover wins (civilian <= undercover)
+	players := []*game.Player{
+		{Name: "P0", Role: game.Civilian, Alive: true},
+		{Name: "P1", Role: game.Undercover, Alive: true},
+		{Name: "P2", Role: game.Blank, Alive: true},
+	}
+	if got := game.CheckWinCondition(players); got != game.WinUndercover {
+		t.Errorf("expected WinUndercover, got %q", got)
+	}
+}
+
+// --- Game loop integration tests ---
+
+// runVotingRound runs one voting round: reads VOTE+TURN from all conns,
+// has each voter vote for voteTarget, reads VOTE_BC from all conns.
+func runVotingRound(t *testing.T, conns []net.Conn, numVoters int, voteTarget string) {
+	t.Helper()
+	// VOTE|roundNum|playerList broadcast to all
+	assertMsgFromAll(t, conns, game.MsgVote)
+	for i := 0; i < numVoters; i++ {
+		// TURN|voterName broadcast to all
+		turnMsg := assertMsgFromAll(t, conns, game.MsgTurn)
+		voter := turnMsg.Payload
+		voterConn := findConnByName(conns, voter)
+		if voterConn == nil {
+			t.Fatalf("cannot find connection for voter %q", voter)
+		}
+		fmt.Fprintf(voterConn, "VOTE|%s\n", voteTarget)
+		// VOTE_BC broadcast to all
+		assertMsgFromAll(t, conns, game.MsgVoteBroadcast)
+	}
+}
+
+func TestGameLoop_CiviliansWin(t *testing.T) {
+	_, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // JOIN
+	}
+
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Read ROLE messages to identify who is undercover.
+	undercoverName := ""
+	civilianNames := make([]string, 0, 3)
+	for i, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Fatalf("expected ROLE, got %s", roleMsg.Type)
+		}
+		parts := strings.SplitN(roleMsg.Payload, "|", 2)
+		if parts[0] == "Undercover" {
+			undercoverName = fmt.Sprintf("P%d", i)
+		} else {
+			civilianNames = append(civilianNames, fmt.Sprintf("P%d", i))
+		}
+		readMsgFromConn(t, conn) // READY
+	}
+	if undercoverName == "" {
+		t.Fatal("no undercover found in ROLE messages")
+	}
+	t.Logf("undercover=%s, civilians=%v", undercoverName, civilianNames)
+
+	// Strategy: eliminate 1 civilian then the undercover.
+	// With 4 players (3C+1U): after eliminating 1C we have 2C+1U (continue),
+	// after eliminating U we have 2C+0U → civilians win.
+	eliminationOrder := []string{civilianNames[0], undercoverName}
+
+	var savedRound *game.Message
+	for round, voteTarget := range eliminationOrder {
+		// Description phase.
+		var roundMsg game.Message
+		if savedRound != nil {
+			roundMsg = *savedRound
+			savedRound = nil
+		} else {
+			roundMsg = readMsgFromConn(t, conns[0])
+		}
+		if roundMsg.Type != game.MsgRound {
+			t.Fatalf("round %d: expected ROUND, got %s", round+1, roundMsg.Type)
+		}
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		speakers := strings.Split(roundParts[1], ",")
+		for i := 1; i < len(conns); i++ {
+			readMsgFromConn(t, conns[i]) // ROUND
+		}
+		assertMsgFromAll(t, conns, game.MsgTurn)
+
+		for si, speaker := range speakers {
+			speakerConn := findConnByName(conns, speaker)
+			fmt.Fprintf(speakerConn, "DESC|desc from %s\n", speaker)
+			assertMsgFromAll(t, conns, game.MsgDesc)
+			if si < len(speakers)-1 {
+				assertMsgFromAll(t, conns, game.MsgTurn)
+			}
+		}
+
+		// Voting phase: vote to eliminate the target.
+		runVotingRound(t, conns, len(speakers), voteTarget)
+
+		// RESULT
+		assertMsgFromAll(t, conns, game.MsgResult)
+		// KICK
+		kickMsg := assertMsgFromAll(t, conns, game.MsgKick)
+		if kickMsg.Payload != voteTarget {
+			t.Errorf("expected KICK %s, got %s", voteTarget, kickMsg.Payload)
+		}
+
+		// After KICK, the next message is either WIN or ROUND.
+		nextMsg := readMsgFromConn(t, conns[0])
+		if nextMsg.Type == game.MsgWin {
+			if nextMsg.Payload != string(game.WinCivilians) {
+				t.Errorf("expected civilian win, got %q", nextMsg.Payload)
+			}
+			for i := 1; i < len(conns); i++ {
+				readMsgFromConn(t, conns[i]) // WIN
+			}
+			return // game over
+		}
+		// Not WIN — must be next round's ROUND. Save it.
+		savedRound = &nextMsg
+	}
+	t.Fatal("game did not end after eliminating all players")
+}
+
+func TestGameLoop_RestartWithY(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // JOIN
+	}
+
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Read ROLE messages to identify who is undercover.
+	undercoverName := ""
+	civilianNames := make([]string, 0, 3)
+	for i, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Fatalf("expected ROLE, got %s", roleMsg.Type)
+		}
+		parts := strings.SplitN(roleMsg.Payload, "|", 2)
+		if parts[0] == "Undercover" {
+			undercoverName = fmt.Sprintf("P%d", i)
+		} else {
+			civilianNames = append(civilianNames, fmt.Sprintf("P%d", i))
+		}
+		readMsgFromConn(t, conn) // READY
+	}
+	if undercoverName == "" {
+		t.Fatal("no undercover found in ROLE messages")
+	}
+	t.Logf("undercover=%s, civilians=%v", undercoverName, civilianNames)
+
+	// Helper to run one description+voting round, returning the next message after KICK.
+	// It reads the ROUND message from conns[0] internally.
+	runGameRound := func(t *testing.T, voteTarget string) game.Message {
+		t.Helper()
+		roundMsg := readMsgFromConn(t, conns[0])
+		if roundMsg.Type != game.MsgRound {
+			t.Fatalf("expected ROUND, got %s", roundMsg.Type)
+		}
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		speakers := strings.Split(roundParts[1], ",")
+		for i := 1; i < len(conns); i++ {
+			readMsgFromConn(t, conns[i]) // ROUND
+		}
+		assertMsgFromAll(t, conns, game.MsgTurn)
+
+		for si, speaker := range speakers {
+			speakerConn := findConnByName(conns, speaker)
+			fmt.Fprintf(speakerConn, "DESC|desc\n")
+			assertMsgFromAll(t, conns, game.MsgDesc)
+			if si < len(speakers)-1 {
+				assertMsgFromAll(t, conns, game.MsgTurn)
+			}
+		}
+
+		runVotingRound(t, conns, len(speakers), voteTarget)
+		assertMsgFromAll(t, conns, game.MsgResult)
+		assertMsgFromAll(t, conns, game.MsgKick)
+
+		nextMsg := readMsgFromConn(t, conns[0])
+		return nextMsg
+	}
+
+	// === First game: civilian win ===
+	// With 4 players (3C+1U), eliminate 1 civilian then the undercover.
+	// After round 1: 2C+1U alive (continue).
+	// After round 2: 2C+0U → civilians win.
+
+	// Round 1: eliminate first civilian.
+	nextMsg := runGameRound(t, civilianNames[0])
+	if nextMsg.Type != game.MsgRound {
+		t.Fatalf("expected ROUND after round 1, got %s", nextMsg.Type)
+	}
+
+	// Round 2: eliminate undercover → civilians win.
+	// runGameRound reads ROUND from conns[0], but we already have it in nextMsg.
+	// So inline this round.
+	roundParts2 := strings.SplitN(nextMsg.Payload, "|", 2)
+	speakers2 := strings.Split(roundParts2[1], ",")
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i]) // ROUND
+	}
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	for si, speaker := range speakers2 {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc round2\n")
+		assertMsgFromAll(t, conns, game.MsgDesc)
+		if si < len(speakers2)-1 {
+			assertMsgFromAll(t, conns, game.MsgTurn)
+		}
+	}
+	runVotingRound(t, conns, len(speakers2), undercoverName)
+	assertMsgFromAll(t, conns, game.MsgResult)
+	assertMsgFromAll(t, conns, game.MsgKick)
+
+	// WIN message should be broadcast.
+	winMsg := assertMsgFromAll(t, conns, game.MsgWin)
+	if winMsg.Payload != string(game.WinCivilians) {
+		t.Errorf("expected civilian win, got %q", winMsg.Payload)
+	}
+
+	// Verify restart prompt appears in output.
+	waitForOutput(t, out, "再来一局？(Y/N):", 2*time.Second)
+
+	// Referee says Y.
+	stdin <- "Y"
+
+	// All clients should receive RESTART.
+	assertMsgFromAll(t, conns, game.MsgRestart)
+
+	// === Second game: referee inputs new words ===
+	stdin <- "橘子"
+	stdin <- "橙子"
+
+	// All clients should receive new ROLE + READY for second game.
+	type roleInfo struct {
+		roleName string
+		word     string
+	}
+	var roles []roleInfo
+	for _, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Errorf("expected ROLE for second game, got %s", roleMsg.Type)
+			continue
+		}
+		parts := strings.SplitN(roleMsg.Payload, "|", 2)
+		if len(parts) < 2 {
+			t.Errorf("malformed ROLE payload: %q", roleMsg.Payload)
+			continue
+		}
+		roles = append(roles, roleInfo{parts[0], parts[1]})
+
+		readyMsg := readMsgFromConn(t, conn)
+		if readyMsg.Type != game.MsgReady {
+			t.Errorf("expected READY for second game, got %s", readyMsg.Type)
+		}
+	}
+
+	// Verify new words were assigned.
+	for _, r := range roles {
+		switch r.roleName {
+		case "Civilian":
+			if r.word != "橘子" {
+				t.Errorf("second game Civilian got word %q, want %q", r.word, "橘子")
+			}
+		case "Undercover":
+			if r.word != "橙子" {
+				t.Errorf("second game Undercover got word %q, want %q", r.word, "橙子")
+			}
+		}
+	}
+
+	// Verify role distribution: 4 players, 1U → 3 civilians, 1 undercover
+	civilianCount, undercoverCount := 0, 0
+	for _, r := range roles {
+		switch r.roleName {
+		case "Civilian":
+			civilianCount++
+		case "Undercover":
+			undercoverCount++
+		}
+	}
+	if civilianCount != 3 {
+		t.Errorf("expected 3 civilians in second game, got %d", civilianCount)
+	}
+	if undercoverCount != 1 {
+		t.Errorf("expected 1 undercover in second game, got %d", undercoverCount)
+	}
+
+	// Second game: identify undercover and play one round.
+	secondGameUndercover := ""
+	secondGameCivilians := make([]string, 0, 3)
+	for i, r := range roles {
+		pname := fmt.Sprintf("P%d", i)
+		if r.roleName == "Undercover" {
+			secondGameUndercover = pname
+		} else {
+			secondGameCivilians = append(secondGameCivilians, pname)
+		}
+	}
+	t.Logf("second game: undercover=%s, civilians=%v", secondGameUndercover, secondGameCivilians)
+
+	// Play one round: eliminate a civilian so the game continues.
+	roundMsg4 := readMsgFromConn(t, conns[0])
+	if roundMsg4.Type != game.MsgRound {
+		t.Fatalf("expected ROUND in second game, got %s", roundMsg4.Type)
+	}
+	roundParts4 := strings.SplitN(roundMsg4.Payload, "|", 2)
+	speakers4 := strings.Split(roundParts4[1], ",")
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i]) // ROUND
+	}
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	for si, speaker := range speakers4 {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc second game\n")
+		assertMsgFromAll(t, conns, game.MsgDesc)
+		if si < len(speakers4)-1 {
+			assertMsgFromAll(t, conns, game.MsgTurn)
+		}
+	}
+
+	// Vote to eliminate a civilian (not the undercover) so game continues.
+	voteTarget4 := secondGameCivilians[0]
+	// Make sure voteTarget4 is among the speakers.
+	found := false
+	for _, s := range speakers4 {
+		if s == voteTarget4 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		// Fallback: use first speaker that is a civilian.
+		for _, s := range speakers4 {
+			if s != secondGameUndercover {
+				voteTarget4 = s
+				break
+			}
+		}
+	}
+	runVotingRound(t, conns, len(speakers4), voteTarget4)
+	assertMsgFromAll(t, conns, game.MsgResult)
+	assertMsgFromAll(t, conns, game.MsgKick)
+
+	// Verify "新一局即将开始" message appears (already printed after Y input).
+	waitForOutput(t, out, "新一局即将开始", 2*time.Second)
+}
+
+func TestGameLoop_ShutdownWithN(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		defer conn.Close()
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // JOIN
+	}
+
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	// Read ROLE messages to identify who is undercover.
+	undercoverName := ""
+	civilianNames := make([]string, 0, 3)
+	for i, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Fatalf("expected ROLE, got %s", roleMsg.Type)
+		}
+		parts := strings.SplitN(roleMsg.Payload, "|", 2)
+		if parts[0] == "Undercover" {
+			undercoverName = fmt.Sprintf("P%d", i)
+		} else {
+			civilianNames = append(civilianNames, fmt.Sprintf("P%d", i))
+		}
+		readMsgFromConn(t, conn) // READY
+	}
+	if undercoverName == "" {
+		t.Fatal("no undercover found in ROLE messages")
+	}
+
+	// Eliminate 1 civilian then the undercover for civilian win (2 rounds).
+	// With 4 players (3C+1U): after round 1 → 2C+1U (continue), after round 2 → 2C+0U (civilians win).
+
+	// Helper: run one desc+voting round given a pre-read ROUND message.
+	// Returns the next message after KICK from conns[0].
+	runRoundFromMsg := func(roundMsg game.Message, voteTarget string) game.Message {
+		roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+		speakers := strings.Split(roundParts[1], ",")
+		for i := 1; i < len(conns); i++ {
+			readMsgFromConn(t, conns[i])
+		}
+		assertMsgFromAll(t, conns, game.MsgTurn)
+		for si, speaker := range speakers {
+			speakerConn := findConnByName(conns, speaker)
+			fmt.Fprintf(speakerConn, "DESC|desc\n")
+			assertMsgFromAll(t, conns, game.MsgDesc)
+			if si < len(speakers)-1 {
+				assertMsgFromAll(t, conns, game.MsgTurn)
+			}
+		}
+		runVotingRound(t, conns, len(speakers), voteTarget)
+		assertMsgFromAll(t, conns, game.MsgResult)
+		assertMsgFromAll(t, conns, game.MsgKick)
+		return readMsgFromConn(t, conns[0])
+	}
+
+	// Round 1: eliminate a civilian.
+	roundMsg := readMsgFromConn(t, conns[0])
+	nextMsg := runRoundFromMsg(roundMsg, civilianNames[0])
+
+	// Round 2: eliminate undercover → civilians win.
+	// Inline this round so we don't consume WIN from conns[0] inside runRoundFromMsg.
+	roundParts2 := strings.SplitN(nextMsg.Payload, "|", 2)
+	speakers2 := strings.Split(roundParts2[1], ",")
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i])
+	}
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	for si, speaker := range speakers2 {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc\n")
+		assertMsgFromAll(t, conns, game.MsgDesc)
+		if si < len(speakers2)-1 {
+			assertMsgFromAll(t, conns, game.MsgTurn)
+		}
+	}
+	runVotingRound(t, conns, len(speakers2), undercoverName)
+	assertMsgFromAll(t, conns, game.MsgResult)
+	assertMsgFromAll(t, conns, game.MsgKick)
+
+	// WIN
+	winMsg := assertMsgFromAll(t, conns, game.MsgWin)
+	if winMsg.Payload != string(game.WinCivilians) {
+		t.Errorf("expected civilian win, got %q", winMsg.Payload)
+	}
+
+	// Verify restart prompt.
+	waitForOutput(t, out, "再来一局？(Y/N):", 2*time.Second)
+
+	// Referee says N.
+	stdin <- "N"
+
+	// All clients should receive QUIT broadcast.
+	quitMsg := assertMsgFromAll(t, conns, game.MsgQuit)
+	if quitMsg.Payload != "裁判结束了游戏" {
+		t.Errorf("expected QUIT payload '裁判结束了游戏', got %q", quitMsg.Payload)
+	}
+}
+
+func TestPlayerHandleMsg_Restart(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := client.NewDisplay(out, false)
+	phase := descSubmitted
+	inPK := true
+	inVoteRound := true
+	pkSpeakers := []string{"P0", "P1"}
+
+	msg := game.Message{Type: game.MsgRestart}
+	ok := handleMessage(msg, disp, out, nil, "P0", &phase, &inPK, &inVoteRound, &pkSpeakers)
+	if !ok {
+		t.Error("handleMessage should return true for RESTART")
+	}
+	if phase != descIdle {
+		t.Errorf("expected descIdle after RESTART, got %d", phase)
+	}
+	if inPK {
+		t.Error("expected inPK=false after RESTART")
+	}
+	if inVoteRound {
+		t.Error("expected inVoteRound=false after RESTART")
+	}
+	if pkSpeakers != nil {
+		t.Error("expected pkSpeakers=nil after RESTART")
+	}
+	if !strings.Contains(out.String(), "新一局即将开始") {
+		t.Errorf("expected restart message, got: %s", out.String())
+	}
+}
+
+func TestPlayerHandleMsg_VoteBroadcast(t *testing.T) {
+	out := &bytes.Buffer{}
+	disp := client.NewDisplay(out, false)
+	phase := voteSubmitted
+
+	msg := game.Message{Type: game.MsgVoteBroadcast, Payload: "P0|P2"}
+	ok := handleMessage(msg, disp, out, nil, "P1", &phase, nil, nil, nil)
+	if !ok {
+		t.Error("handleMessage should return true for VOTE_BC")
+	}
+	if phase != descIdle {
+		t.Errorf("expected descIdle after VOTE_BC, got %d", phase)
+	}
+	if !strings.Contains(out.String(), "P0 投票给了 P2") {
+		t.Errorf("expected vote broadcast display, got: %s", out.String())
+	}
+}
+
+// playGameToWinCondition is a test helper that plays a 2-round game with 4 players
+// (3C+1U) to reach a civilian win. It returns the undercover and civilian names.
+func playGameToWinCondition(t *testing.T, conns []net.Conn, stdin chan string, out *safeBuffer) (string, []string) {
+	t.Helper()
+	stdin <- "start"
+	stdin <- "苹果"
+	stdin <- "香蕉"
+
+	undercoverName := ""
+	civilianNames := make([]string, 0, 3)
+	for i, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Fatalf("expected ROLE, got %s", roleMsg.Type)
+		}
+		parts := strings.SplitN(roleMsg.Payload, "|", 2)
+		if parts[0] == "Undercover" {
+			undercoverName = fmt.Sprintf("P%d", i)
+		} else {
+			civilianNames = append(civilianNames, fmt.Sprintf("P%d", i))
+		}
+		readMsgFromConn(t, conn) // READY
+	}
+	if undercoverName == "" {
+		t.Fatal("no undercover found")
+	}
+
+	// Round 1: eliminate first civilian.
+	roundMsg := readMsgFromConn(t, conns[0])
+	roundParts := strings.SplitN(roundMsg.Payload, "|", 2)
+	speakers := strings.Split(roundParts[1], ",")
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i])
+	}
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	for si, speaker := range speakers {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc\n")
+		assertMsgFromAll(t, conns, game.MsgDesc)
+		if si < len(speakers)-1 {
+			assertMsgFromAll(t, conns, game.MsgTurn)
+		}
+	}
+	runVotingRound(t, conns, len(speakers), civilianNames[0])
+	assertMsgFromAll(t, conns, game.MsgResult)
+	assertMsgFromAll(t, conns, game.MsgKick)
+
+	// Round 2: eliminate undercover → civilians win.
+	nextMsg := readMsgFromConn(t, conns[0])
+	roundParts2 := strings.SplitN(nextMsg.Payload, "|", 2)
+	speakers2 := strings.Split(roundParts2[1], ",")
+	for i := 1; i < len(conns); i++ {
+		readMsgFromConn(t, conns[i])
+	}
+	assertMsgFromAll(t, conns, game.MsgTurn)
+	for si, speaker := range speakers2 {
+		speakerConn := findConnByName(conns, speaker)
+		fmt.Fprintf(speakerConn, "DESC|desc2\n")
+		assertMsgFromAll(t, conns, game.MsgDesc)
+		if si < len(speakers2)-1 {
+			assertMsgFromAll(t, conns, game.MsgTurn)
+		}
+	}
+	runVotingRound(t, conns, len(speakers2), undercoverName)
+	assertMsgFromAll(t, conns, game.MsgResult)
+	assertMsgFromAll(t, conns, game.MsgKick)
+
+	assertMsgFromAll(t, conns, game.MsgWin)
+	waitForOutput(t, out, "再来一局？(Y/N):", 2*time.Second)
+
+	return undercoverName, civilianNames
+}
+
+func connectPlayers(t *testing.T, port string, names []string) []net.Conn {
+	t.Helper()
+	conns := make([]net.Conn, len(names))
+	for i, name := range names {
+		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatalf("failed to connect %s: %v", name, err)
+		}
+		conns[i] = conn
+		fmt.Fprintf(conn, "JOIN|%s\n", name)
+	}
+	for _, conn := range conns {
+		readMsgFromConn(t, conn) // JOIN ack
+	}
+	return conns
+}
+
+func TestGameLoop_RestartWithInvalidInput(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := connectPlayers(t, port, names)
+	for i := range conns {
+		defer conns[i].Close()
+	}
+
+	playGameToWinCondition(t, conns, stdin, out)
+
+	// Input an invalid string (neither Y nor y).
+	stdin <- "yes"
+
+	// Should behave like N: broadcast QUIT and stop.
+	quitMsg := assertMsgFromAll(t, conns, game.MsgQuit)
+	if quitMsg.Payload != "裁判结束了游戏" {
+		t.Errorf("expected QUIT for invalid input, got %q", quitMsg.Payload)
+	}
+}
+
+func TestGameLoop_RestartWithLowercaseY(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := connectPlayers(t, port, names)
+	for i := range conns {
+		defer conns[i].Close()
+	}
+
+	playGameToWinCondition(t, conns, stdin, out)
+
+	// Input lowercase "y" — should trigger restart.
+	stdin <- "y"
+
+	// All clients should receive RESTART.
+	assertMsgFromAll(t, conns, game.MsgRestart)
+
+	// Second game: referee inputs new words.
+	stdin <- "橘子"
+	stdin <- "橙子"
+
+	// Verify new ROLE messages arrive.
+	for _, conn := range conns {
+		roleMsg := readMsgFromConn(t, conn)
+		if roleMsg.Type != game.MsgRole {
+			t.Fatalf("expected ROLE for second game, got %s", roleMsg.Type)
+		}
+		readMsgFromConn(t, conn) // READY
+	}
+}
+
+func TestGameLoop_RestartWithEmptyInput(t *testing.T) {
+	out, port, stdin, cleanup := startJudgeForTestWithStdin(t, "4\n1\n0\n")
+	defer cleanup()
+
+	names := []string{"P0", "P1", "P2", "P3"}
+	conns := connectPlayers(t, port, names)
+	for i := range conns {
+		defer conns[i].Close()
+	}
+
+	playGameToWinCondition(t, conns, stdin, out)
+
+	// Input empty line — should behave like N.
+	stdin <- ""
+
+	quitMsg := assertMsgFromAll(t, conns, game.MsgQuit)
+	if quitMsg.Payload != "裁判结束了游戏" {
+		t.Errorf("expected QUIT for empty input, got %q", quitMsg.Payload)
 	}
 }

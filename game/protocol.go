@@ -49,7 +49,8 @@ const (
 	MsgRestart   = "RESTART"
 	MsgQuit      = "QUIT"
 	MsgRound     = "ROUND"
-	MsgWord      = "WORD"
+	MsgWord           = "WORD"
+	MsgVoteBroadcast  = "VOTE_BC"
 )
 
 // Message represents a protocol message exchanged between referee and player.

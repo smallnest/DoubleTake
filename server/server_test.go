@@ -756,3 +756,173 @@ func TestDesc_NamedPlayerForwarded(t *testing.T) {
 		t.Fatal("timed out waiting for DescEvent")
 	}
 }
+
+func TestQuit_NamedPlayerBroadcast(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	// Connect two players and have them join.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect player 1: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect player 2: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1) // consume JOIN confirmation
+
+	fmt.Fprintf(conn2, "JOIN|Bob\n")
+	readMsg(t, conn2) // consume JOIN confirmation
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Alice sends QUIT.
+	fmt.Fprintf(conn1, "QUIT|\n")
+
+	// Bob should receive QUIT|Alice.
+	msg := readMsg(t, conn2)
+	if msg.Type != game.MsgQuit {
+		t.Errorf("expected QUIT message, got %s", msg.Type)
+	}
+	if msg.Payload != "Alice" {
+		t.Errorf("expected payload 'Alice', got %q", msg.Payload)
+	}
+}
+
+func TestQuit_OnQuitMsgEvent(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Alice sends QUIT.
+	fmt.Fprintf(conn, "QUIT|\n")
+
+	select {
+	case evt := <-srv.OnQuitMsg:
+		if evt.PlayerName != "Alice" {
+			t.Errorf("expected quit player Alice, got %s", evt.PlayerName)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for QuitEvent")
+	}
+}
+
+func TestQuit_PlayerRemovedFromNames(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	time.Sleep(50 * time.Millisecond)
+
+	if count := srv.PlayerCount(); count != 1 {
+		t.Fatalf("expected 1 player before quit, got %d", count)
+	}
+
+	// Alice sends QUIT.
+	fmt.Fprintf(conn, "QUIT|\n")
+
+	// Wait for server to process QUIT and unregister.
+	time.Sleep(100 * time.Millisecond)
+
+	if count := srv.PlayerCount(); count != 0 {
+		t.Errorf("expected 0 players after quit, got %d", count)
+	}
+
+	names := srv.PlayerNames()
+	for _, n := range names {
+		if n == "Alice" {
+			t.Error("Alice should have been removed from PlayerNames after QUIT")
+		}
+	}
+}
+
+func TestQuit_ConnectionClosed(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	fmt.Fprintf(conn, "JOIN|Alice\n")
+	readMsg(t, conn) // consume JOIN confirmation
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Alice sends QUIT.
+	fmt.Fprintf(conn, "QUIT|\n")
+
+	// The connection should be closed by the server.
+	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	buf := make([]byte, 1)
+	_, err = conn.Read(buf)
+	if err == nil {
+		t.Error("expected connection to be closed after QUIT")
+	}
+}
+
+func TestQuit_UnnamedPlayer(t *testing.T) {
+	srv, port := startTestServer(t)
+	defer srv.Stop()
+
+	// Connect two players: Alice joins, second player does not.
+	conn1, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect player 1: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, err := net.Dial("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("failed to connect player 2: %v", err)
+	}
+	defer conn2.Close()
+
+	fmt.Fprintf(conn1, "JOIN|Alice\n")
+	readMsg(t, conn1) // consume JOIN confirmation
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Unnamed player sends QUIT — should not broadcast.
+	fmt.Fprintf(conn2, "QUIT|\n")
+
+	// Alice should NOT receive any QUIT message.
+	conn1.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+	buf := make([]byte, 128)
+	n, err := conn1.Read(buf)
+	if err == nil && n > 0 {
+		t.Errorf("Alice should not receive QUIT from unnamed player, got: %q", buf[:n])
+	}
+
+	// OnQuitMsg should NOT fire for unnamed player.
+	select {
+	case evt := <-srv.OnQuitMsg:
+		t.Errorf("unexpected QuitEvent for unnamed player: %v", evt)
+	case <-time.After(200 * time.Millisecond):
+		// expected
+	}
+}
