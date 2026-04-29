@@ -1,0 +1,35 @@
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+## T-001 实现状态：已完成
+
+子任务 T-001（服务端掉线标记）已经完全实现。以下是验收条件对照：
+
+| 验收条件 | 状态 | 代码位置 |
+|---------|------|---------|
+| 不从 names map 中删除名字 | ✅ | `server.go:191` - `unregister` 保留名字 |
+| Connected 字段设为 false | ✅ | `server.go:193` - `gp.Connected = false` |
+| OnDisconnect channel 通知 | ✅ | `server.go:199-201` - 发送 `DisconnectEvent` |
+| 未命名玩家正常清理 | ✅ | `server.go:203-208` - else 分支 |
+| handleJoin 拒绝掉线玩家名 | ✅ | `server.go:232-235` - 返回 RECONNECT 提示 |
+| 测试全部通过 | ✅ | 8 个相关测试全部 PASS |
+
+**关键实现**：
+- `gamePlayers map[string]*game.Player` 跟踪游戏玩家状态
+- `unregister()` 区分命名/未命名玩家的断开处理
+- `handleReconnect()` 处理重连请求
+- `SetGamePlayers()` 在游戏开始时注册玩家
+
+**测试覆盖**：
+- `TestDisconnectMarksPlayerDisconnected` - 断开后 Connected=false 且名字保留
+- `TestDisconnectUnnamedPlayerCleanup` - 未命名玩家正常清理
+- `TestOnDisconnectEvent` - OnDisconnect channel 事件
+- `TestJoinRejectedForDisconnectedPlayer` - JOIN 被拒绝
+- `TestReconnectSuccess/NameMismatch/EmptyName/WhileStillConnected` - 重连场景
+- `TestSetGamePlayers` - 游戏玩家注册
+
+全部测试通过，`go vet` 无警告。
+
+## Learnings
+
+- **模式**: 项目使用 `gamePlayers map[string]*game.Player` 跨 disconnect 保持玩家状态，与 `connections map[net.Conn]*Player` 和 `names map[string]bool` 三层映射配合工作
+- **经验**: `unregister` 中先解锁再调用 `conn.Close()` 避免死锁（与 `Stop()` 中的模式一致）
+- **踩坑**: `handleJoin` 中检测掉线玩家名时，需要先检查 `!gp.Connected` 再返回 RECONNECT 提示，否则在线玩家的重复名会误判
