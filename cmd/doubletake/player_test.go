@@ -43,7 +43,7 @@ func TestRunPlayer_EmptyRoomCode(t *testing.T) {
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(out.String(), "room code cannot be empty") {
+	if !strings.Contains(out.String(), "房间码不能为空") {
 		t.Errorf("expected room code error, got: %s", out.String())
 	}
 }
@@ -55,7 +55,7 @@ func TestRunPlayer_InvalidRoomCode(t *testing.T) {
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(out.String(), "invalid room code") {
+	if !strings.Contains(out.String(), "无效房间码") {
 		t.Errorf("expected invalid room code error, got: %s", out.String())
 	}
 }
@@ -69,7 +69,7 @@ func TestRunPlayer_ConnectionRefused(t *testing.T) {
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(out.String(), "connection failed") {
+	if !strings.Contains(out.String(), "连接失败") {
 		t.Errorf("expected connection failed error, got: %s", out.String())
 	}
 }
@@ -107,7 +107,7 @@ func TestRunPlayer_SuccessfulJoin(t *testing.T) {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := out.String()
-	if !strings.Contains(output, "joined as testPlayer") {
+	if !strings.Contains(output, "已加入为 testPlayer") {
 		t.Errorf("expected joined message, got: %s", output)
 	}
 	<-serverDone
@@ -170,7 +170,7 @@ func TestRunPlayer_EmptyPlayerName(t *testing.T) {
 	if exitCode != 1 {
 		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(out.String(), "name cannot be empty") {
+	if !strings.Contains(out.String(), "玩家名不能为空") {
 		t.Errorf("expected name error, got: %s", out.String())
 	}
 	<-serverDone
@@ -271,10 +271,10 @@ func TestRunPlayer_ReceivesRole_Civilian(t *testing.T) {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := out.String()
-	if !strings.Contains(output, "joined as testPlayer") {
+	if !strings.Contains(output, "已加入为 testPlayer") {
 		t.Errorf("expected joined message, got: %s", output)
 	}
-	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+	if !strings.Contains(output, "你的身份: 苹果 [平民]") {
 		t.Errorf("expected disguised civilian role message, got: %s", output)
 	}
 	<-serverDone
@@ -310,7 +310,7 @@ func TestRunPlayer_ReceivesRole_Undercover(t *testing.T) {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := out.String()
-	if !strings.Contains(output, "assigned token: 香蕉 [卧底]") {
+	if !strings.Contains(output, "你的身份: 香蕉 [卧底]") {
 		t.Errorf("expected disguised undercover role message, got: %s", output)
 	}
 	<-serverDone
@@ -346,7 +346,7 @@ func TestRunPlayer_ReceivesRole_Blank(t *testing.T) {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := out.String()
-	if !strings.Contains(output, "assigned token: [白板] — 你是白板") {
+	if !strings.Contains(output, "你的身份: [白板] — 你是白板") {
 		t.Errorf("expected disguised blank role message, got: %s", output)
 	}
 	<-serverDone
@@ -387,7 +387,7 @@ func TestRunPlayer_ReceivesRole_Stealth(t *testing.T) {
 		t.Errorf("stealth mode should not contain [DATA], got: %s", output)
 	}
 	// But should still contain the assigned token info
-	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+	if !strings.Contains(output, "你的身份: 苹果 [平民]") {
 		t.Errorf("expected token display in stealth mode, got: %s", output)
 	}
 	<-serverDone
@@ -426,10 +426,10 @@ func TestRunPlayer_ReceivesMultipleMessages(t *testing.T) {
 		t.Errorf("expected exit code 0, got %d", exitCode)
 	}
 	output := out.String()
-	if !strings.Contains(output, "joined as testPlayer") {
+	if !strings.Contains(output, "已加入为 testPlayer") {
 		t.Errorf("expected joined message, got: %s", output)
 	}
-	if !strings.Contains(output, "assigned token: 苹果 [平民]") {
+	if !strings.Contains(output, "你的身份: 苹果 [平民]") {
 		t.Errorf("expected ROLE message, got: %s", output)
 	}
 	if !strings.Contains(output, "READY") {

@@ -41,43 +41,43 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 
 	scanner := bufio.NewScanner(in)
 
-	disp.Info("0000", "input room code")
-	fmt.Fprint(out, "  room code: ")
+	disp.Info("0000", "请输入房间码")
+	fmt.Fprint(out, "  房间码: ")
 	if !scanner.Scan() {
 		return 1
 	}
 	roomCode := strings.TrimSpace(scanner.Text())
 	if roomCode == "" {
-		disp.Warn("room code cannot be empty")
+		disp.Warn("房间码不能为空")
 		return 1
 	}
 
 	addr, err := game.DecodeRoomCode(roomCode)
 	if err != nil {
-		disp.Warn(fmt.Sprintf("invalid room code: %v", err))
+		disp.Warn(fmt.Sprintf("无效房间码: %v", err))
 		return 1
 	}
 
 	cc := client.NewClient()
 	if err := cc.Connect(addr); err != nil {
-		disp.Warn(fmt.Sprintf("connection failed: %v", err))
+		disp.Warn(fmt.Sprintf("连接失败: %v", err))
 		return 1
 	}
 	defer cc.Disconnect()
 
-	disp.Info("0000", "input player name")
-	fmt.Fprint(out, "  name: ")
+	disp.Info("0000", "请输入玩家名")
+	fmt.Fprint(out, "  玩家名: ")
 	if !scanner.Scan() {
 		return 1
 	}
 	playerName := strings.TrimSpace(scanner.Text())
 	if playerName == "" {
-		disp.Warn("name cannot be empty")
+		disp.Warn("玩家名不能为空")
 		return 1
 	}
 
 	if err := cc.Send(game.Message{Type: game.MsgJoin, Payload: playerName}); err != nil {
-		disp.Warn(fmt.Sprintf("send failed: %v", err))
+		disp.Warn(fmt.Sprintf("发送失败: %v", err))
 		return 1
 	}
 
@@ -131,7 +131,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 						continue
 					}
 					if err := cc.Send(game.Message{Type: game.MsgGuess, Payload: word}); err != nil {
-						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						disp.Warn(fmt.Sprintf("发送失败: %v", err))
 						return 1
 					}
 					guessPending = true
@@ -144,7 +144,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 						continue
 					}
 					if err := cc.Send(game.Message{Type: game.MsgDesc, Payload: line}); err != nil {
-						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						disp.Warn(fmt.Sprintf("发送失败: %v", err))
 						return 1
 					}
 					descP = descSubmitted
@@ -155,7 +155,7 @@ func RunPlayer(out io.Writer, in io.Reader, stealth bool) int {
 						continue
 					}
 					if err := cc.Send(game.Message{Type: game.MsgVote, Payload: line}); err != nil {
-						disp.Warn(fmt.Sprintf("send failed: %v", err))
+						disp.Warn(fmt.Sprintf("发送失败: %v", err))
 						return 1
 					}
 					voteP = voteSubmitted
@@ -183,11 +183,11 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 	}
 	switch msg.Type {
 	case game.MsgJoin:
-		disp.Info("0000", fmt.Sprintf("joined as %s", msg.Payload))
+		disp.Info("0000", fmt.Sprintf("已加入为 %s", msg.Payload))
 	case game.MsgRole:
 		parts := strings.SplitN(msg.Payload, "|", 2)
 		if len(parts) < 2 {
-			disp.Data("00", "received malformed role message")
+			disp.Data("00", "收到格式错误的角色消息")
 			return -1
 		}
 		roleName, word := parts[0], parts[1]
@@ -196,9 +196,9 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 			dispLabel = label
 		}
 		if roleName == "Blank" {
-			disp.Data("00", fmt.Sprintf("assigned token: [%s] — 你是白板", dispLabel))
+			disp.Data("00", fmt.Sprintf("你的身份: [%s] — 你是白板", dispLabel))
 		} else {
-			disp.Data("00", fmt.Sprintf("assigned token: %s [%s]", word, dispLabel))
+			disp.Data("00", fmt.Sprintf("你的身份: %s [%s]", word, dispLabel))
 		}
 	case game.MsgRound:
 		handleRoundMsg(disp, msg.Payload)
@@ -283,7 +283,7 @@ func handleMessage(msg game.Message, disp *client.Display, out io.Writer, cc *cl
 func handleRoundMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("ROUND %s", payload))
+		disp.Data("00", fmt.Sprintf("轮次 %s", payload))
 		return
 	}
 	roundNum := parts[0]
@@ -297,7 +297,7 @@ func handleRoundMsg(disp *client.Display, payload string) {
 func handleDescMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("DESC %s", payload))
+		disp.Data("00", fmt.Sprintf("描述 %s", payload))
 		return
 	}
 	playerName := parts[0]
@@ -310,7 +310,7 @@ func handleDescMsg(disp *client.Display, payload string) {
 func handleVoteMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("VOTE %s", payload))
+		disp.Data("00", fmt.Sprintf("投票 %s", payload))
 		return
 	}
 	roundNum := parts[0]
@@ -343,7 +343,7 @@ func handleResultMsg(disp *client.Display, payload string) {
 func handleWinMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 4)
 	if len(parts) < 4 {
-		disp.Data("00", fmt.Sprintf("WIN %s", payload))
+		disp.Data("00", fmt.Sprintf("胜利 %s", payload))
 		return
 	}
 	winner := parts[0]
@@ -381,7 +381,7 @@ func handleWinMsg(disp *client.Display, payload string) {
 func handlePKStartMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("PK %s", payload))
+		disp.Data("00", fmt.Sprintf("PK 轮次 %s", payload))
 		return
 	}
 	pkNum := parts[0]
@@ -395,7 +395,7 @@ func handlePKStartMsg(disp *client.Display, payload string) {
 func handlePKVoteMsg(disp *client.Display, payload string) {
 	parts := strings.SplitN(payload, "|", 2)
 	if len(parts) < 2 {
-		disp.Data("00", fmt.Sprintf("PK_VOTE %s", payload))
+		disp.Data("00", fmt.Sprintf("PK 投票 %s", payload))
 		return
 	}
 	pkNum := parts[0]
